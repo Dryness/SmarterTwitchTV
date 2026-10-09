@@ -1,0 +1,75 @@
+<!doctype html>
+<!--
+ /*
+ * Copyright (c) 2017-present YofarDev / SmarterTwitchTV contributors
+ *
+ * This file is part of SmartTwitchTV <https://github.com/fgl27/SmartTwitchTV>
+ *
+ * SmartTwitchTV is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+-->
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="referrer" content="no-referrer" />
+        <meta name="robots" content="noindex" />
+        <title>SPTV Chat</title>
+        <link rel="stylesheet" href="phonechat.css" />
+        <!-- jsstart this is here so release_maker can work don't remove-->
+        <script src="../thirdparty/irc-message.js"></script>
+        <script src="../general/PhoneChatConfig.js"></script>
+        <script src="emotes.js"></script>
+        <script src="transport.js"></script>
+        <script src="auth.js"></script>
+        <script src="render.js"></script>
+        <script src="main.js"></script>
+        <!-- this is here so release_maker can work don't remove jsend-->
+    </head>
+
+    <body>
+        <div id="pc-app">
+            <header id="pc-header">
+                <div id="pc-header-text">
+                    <div id="pc-channel-name">SPTV Chat</div>
+                    <div id="pc-connection" aria-live="polite"></div>
+                </div>
+                <button type="button" id="pc-account-button" class="pc-button" hidden></button>
+            </header>
+
+            <div id="pc-banner" class="pc-banner" aria-live="polite" hidden>
+                <div id="pc-banner-text"></div>
+                <button type="button" id="pc-banner-action" class="pc-button" hidden></button>
+            </div>
+
+            <main id="pc-messages" aria-label="Chat messages"></main>
+
+            <button type="button" id="pc-jump-latest" class="pc-button" hidden>Jump to latest</button>
+
+            <section id="pc-picker" aria-label="Emote picker" hidden>
+                <div id="pc-picker-head">
+                    <input type="text" id="pc-picker-search" placeholder="Search emotes" autocomplete="off" />
+                    <button type="button" id="pc-picker-close" class="pc-button" aria-label="Close emote picker">Close</button>
+                </div>
+                <div id="pc-picker-tabs" role="tablist"></div>
+                <div id="pc-picker-status"></div>
+                <div id="pc-picker-grid"></div>
+            </section>
+
+            <footer id="pc-composer">
+                <button type="button" id="pc-emote-button" class="pc-button" aria-label="Emotes" hidden>&#9786;</button>
+                <input type="text" id="pc-input" placeholder="Send a message" maxlength="480" autocomplete="off" />
+                <button type="button" id="pc-send" class="pc-button" hidden>Send</button>
+            </footer>
+        </div>
+    </body>
+</html>

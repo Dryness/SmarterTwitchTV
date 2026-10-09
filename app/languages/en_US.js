@@ -967,6 +967,13 @@ function en_USLang() {
     STR_BACKUP_SYNC_RESTORE_SUCCESS = 'Restore success!';
     STR_BACKUP_RESTORE_FAIL = 'Fail to restore backup';
 
+    STR_PHONE_CHAT_OPEN = 'Chat on phone';
+    STR_PHONE_CHAT_NO_CHANNEL = 'No valid channel found to open the chat on a phone';
+    STR_PHONE_CHAT_INSTRUCTION = 'Scan with your phone to read and write chat. Connect your Twitch account on the phone.';
+    STR_PHONE_CHAT_RESCAN = 'After changing streams, scan again.';
+    STR_PHONE_CHAT_CLOSE = 'Close';
+    STR_PHONE_CHAT_FAIL = 'Could not generate the QR code';
+
     STR_BACKUP_ENABLE = 'Backup enable';
     STR_BACKUP_ENABLE_SUMMARY = 'If set to YES the app will keep a backup of all user info ' + STR_BACKUP_USER_INFO;
 

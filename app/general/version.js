@@ -23,9 +23,23 @@ var version = {
     VersionBase: '3.0',
     publishVersionCode: 385, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/385/SmarterPurpleTV_3_0_385.apk',
-    WebVersion: 'September 22 2026',
-    WebTag: 741, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebVersion: 'October 9 2026',
+    WebTag: 743, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 9 2026',
+            changes: [
+                'TV chat: messages from users with the Twitch verified (Partner) badge now receive a subtle purple background in live and replay chat, including when badge icons are hidden; controlled by the existing verified-user highlight setting'
+            ]
+        },
+        {
+            title: 'October 9 2026',
+            changes: [
+                'New: "Chat on phone" — while watching a live stream open the player controls, select "Chat on phone" and scan the QR code with your phone to read and write that channel chat from a phone friendly page, with Twitch, BTTV, FFZ and 7TV emotes and an emote picker; the phone signs in to Twitch independently from the TV and video keeps playing on the TV',
+                'Phone chat: reconnecting or returning to the page preserves message history and deletions, and keeps timeout or ban explanations visible while sending is blocked',
+                'Note: the phone chat page needs the app owner to register a Twitch application client ID before sign-in works (see docs/phone-chat-setup.md), until then the phone page shows a clear "not configured" message'
+            ]
+        },
         {
             title: 'September 22 2026',
             changes: [

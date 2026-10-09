@@ -570,7 +570,16 @@ function Chat_loadChatSuccess(responseObj, id) {
             for (j; j < len_j; j++) {
                 badges = mmessage.userBadges[j];
 
-                if (!badges.setID || !badges.version || !ChatLive_ShouldShowBadge(badges.setID)) {
+                if (!badges.setID || !badges.version) {
+                    continue;
+                }
+
+                // Highlight verified senders even when badge icons are hidden.
+                if (ChatLive_Highlight_Verified && (badges.setID === 'partner' || badges.setID === 'verified')) {
+                    verified = true;
+                }
+
+                if (!ChatLive_ShouldShowBadge(badges.setID)) {
                     continue;
                 }
 
@@ -578,10 +587,6 @@ function Chat_loadChatSuccess(responseObj, id) {
 
                 if (ChatLive_Highlight_Mod && Main_A_includes_B(badges.setID, 'mod')) {
                     mod = true;
-                }
-
-                if (ChatLive_Highlight_Verified && Main_A_equals_B(badges.setID, 'verified')) {
-                    verified = true;
                 }
             }
         }
@@ -894,14 +899,17 @@ highlightsClasses += '.chat_highlighted_first {background: rgba(208, 113, 0, %x)
 highlightsClasses += '.chat_atstreamer {background: rgba(150, 0, 0, %x);}';
 highlightsClasses += '.chat_fromstreamer {background: rgba(182, 0, 143, %x);}';
 highlightsClasses += '.chat_mod {background: rgba(0, 139, 156, %x);}';
-highlightsClasses += '.chat_verified {background: rgba(118, 53, 252, %x);}';
+// Verified messages use a restrained tint even when other highlights are fully opaque.
+highlightsClasses += '.chat_verified {background: rgba(118, 53, 252, %v);}';
 highlightsClasses += '.chat_atuser {background: rgba(0, 120, 0, %x);}';
 highlightsClasses += '.chat_bits {background: rgba(125, 100, 0, %x);}';
 highlightsClasses += '.chat_purged {background: rgba(39, 63, 115, %x) !important;}';
 highlightsClasses += '.chat_sub {background: rgba(163, 76, 0, %x);}';
 
 function Chat_SetHighlights() {
-    Main_innerHTML('chat_highlights', highlightsClasses.replace(replaceHighlights, Chat_getHighlightsValue()));
+    var opacity = Chat_getHighlightsValue();
+
+    Main_innerHTML('chat_highlights', highlightsClasses.replace('%v', Math.min(opacity, 0.22)).replace(replaceHighlights, opacity));
 }
 
 function Chat_getHighlightsValue() {

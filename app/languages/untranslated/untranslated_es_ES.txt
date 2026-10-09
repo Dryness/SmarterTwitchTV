@@ -265,4 +265,9 @@
     STR_DISABLE_EMBED_SUMMARY = "This is only needed to disable if you wanna see the TV player to check it's strings and layout for testing proposes";
     STR_SPECIAL_FEATURE = "Use the keyboard for this feature";
     STR_FAIL_VOD_INFO = "Fail to load VOD info";
-    STR_PP_WORKAROUND_SUMMARY = "For some devices usually running old versions of Android, it is necessary to enable this to have multiplayer mode working properly. Usually, the issue is that the player (PP or preview) will not be visible, or even when not in use it is visible as a black box over the main player. Don't enable this if you don't have issues, as it will result in lower image quality and possible loss of performance";
+    STR_PP_WORKAROUND_SUMMARY = "For some devices usually running old versions of Android, it is necessary to enable this to have multiplayer mode working properly. Usually, the issue is that the player (PP or preview) will not be visible, or even when not in use it is visible as a black box over the main player. Don't enable this if you don't have issues, as it will result in lower image quality and possible loss of performance";    STR_PHONE_CHAT_OPEN = "Chat on phone";
+    STR_PHONE_CHAT_NO_CHANNEL = "No valid channel found to open the chat on a phone";
+    STR_PHONE_CHAT_INSTRUCTION = "Scan with your phone to read and write chat. Connect your Twitch account on the phone.";
+    STR_PHONE_CHAT_RESCAN = "After changing streams, scan again.";
+    STR_PHONE_CHAT_CLOSE = "Close";
+    STR_PHONE_CHAT_FAIL = "Could not generate the QR code";

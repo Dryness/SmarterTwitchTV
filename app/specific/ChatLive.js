@@ -182,7 +182,7 @@ var ChatLive_User_Set;
 var chat_lineChatLive_Individual_Lines;
 var chat_Line_highlight_green = ' style="color: #4eff42;" ';
 var chat_Line_highlight_blue = ' style="color: #4AA4FD;" ';
-var chat_Line_highlight_purple = ' style="color: #7635FC;" ';
+var chat_Line_highlight_purple = ' style="color: #C4A3FF;" ';
 var ChatLive_User_Regex_Search;
 var ChatLive_User_Regex_Replace;
 var ChatLive_Channel_Regex_Search = [];
@@ -1809,7 +1809,10 @@ function ChatLive_loadChatSuccess(message, chat_number, addToStart) {
         fromstreamer = true;
     } else if (ChatLive_Highlight_Mod && tags.mod && tags.mod !== '0') {
         mod = true;
-    } else if (ChatLive_Highlight_Verified && ChatLive_HasBadge(tags, 'verified', chat_number)) {
+    } else if (
+        ChatLive_Highlight_Verified &&
+        (ChatLive_HasBadge(tags, 'partner', chat_number) || ChatLive_HasBadge(tags, 'verified', chat_number))
+    ) {
         verified = true;
     } else if (ChatLive_Highlight_AtUser && ChatLive_User_Regex_Search.test(mmessage)) {
         atuser = true;
@@ -1919,8 +1922,8 @@ function ChatLive_HasBadge(tags, badgeName, chat_number) {
     var isShared = ChatLive_isShared[chat_number] && tags['source-room-id'],
         badgeTag = isShared && tags['source-badges'] ? 'source-badges' : 'badges'; //shared support
 
-    //Badge entries have the form name/version, the trailing slash prevents partial name matches
-    return typeof tags[badgeTag] === 'string' && Main_A_includes_B(tags[badgeTag], badgeName + '/');
+    // Match a complete badge name, including the entry boundary, rather than a suffix of another badge.
+    return typeof tags[badgeTag] === 'string' && Main_A_includes_B(',' + tags[badgeTag], ',' + badgeName + '/');
 }
 
 function ChatLive_ShouldShowBadge(badge_name) {

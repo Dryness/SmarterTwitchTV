@@ -1997,6 +1997,7 @@ var Play_controlsChatSide = temp_controls_pos++;
 var Play_controlsChat = temp_controls_pos++;
 var Play_controlsChatSettings = temp_controls_pos++;
 var Play_controlsChatSend = temp_controls_pos++;
+var Play_controlsPhoneChat = temp_controls_pos++;
 
 var Play_controlsPlayerStatus = temp_controls_pos++;
 //var Play_controlsProxy = temp_controls_pos++;
@@ -2970,6 +2971,30 @@ function Play_MakeControls() {
 
             if (PlayExtra_PicturePicture && !Play_isFullScreen) ChatLiveControls_ShowChooseChat();
             else ChatLiveControls_Show();
+        }
+    };
+
+    Play_controls[Play_controlsPhoneChat] = {
+        //Chat on phone: opens the QR dialog for the primary live channel.
+        //Works regardless of TV chat visibility or TV login: the phone signs in independently
+        ShowInLive: true,
+        ShowInVod: false,
+        ShowInClip: false,
+        ShowInPP: true,
+        ShowInMulti: false,
+        ShowInChat: false,
+        ShowInAudio: false,
+        ShowInAudioPP: false,
+        ShowInAudioMulti: false,
+        ShowInPreview: false,
+        ShowInStay: false,
+        icons: 'globe',
+        offsetY: -4,
+        string: STR_PHONE_CHAT_OPEN,
+        values: null,
+        defaultValue: null,
+        enterKey: function () {
+            PhoneChat_Show();
         }
     };
 

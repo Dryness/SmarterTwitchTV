@@ -107,6 +107,53 @@
                 position: relative;
             }
 
+            /* Chat on phone dialog (app/specific/PhoneChat.js) */
+            .phone_chat_card {
+                display: inline-block;
+                text-align: center;
+                padding: 1.5vh 2.5vw;
+                background-color: #15121c;
+                border: 0.09em solid #2b2438;
+                border-radius: 0.25em;
+            }
+
+            .phone_chat_channel {
+                color: #a78bfa;
+                font-size: 130%;
+                margin: 0.6vh 0 1vh;
+            }
+
+            .phone_chat_qr {
+                width: 40vh;
+                height: 40vh;
+                image-rendering: pixelated;
+                background-color: #ffffff;
+                border-radius: 0.25em;
+            }
+
+            .phone_chat_url {
+                color: #b4a9cf;
+                font-size: 85%;
+                margin-top: 1vh;
+                overflow-wrap: anywhere;
+            }
+
+            .phone_chat_note {
+                color: #7d7396;
+                font-size: 90%;
+                margin-top: 0.6vh;
+            }
+
+            .phone_chat_close {
+                display: inline-block;
+                margin-top: 1.4vh;
+                padding: 0.5vh 4vw;
+                background-color: #1f1b29;
+                border: 0.08em solid #2b2438;
+                border-radius: 0.15em;
+                font-size: 120%;
+            }
+
             .screen_size,
             .scene_keys,
             .burn_in_protection,
@@ -4300,6 +4347,17 @@
                 <div id="dialog_warning_muted" class="dialogs hide" style="z-index: 7; top: 70vh">
                     <div id="dialog_warning_muted_text" class="strokedelinebig dialog_text" style="font-size: 100%"></div>
                 </div>
+                <div id="dialog_phone_chat" class="dialogs hide" style="z-index: 101; top: 5vh">
+                    <div class="phone_chat_card">
+                        <div id="phone_chat_title" class="strokedelinebig dialog_text" style="font-size: 140%"></div>
+                        <div id="phone_chat_channel" class="strokedeline phone_chat_channel"></div>
+                        <canvas id="phone_chat_qr" class="phone_chat_qr" width="400" height="400"></canvas>
+                        <div id="phone_chat_url" class="strokedeline phone_chat_url"></div>
+                        <div id="phone_chat_instruction" class="strokedeline phone_chat_note"></div>
+                        <div id="phone_chat_rescan" class="strokedeline phone_chat_note"></div>
+                        <div id="phone_chat_close" class="strokedelinebig phone_chat_close"></div>
+                    </div>
+                </div>
                 <div id="user_feed" class="user_feed user_feed_hide">
                     <div id="dialog_loading_feed" class="dialogs_feed hide" style="transform: translateY(180%); overflow: visible">
                         <div class="loading">
@@ -4465,6 +4523,9 @@
         <script src="general/resize.js" defer></script>
         <script src="specific/ScreensObj.js" defer></script>
         <script src="specific/BrowserTest.js" defer></script>
+        <script src="general/PhoneChatConfig.js" defer></script>
+        <script src="specific/PhoneChat.js" defer></script>
+        <script src="thirdparty/qrcode.js" defer></script>
         <script src="specific/Main.js" defer></script>
         <!-- this is here so release_maker can work don't remove jsend-->
     </body>
