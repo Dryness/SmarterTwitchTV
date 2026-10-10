@@ -969,7 +969,7 @@ function en_USLang() {
 
     STR_PHONE_CHAT_OPEN = 'Chat on phone';
     STR_PHONE_CHAT_NO_CHANNEL = 'No valid channel found to open the chat on a phone';
-    STR_PHONE_CHAT_INSTRUCTION = 'Scan with your phone to read and write chat. Connect your Twitch account on the phone.';
+    STR_PHONE_CHAT_INSTRUCTION = 'Connect your phone to the same Wi-Fi, then scan to open chat and sign in to Twitch.';
     STR_PHONE_CHAT_RESCAN = 'After changing streams, scan again.';
     STR_PHONE_CHAT_CLOSE = 'Close';
     STR_PHONE_CHAT_FAIL = 'Could not generate the QR code';
@@ -981,3 +981,6 @@ function en_USLang() {
     STR_BACKUP_SYNC_ENABLE_SUMMARY =
         "Enabling this will add a slight delay to the application's startup process, and is unnecessary if you are using the app in a single device. The app will sync all enabled options below between this device and others using the same Google Drive account. To switch devices and continue watching seamlessly, minimize the app on the current device by pressing the Home key. Then, make sure the app is fully closed on the other device before opening it.";
 }
+
+    STR_PHONE_CHAT_LOCAL_FAIL = 'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
+    STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';

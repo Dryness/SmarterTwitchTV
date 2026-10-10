@@ -9,6 +9,15 @@ The App is divided in two part, **Apk** and **Web** you can check it version in 
 
 The app has a building update check function, so whenever there is a update a red text will show up bellow the main pages clock, also a short warning will pop on the screen let you know if is a **Apk** or **Web** update.
 
+October 10 2026 (3.0.386)
+==============
+
+* Chat on phone: the APK serves the phone chat page on the TV's local network; scan the pairing QR with a phone on the same Wi-Fi.
+* The phone follows live stream changes automatically and retains its independent Twitch login.
+* Twitch device authorization avoids per-TV callback registration; the phone's Twitch application is configured.
+* The phone page and its Twitch/BTTV/FFZ/7TV emote support are bundled in the APK. Public hosting is not required for the phone page.
+* The app update checker now checks Smarter Purple TV releases from this fork.
+
 September 21 2026 (3.0.385)
 ==============
 

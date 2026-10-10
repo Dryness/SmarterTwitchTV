@@ -21,11 +21,20 @@
 //Spacing for release maker not trow errors from jshint
 var version = {
     VersionBase: '3.0',
-    publishVersionCode: 385, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/385/SmarterPurpleTV_3_0_385.apk',
-    WebVersion: 'October 9 2026',
-    WebTag: 743, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    publishVersionCode: 386, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/386/SmarterPurpleTV_3_0_386.apk',
+    WebVersion: 'October 10 2026',
+    WebTag: 744, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 10 2026 (APK 386)',
+            changes: [
+                'Chat on phone: the TV now hosts the phone webpage over your local network; scan its QR while on the same Wi-Fi and the phone follows live stream changes automatically',
+                'Phone chat: sign in to Twitch independently on your phone using device authorization; no callback registration is needed for each TV address',
+                'App updates: the update checker now checks Smarter Purple TV releases from this fork',
+                'Note: local phone hosting requires APK 386 or newer; the phone page is bundled in the APK and does not need public web hosting'
+            ]
+        },
         {
             title: 'October 9 2026',
             changes: [

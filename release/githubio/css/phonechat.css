@@ -386,3 +386,34 @@ body {
         padding: 8px 10px;
     }
 }
+
+/* Device login stays in the page while Twitch authorization opens separately. */
+#pc-device-login {
+    flex: 0 0 auto;
+    padding: 20px 14px;
+    background-color: #1f1b29;
+}
+
+#pc-device-login h1 {
+    font-size: 20px;
+    margin: 0 0 12px;
+}
+
+#pc-device-login p {
+    color: #c4b8dc;
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+#pc-device-code {
+    color: #ffffff;
+    letter-spacing: 0.08em;
+    overflow-wrap: anywhere;
+}
+
+#pc-device-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    margin-right: 8px;
+}

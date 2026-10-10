@@ -21,10 +21,9 @@
 /*
  * "Chat on phone" - TV side.
  *
- * Builds the phone page link for the PRIMARY live channel, shows it in a QR
- * dialog over the player and owns remote input while the dialog is open.
- * No tokens, credentials or pairing secrets ever go into the link: the phone
- * performs its own independent Twitch login.
+ * Opens a pairing QR for the APK's LAN server and publishes the current live
+ * channel. The QR carries an app pairing capability, never a Twitch token.
+ * The phone performs its own independent Twitch device login.
  *
  * Depends on: PhoneChatConfig* globals (app/general/PhoneChatConfig.js) and
  * the vendored ES5 QR generator (app/thirdparty/qrcode.js, global qrcode()).
@@ -34,6 +33,12 @@ var PhoneChat_IsVisible = false;
 var PhoneChat_QrCanvas = null;
 var PhoneChat_PanelWasShowing = false;
 var PhoneChat_OriginControl = -1;
+var PhoneChat_PublishTimer = null;
+
+function PhoneChat_PublishChannel() {
+    var eligible = Play_isOn && !PlayVod_isOn && !PlayClip_isOn && !Play_MultiEnable;
+    OSInterface_SetPhoneChatChannel(eligible ? PhoneChat_GetChannel() : null);
+}
 
 //Twitch logins are 3-25 chars of letters, digits and underscore (case insensitive)
 function PhoneChat_NormalizeLogin(login) {
@@ -62,7 +67,15 @@ function PhoneChat_BuildUrlFromLogin(login) {
 function PhoneChat_BuildUrl() {
     var channel = PhoneChat_GetChannel();
 
-    return channel ? PhoneChat_BuildUrlFromLogin(channel) : null;
+    if (!channel) return null;
+    if (Main_IsOn_OSInterface) {
+        var url = OSInterface_GetPhoneChatUrl();
+        if (!/^http:\/\/[0-9.]+:8978\/chat\/#pair=[a-f0-9]{64}$/.test(url)) return null;
+        PhoneChat_PublishChannel();
+        if (!PhoneChat_PublishTimer) PhoneChat_PublishTimer = setInterval(PhoneChat_PublishChannel, 2000);
+        return url;
+    }
+    return PhoneChat_BuildUrlFromLogin(channel);
 }
 
 function PhoneChat_IsQrLibraryAvailable() {
@@ -111,7 +124,7 @@ function PhoneChat_Show() {
         canvas;
 
     if (!url) {
-        Play_showWarningMiddleDialog(STR_PHONE_CHAT_NO_CHANNEL, 1500);
+        Play_showWarningMiddleDialog(PhoneChat_GetChannel() ? STR_PHONE_CHAT_LOCAL_FAIL : STR_PHONE_CHAT_NO_CHANNEL, 5000);
         return;
     }
 
@@ -136,7 +149,7 @@ function PhoneChat_Show() {
     Main_textContent('phone_chat_title', STR_PHONE_CHAT_OPEN);
     Main_textContent('phone_chat_channel', Play_data.data[1] + ' (' + PhoneChat_GetChannel() + ')');
     Main_textContent('phone_chat_instruction', STR_PHONE_CHAT_INSTRUCTION);
-    Main_textContent('phone_chat_rescan', STR_PHONE_CHAT_RESCAN);
+    Main_textContent('phone_chat_rescan', Main_IsOn_OSInterface ? STR_PHONE_CHAT_FOLLOWS : STR_PHONE_CHAT_RESCAN);
     Main_textContent('phone_chat_url', url);
     Main_textContent('phone_chat_close', STR_PHONE_CHAT_CLOSE);
 
@@ -222,4 +235,5 @@ function PhoneChat_HandleKeyDown(e) {
 //replacement; never reattaches player input after the player went away
 function PhoneChat_Cleanup() {
     PhoneChat_Hide(true);
+    if (PhoneChat_PublishTimer) OSInterface_SetPhoneChatChannel('');
 }

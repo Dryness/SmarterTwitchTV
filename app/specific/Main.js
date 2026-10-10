@@ -1135,19 +1135,11 @@ function Main_CheckUpdate(forceUpdate) {
     if (checkUpdates) {
         if (Main_HasUpdate && Main_isUpdateDialogVisible() && Settings_value.update_background.defaultValue && !forceUpdate) return;
 
-        if (Main_A_includes_B(window.location.href, 'https://fgl27.github.io')) {
-            BaseXmlHttpGet(
-                'https://fgl27.github.io/SmartTwitchTV/release/githubio/version/version.json',
-                Main_CheckUpdateResult,
-                Main_CheckUpdateFail
-            );
-        } else {
-            Main_setTimeout(function () {
-                Main_Ischecking = false;
-                Main_UpdateDialogTitle();
-                Main_UpdateDialogSetTitle();
-            }, 1000);
-        }
+        BaseXmlHttpGet(
+            'https://yofardev.github.io/SmarterTwitchTV/release/githubio/version/version.json',
+            Main_CheckUpdateResult,
+            Main_CheckUpdateFail
+        );
     }
 }
 

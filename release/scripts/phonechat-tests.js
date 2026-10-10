@@ -134,6 +134,35 @@ function loadSandbox(overrides) {
     eq(run('PhoneChat_GetChannel()'), null, 'channel: GetChannel null when data too short');
 }
 
+/* TV native bridge: pairing link and heartbeat follow the primary live stream. */
+{
+    const updates = [];
+    const sandbox = loadSandbox({
+        Main_IsOn_OSInterface: true,
+        Play_isOn: true,
+        PlayVod_isOn: false,
+        PlayClip_isOn: false,
+        Play_MultiEnable: false,
+        Play_data: {data: ['id', 'Display name', 0, 0, 0, 0, 'TwitchDev']},
+        OSInterface_GetPhoneChatUrl: () => 'http://192.168.1.42:8978/chat/#pair=' + 'a'.repeat(64),
+        OSInterface_SetPhoneChatChannel: channel => updates.push(channel),
+        setInterval: () => 1
+    });
+    vm.runInContext(fs.readFileSync(path.join(root, 'app/specific/PhoneChat.js'), 'utf8'), sandbox);
+    const url = sandbox.PhoneChat_BuildUrl();
+    ok(url.indexOf('http://192.168.1.42:8978/chat/#pair=') === 0, 'TV LAN: QR uses native address');
+    ok(url.indexOf('channel=') === -1, 'TV LAN: QR is paired to TV, not a fixed stream');
+    eq(updates[0], 'twitchdev', 'TV LAN: heartbeat publishes login, not display name');
+    sandbox.Play_data.data[6] = 'NewChannel';
+    sandbox.PhoneChat_PublishChannel();
+    eq(updates[1], 'newchannel', 'TV LAN: heartbeat follows channel changes');
+    sandbox.PlayVod_isOn = true;
+    sandbox.PhoneChat_PublishChannel();
+    eq(updates[2], null, 'TV LAN: VOD playback deactivates phone channel');
+    sandbox.OSInterface_GetPhoneChatUrl = () => '';
+    eq(sandbox.PhoneChat_BuildUrl(), null, 'TV LAN: missing native server never falls back silently');
+}
+
 /* ---------- 1b. QR drawing (real vendored generator) ---------- */
 
 {
@@ -173,7 +202,7 @@ function loadSandbox(overrides) {
 
 {
     const sandbox = loadSandbox();
-    sandbox.PhoneChatConfig.clientId = 'test_client_id'; //the placeholder is empty by default
+    sandbox.PhoneChatConfig.clientId = 'test_client_id'; //Use a deterministic fixture instead of the owner's configuration.
     const Auth = sandbox.window ? sandbox.SPTVPhoneChat.Auth : null;
     const now = 1700000000000;
     const pending = JSON.stringify({state: 'abc123', channel: 'chan', redirect: 'https://x/phonechat.html', created: now});
@@ -885,6 +914,7 @@ function makeDom() {
 
     //Elements the page ships with the hidden attribute (see app/PhoneChat/index.html)
     const hiddenByDefault = {
+        'pc-device-login': true,
         'pc-account-button': true,
         'pc-banner': true,
         'pc-banner-action': true,
@@ -1015,6 +1045,8 @@ function loadAppSandbox(setup) {
         'app/PhoneChat/transport.js',
         'app/PhoneChat/auth.js',
         'app/PhoneChat/render.js',
+        'app/PhoneChat/local.js',
+        'app/PhoneChat/device.js',
         'app/PhoneChat/main.js'
     ];
     if (useBuiltBundle) {
@@ -1305,6 +1337,7 @@ asyncSections.push(async () => {
 
     //Missing owner configuration: visible state, Connect leads nowhere
     const noConfig = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: ''};
         sandbox.location.search = '?channel=twitchdev';
     });
     await flushAsync();
@@ -1642,6 +1675,253 @@ asyncSections.push(async () => {
     eq(ids.get('pc-banner-text').textContent, 'You are banned in this channel.', 'ban resume: correct explanation');
     eq(ids.get('pc-connection').textContent, 'Banned in this channel', 'ban resume: correct connection status');
     app.App().disconnect();
+});
+
+/* ---------- Local pairing, channel following, and device login ---------- */
+asyncSections.push(async () => {
+    let channel = 'twitchdev',
+        failState = false;
+    const pairing = 'a'.repeat(64);
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://192.168.1.42:8978', pathname: '/chat/', hash: '#pair=' + pairing, search: ''};
+        s.sessionStorage.setItem('sptv_phone_chat_session', JSON.stringify({token: 'phone-only-token', login: 'myuser', userId: 'u1'}));
+        s.__fetchRouter = (url, options) => {
+            if (url === '/chat/state') return failState ? Promise.reject(new Error('TV offline')) : jsonResponse(200, {channel});
+            return fullSuccessRouter(url, options);
+        };
+    });
+    await flushAsync();
+    ok(
+        app.fetchCalls.some(call => call.url.indexOf('users?login=twitchdev') > 0),
+        'LAN: channel comes from paired TV state'
+    );
+    eq(app.ws.length, 1, 'LAN: saved phone login starts chat');
+    ok(
+        app.replaceStateCalls.some(call => call[2] === 'http://192.168.1.42:8978/chat/'),
+        'LAN: pairing fragment removed'
+    );
+    const lan = app.fetchCalls.find(call => call.url === '/chat/state');
+    eq(lan.options.headers['X-SPTV-Pairing'], pairing, 'LAN: only pairing capability sent to TV');
+    ok(!lan.options.headers.Authorization, 'LAN: no Twitch token sent to TV');
+    const socket = app.ws[0];
+    socket.readyState = 1;
+    socket.onopen();
+    socket.onmessage({data: ':tmi.twitch.tv 001 myuser :Welcome\r\n:myuser!myuser@myuser.tmi.twitch.tv JOIN #twitchdev\r\n'});
+    socket.onmessage({data: '@id=old;user-id=u2;display-name=Other :other!other@other.tmi.twitch.tv PRIVMSG #twitchdev :old channel row\r\n'});
+    ok(app.ids.get('pc-messages').children.length > 0, 'LAN: first channel has messages');
+    channel = 'anotherchannel';
+    app.fireTimers(2000);
+    await flushAsync();
+    ok(
+        app.fetchCalls.some(call => call.url.indexOf('users?login=anotherchannel') > 0),
+        'LAN: follows TV stream change'
+    );
+    eq(socket.readyState, 3, 'LAN: old socket closed before joining new channel');
+    eq(app.ids.get('pc-messages').children.length, 0, 'LAN: old channel history cleared');
+    eq(
+        JSON.parse(app.sandbox.sessionStorage.getItem('sptv_phone_chat_session')).token,
+        'phone-only-token',
+        'LAN: channel change preserves phone account'
+    );
+    eq(app.ws.length, 2, 'LAN: joins the new channel');
+    channel = '';
+    app.fireTimers(2000);
+    await flushAsync();
+    eq(app.ids.get('pc-channel-name').textContent, 'SPTV Chat', 'LAN: playback exit clears channel');
+    eq(app.ids.get('pc-input').disabled, true, 'LAN: sending disabled while TV has no live stream');
+    ok(app.ids.get('pc-banner-text').textContent.indexOf('Waiting') === 0, 'LAN: TV waiting state explained');
+    channel = 'twitchdev';
+    app.fireTimers(2000);
+    await flushAsync();
+    eq(app.ws.length, 3, 'LAN: next live stream starts without rescanning or signing in');
+    failState = true;
+    app.fireTimers(2000);
+    await flushAsync();
+    eq(app.ids.get('pc-input').disabled, true, 'LAN: TV disconnect blocks sending');
+    eq(app.ws[2].readyState, 3, 'LAN: TV disconnect stops stale channel socket');
+    failState = false;
+    app.fireTimers(3000);
+    await flushAsync();
+    eq(app.ws.length, 4, 'LAN: TV reconnection restores chat');
+    app.App().disconnect();
+    app.sandbox.SPTVPhoneChat.Local.stop();
+});
+
+asyncSections.push(async () => {
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://10.0.0.20:8978', pathname: '/chat/', hash: '#pair=' + 'b'.repeat(64), search: ''};
+        s.__fetchRouter = () => jsonResponse(403, {});
+    });
+    await flushAsync();
+    eq(app.ws.length, 0, 'LAN: revoked pairing never starts chat');
+    ok(app.ids.get('pc-banner-text').textContent.indexOf('pairing has expired') > 0, 'LAN: revoked pairing requests rescan');
+    const calls = app.fetchCalls.length;
+    app.fireTimers(3000);
+    await flushAsync();
+    eq(app.fetchCalls.length, calls, 'LAN: revoked pairing stops retries');
+});
+
+asyncSections.push(async () => {
+    let polls = 0,
+        channel = 'twitchdev';
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://192.168.1.42:8978', pathname: '/chat/', hash: '#pair=' + 'c'.repeat(64), search: ''};
+        s.open = () => null; // popup blocked: the explicit Open Twitch link must still work
+        s.__fetchRouter = (url, options) => {
+            if (url === '/chat/state') return jsonResponse(200, {channel});
+            if (url.indexOf('/oauth2/device') > 0)
+                return jsonResponse(200, {
+                    device_code: 'private-device-code',
+                    user_code: 'ABCDEFGH',
+                    expires_in: 1800,
+                    interval: 5,
+                    verification_uri: 'https://www.twitch.tv/activate?public=true&device-code=ABCDEFGH'
+                });
+            if (url.indexOf('/oauth2/token') > 0)
+                return ++polls === 1
+                    ? jsonResponse(400, {message: 'authorization_pending'})
+                    : jsonResponse(200, {access_token: 'phone-device-token'});
+            return fullSuccessRouter(url, options);
+        };
+    });
+    await flushAsync();
+    app.App().startLogin();
+    await flushAsync();
+    eq(app.ids.get('pc-device-login').hidden, false, 'device: sign-in controls visible');
+    eq(app.ids.get('pc-device-code').textContent, 'ABCDEFGH', 'device: user code shown');
+    ok(app.ids.get('pc-device-link').href.indexOf('https://www.twitch.tv/activate?') === 0, 'device: explicit link works without popup');
+    eq(app.sandbox.sessionStorage.getItem('sptv_phone_chat_session'), null, 'device: code alone is not an authenticated session');
+    app.fireTimers(5000);
+    await flushAsync();
+    eq(polls, 1, 'device: polls at Twitch requested interval');
+    channel = 'anotherchannel';
+    app.fireTimers(2000);
+    await flushAsync();
+    app.fireTimers(5000);
+    await flushAsync();
+    eq(JSON.parse(app.sandbox.sessionStorage.getItem('sptv_phone_chat_session')).token, 'phone-device-token', 'device: token validated before use');
+    ok(
+        app.fetchCalls.some(call => call.url.indexOf('users?login=anotherchannel') > 0),
+        'device: TV change during sign-in retained'
+    );
+    eq(app.ws.length, 1, 'device: joins only current channel after sign-in');
+    eq(app.ids.get('pc-device-login').hidden, true, 'device: sign-in controls hidden after success');
+    ok(
+        app.fetchCalls.filter(call => call.url === '/chat/state').every(call => !call.options.headers.Authorization),
+        'device: phone credentials never cross LAN'
+    );
+    const request = app.fetchCalls.find(call => call.url.indexOf('/oauth2/token') > 0);
+    ok(request.options.body.indexOf('grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code') > -1, 'device: correct grant requested');
+    ok(request.options.body.indexOf('client_secret') === -1, 'device: no client secret embedded');
+    app.App().disconnect();
+    app.sandbox.SPTVPhoneChat.Local.stop();
+});
+
+asyncSections.push(async () => {
+    let resolveToken,
+        polls = 0;
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://127.0.0.1:8978', pathname: '/chat/', hash: '#pair=' + 'd'.repeat(64), search: ''};
+        s.__fetchRouter = (url, options) => {
+            if (url === '/chat/state') return jsonResponse(200, {channel: 'twitchdev'});
+            if (url.indexOf('/oauth2/device') > 0)
+                return jsonResponse(200, {
+                    device_code: 'private-code',
+                    user_code: 'CODE',
+                    expires_in: 1800,
+                    interval: 5,
+                    verification_uri: 'https://www.twitch.tv/activate?device-code=CODE'
+                });
+            if (url.indexOf('/oauth2/token') > 0) {
+                polls++;
+                return new Promise(resolve => {
+                    resolveToken = resolve;
+                });
+            }
+            return fullSuccessRouter(url, options);
+        };
+    });
+    await flushAsync();
+    app.App().startLogin();
+    await flushAsync();
+    app.fireTimers(5000);
+    await flushAsync();
+    eq(polls, 1, 'device cancel: token request in flight');
+    app.App().disconnect();
+    resolveToken(await jsonResponse(200, {access_token: 'late-token'}));
+    await flushAsync();
+    eq(app.sandbox.sessionStorage.getItem('sptv_phone_chat_session'), null, 'device cancel: late token discarded');
+    eq(app.ws.length, 0, 'device cancel: late token cannot connect');
+    eq(app.ids.get('pc-device-login').hidden, true, 'device cancel: controls cleared');
+    app.sandbox.SPTVPhoneChat.Local.stop();
+});
+
+asyncSections.push(async () => {
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://172.16.0.20:8978', pathname: '/chat/', hash: '#pair=' + 'e'.repeat(64), search: ''};
+        s.__fetchRouter = url =>
+            url === '/chat/state'
+                ? jsonResponse(200, {channel: 'twitchdev'})
+                : jsonResponse(200, {
+                      device_code: 'code',
+                      user_code: 'code',
+                      expires_in: 1800,
+                      verification_uri: 'https://www.twitch.tv.evil.example/activate'
+                  });
+    });
+    await flushAsync();
+    app.App().startLogin();
+    await flushAsync();
+    eq(app.ids.get('pc-device-login').hidden, true, 'device: untrusted activation URL rejected');
+    eq(app.ws.length, 0, 'device: malformed authorization cannot start chat');
+    app.sandbox.SPTVPhoneChat.Local.stop();
+});
+
+asyncSections.push(async () => {
+    let authorizeUrl;
+    const location = {};
+    Object.defineProperty(location, 'href', {
+        get: () => {
+            throw new Error('Cross-origin location cannot be read');
+        },
+        set: value => {
+            authorizeUrl = value;
+        }
+    });
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://127.0.0.1:8978', pathname: '/chat/', hash: '#pair=' + 'f'.repeat(64), search: ''};
+        s.open = () => ({location, close: () => {}, opener: null});
+        s.__fetchRouter = url => {
+            if (url === '/chat/state') return jsonResponse(200, {channel: 'twitchdev'});
+            if (url.indexOf('/oauth2/device') > 0)
+                return jsonResponse(200, {
+                    device_code: 'code',
+                    user_code: 'CODE',
+                    expires_in: 1800,
+                    interval: 5,
+                    verification_uri: 'https://www.twitch.tv/activate?device-code=CODE'
+                });
+            return jsonResponse(400, {message: 'access_denied'});
+        };
+    });
+    await flushAsync();
+    app.App().startLogin();
+    await flushAsync();
+    app.fireTimers(5000);
+    await flushAsync();
+    ok(authorizeUrl.indexOf('https://www.twitch.tv/activate') === 0, 'device popup: navigates to Twitch');
+    eq(
+        app.ids.get('pc-banner-text').textContent,
+        'Twitch authorization was denied.',
+        'device popup: denial surfaced without reading cross-origin window'
+    );
+    app.sandbox.SPTVPhoneChat.Local.stop();
 });
 
 (async () => {

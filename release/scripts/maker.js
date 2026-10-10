@@ -23,6 +23,8 @@ const phoneJSFiles = [
     'app/PhoneChat/transport.js',
     'app/PhoneChat/auth.js',
     'app/PhoneChat/render.js',
+    'app/PhoneChat/local.js',
+    'app/PhoneChat/device.js',
     'app/PhoneChat/main.js'
 ];
 
@@ -77,7 +79,7 @@ function cleanMinifyHTML(filePath, singleJSPath, writePath, extraReplaces) {
     htmlFile = minify(htmlFile, options);
 
     //write to main folder
-    tools.writeFileASync(writePath, htmlFile);
+    tools.writeFileSync(writePath, htmlFile);
 }
 
 function make_HTML() {
@@ -125,7 +127,7 @@ function make_PhoneCSS() {
         return;
     }
 
-    tools.writeFileASync('release/githubio/css/phonechat.min.css', parsed.toString());
+    tools.writeFileSync('release/githubio/css/phonechat.min.css', parsed.toString());
 }
 
 //Lint + minify the standalone phone page bundle
@@ -158,7 +160,7 @@ function make_PhoneJS(jshOnly) {
         return false;
     }
 
-    tools.writeFileASync('release/githubio/js/PhoneChat.js', minified.code);
+    tools.writeFileSync('release/githubio/js/PhoneChat.js', minified.code);
 
     return true;
 }
@@ -306,6 +308,17 @@ function run_all() {
 
     make_HTML();
     make_CSS();
+    const phoneAssets = 'release/phonechat-assets/phonechat/';
+    tools.mkdirSync(phoneAssets);
+    tools.writeFileSync(
+        phoneAssets + 'index.html',
+        tools
+            .readFileSync('release/phonechat.html')
+            .replaceAll('githubio/js/PhoneChat.js', 'PhoneChat.js')
+            .replaceAll('githubio/css/phonechat.min.css', 'phonechat.min.css')
+    );
+    tools.copyFileSync('release/githubio/js/PhoneChat.js', phoneAssets + 'PhoneChat.js');
+    tools.copyFileSync('release/githubio/css/phonechat.min.css', phoneAssets + 'phonechat.min.css');
     version_up();
 
     if (buildFailed) process.exitCode = 1;

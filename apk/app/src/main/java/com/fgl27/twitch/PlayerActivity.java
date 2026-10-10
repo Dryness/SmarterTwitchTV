@@ -108,6 +108,13 @@ import net.grandcentrix.tray.AppPreferences;
 //Media3 issue TODO review and remove this when the problem is resolved
 public class PlayerActivity extends Activity {
 
+    private PhoneChatServer phoneChatServer;
+
+    private synchronized PhoneChatServer getPhoneChatServer() {
+        if (phoneChatServer == null) phoneChatServer = new PhoneChatServer(getApplicationContext());
+        return phoneChatServer;
+    }
+
     private final String TAG = "STTV_PlayerActivity";
     private final Pattern TIME_NAME = Pattern.compile("time=([^\\s]+)");
 
@@ -1643,6 +1650,9 @@ public class PlayerActivity extends Activity {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        synchronized (this) {
+            if (phoneChatServer != null) phoneChatServer.close();
+        }
         if (!AlreadyStarted) return;
 
         StopNotifications();
@@ -2475,6 +2485,16 @@ public class PlayerActivity extends Activity {
         @JavascriptInterface
         public void SetAdFilter(boolean enable) {
             AdPlaylistFilter.setEnabled(enable);
+        }
+
+        @JavascriptInterface
+        public String GetPhoneChatUrl() {
+            return getPhoneChatServer().getUrl();
+        }
+
+        @JavascriptInterface
+        public void SetPhoneChatChannel(String login) {
+            getPhoneChatServer().setChannel(login);
         }
 
         @JavascriptInterface

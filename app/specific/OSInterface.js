@@ -1153,3 +1153,20 @@ function OSInterface_updateScreenDuration(callback, key, obj_id) {
 function OSInterface_getPlaybackState() {
     return Main_IsOn_OSInterface ? Android.getPlaybackState() : true;
 }
+
+// Local phone chat is available from APK 386 onward. Older APKs fail gracefully.
+function OSInterface_GetPhoneChatUrl() {
+    try {
+        return Main_IsOn_OSInterface ? Android.GetPhoneChatUrl() : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function OSInterface_SetPhoneChatChannel(login) {
+    try {
+        if (Main_IsOn_OSInterface) Android.SetPhoneChatChannel(login || '');
+    } catch (e) {
+        //Older APK: the QR action explains the required upgrade.
+    }
+}

@@ -13,6 +13,7 @@ SPTVPhoneChat.App = (function () {
     var Auth = SPTVPhoneChat.Auth;
     var Emotes = SPTVPhoneChat.Emotes;
     var Render = SPTVPhoneChat.Render;
+    var Local = SPTVPhoneChat.Local;
 
     var Strings = {
         connect: 'Connect',
@@ -21,6 +22,11 @@ SPTVPhoneChat.App = (function () {
         tryAgain: 'Try again',
         signInOut: 'Signing in...',
         stateAuthorizing: 'Signing in to Twitch...',
+        stateDevicePending: 'Approve the sign-in in Twitch, then return to this tab.',
+        stateDeviceExpired: 'The sign-in code expired. Connect again for a new code.',
+        stateTvWaiting: 'Waiting for a live stream on your TV.',
+        stateTvUnavailable: 'Cannot reach the TV. Keep SPTV open and connect both devices to the same network.',
+        statePairingExpired: 'This TV pairing has expired. Scan the QR code on your TV again.',
         stateSignedOut: 'Connect your Twitch account to read and write chat.',
         stateDenied: 'Twitch authorization was denied.',
         stateAuthError: 'Sign-in could not be verified. Please connect again.',
@@ -90,6 +96,13 @@ SPTVPhoneChat.App = (function () {
         originOk: false,
         started: false,
         lastHiddenAt: 0,
+        local: false,
+        tvReady: false,
+        deviceLogin: null,
+        devicePopup: null,
+        devicePopupNavigated: false,
+        deviceGen: 0,
+        authGen: 0,
         flowGen: 0, //bumped on disconnect/invalidate: stale HTTP continuations must not touch the new state
         providersGen: 0,
         echoSeq: 0,
@@ -126,6 +139,7 @@ SPTVPhoneChat.App = (function () {
         token_invalid: 'connect',
         scope_invalid: 'connect',
         channel_not_found: null,
+        stateDeviceExpired: 'connect',
         config_missing: null,
         origin: null,
         storage: null,
@@ -175,7 +189,7 @@ SPTVPhoneChat.App = (function () {
      * account, and connection loss must not lift a moderation state.
      */
     function refreshComposer() {
-        setComposerEnabled(!!(S.sessionValid && S.transport && S.transport.isConnected() && !S.moderation.blocked));
+        setComposerEnabled(!!(S.sessionValid && (!S.local || S.tvReady) && S.transport && S.transport.isConnected() && !S.moderation.blocked));
     }
 
     function isModerationBlocked() {
@@ -248,7 +262,92 @@ SPTVPhoneChat.App = (function () {
 
     /* ---------- OAuth ---------- */
 
+    function cancelDeviceLogin() {
+        S.deviceGen++;
+        S.authGen++;
+        if (S.deviceLogin) S.deviceLogin.cancel();
+        S.deviceLogin = null;
+        if (S.devicePopup && !S.devicePopupNavigated) {
+            try {
+                S.devicePopup.close();
+            } catch (e) {
+                /* User may have closed it already. */
+            }
+        }
+        S.devicePopup = null;
+        S.devicePopupNavigated = false;
+        el('pc-device-login').hidden = true;
+        updateAccountButton();
+    }
+
+    function startDeviceLogin() {
+        if (!Auth.storageAvailable()) {
+            showBanner('storage', true, null);
+            return;
+        }
+        if (!Auth.isConfigured()) {
+            showBanner('config_missing', true, null);
+            return;
+        }
+        cancelDeviceLogin();
+        var gen = S.deviceGen,
+            popup = window.open ? window.open('about:blank', '_blank') : null;
+        if (popup) popup.opener = null;
+        S.devicePopup = popup;
+        showBanner('stateAuthorizing', false, null);
+        S.deviceLogin = SPTVPhoneChat.Device.start({
+            code: function (code, url) {
+                if (gen !== S.deviceGen) return;
+                el('pc-device-code').textContent = code;
+                el('pc-device-link').href = url;
+                el('pc-device-login').hidden = false;
+                showBanner('stateDevicePending', false, null);
+                if (popup) {
+                    try {
+                        popup.location.href = url;
+                        S.devicePopupNavigated = true;
+                    } catch (e) {
+                        /* The explicit Open Twitch link remains usable. */
+                    }
+                }
+            },
+            token: function (token) {
+                if (gen !== S.deviceGen) return;
+                S.deviceLogin = null;
+                el('pc-device-login').hidden = true;
+                validateAndUseToken(token).then(function () {
+                    if (gen !== S.deviceGen) return;
+                    updateAccountButton();
+                    if (!S.sessionValid) return;
+                    if (!S.local || S.tvReady) startChat();
+                    else showBanner('stateTvWaiting', false, null);
+                });
+            },
+            error: function (reason) {
+                if (gen !== S.deviceGen) return;
+                S.deviceLogin = null;
+                el('pc-device-login').hidden = true;
+                if (popup && !S.devicePopupNavigated) {
+                    try {
+                        popup.close();
+                    } catch (e) {
+                        /* User may have closed it already. */
+                    }
+                }
+                S.devicePopup = null;
+                showBanner(reason === 'denied' ? 'denied' : reason === 'expired' ? 'stateDeviceExpired' : 'auth_error', true, Strings.tryAgain);
+                setConnection('Sign-in failed', 'bad');
+                updateAccountButton();
+            }
+        });
+        updateAccountButton();
+    }
+
     function startLogin() {
+        if (S.local || PhoneChatConfig.useDeviceLogin) {
+            startDeviceLogin();
+            return;
+        }
         if (!Auth.storageAvailable() || !S.channel) return;
 
         if (!S.originOk || !Auth.currentCallbackUrl()) {
@@ -399,13 +498,13 @@ SPTVPhoneChat.App = (function () {
     }
 
     function validateAndUseToken(token) {
-        var gen = S.flowGen;
+        var gen = S.authGen;
 
         return Auth.validateToken(token).then(
             function (response) {
                 var check;
 
-                if (gen !== S.flowGen) return; //a disconnect/sign-out happened meanwhile
+                if (gen !== S.authGen) return; //a disconnect/sign-out happened meanwhile
 
                 //HTTP failure (401 etc): the token is invalid; only a NETWORK
                 //rejection (promise rejection below) keeps a retry option
@@ -441,7 +540,7 @@ SPTVPhoneChat.App = (function () {
                 updateAccountButton();
             },
             function () {
-                if (gen !== S.flowGen) return;
+                if (gen !== S.authGen) return;
 
                 //Network failure: keep the saved session, offer an explicit retry
                 S.session = {token: token, login: null, userId: null, expiresAt: 0};
@@ -455,13 +554,13 @@ SPTVPhoneChat.App = (function () {
         if (!S.session || !S.session.token) return Promise.resolve(false);
 
         var token = S.session.token,
-            gen = S.flowGen;
+            gen = S.authGen;
 
         return Auth.validateToken(token).then(
             function (response) {
                 var check;
 
-                if (gen !== S.flowGen) return false;
+                if (gen !== S.authGen) return false;
 
                 if (!response.ok) {
                     invalidateSession();
@@ -488,6 +587,7 @@ SPTVPhoneChat.App = (function () {
 
     //bannerKey is an internal state key (see BannerText); default: expired token
     function invalidateSession(bannerKey) {
+        S.authGen++;
         S.flowGen++; //invalidate in-flight HTTP continuations
         Auth.clearSession();
         S.session = null;
@@ -502,7 +602,7 @@ SPTVPhoneChat.App = (function () {
     /* ---------- chat session ---------- */
 
     function startChat() {
-        if (!S.sessionValid || !S.session || S.started) return;
+        if (!S.sessionValid || !S.session || S.started || (S.local && !S.tvReady)) return;
         if (!S.channel) {
             showBanner('no_channel', true, null);
             return;
@@ -847,7 +947,7 @@ SPTVPhoneChat.App = (function () {
     function trySend() {
         if (S.sending) return;
 
-        if (!S.sessionValid || !S.transport || !S.transport.isConnected()) {
+        if (!S.sessionValid || (S.local && !S.tvReady) || !S.transport || !S.transport.isConnected()) {
             showBanner('stateReconnecting', true, null);
             return;
         }
@@ -1390,7 +1490,10 @@ SPTVPhoneChat.App = (function () {
     function updateAccountButton() {
         var button = el('pc-account-button');
 
-        if (S.session && S.sessionValid) {
+        if (S.deviceLogin) {
+            button.textContent = 'Cancel';
+            button.setAttribute('data-action', 'cancel');
+        } else if (S.session && S.sessionValid) {
             button.textContent = Strings.disconnect;
             button.setAttribute('data-action', 'disconnect');
         } else {
@@ -1402,6 +1505,8 @@ SPTVPhoneChat.App = (function () {
     }
 
     function disconnect() {
+        cancelDeviceLogin();
+        S.authGen++;
         //Ends THIS page's session only; the Twitch authorization itself is not revoked
         S.flowGen++; //late callbacks from the old session must not touch the next one
         setModeration(false, 0);
@@ -1413,6 +1518,7 @@ SPTVPhoneChat.App = (function () {
         S.resolver = null;
         S.providers = null;
         S.store = null;
+        S.broadcasterId = null;
         S.localEchoes = [];
         setComposerEnabled(false);
         el('pc-messages').textContent = '';
@@ -1433,7 +1539,7 @@ SPTVPhoneChat.App = (function () {
     function goOnline() {
         //Only resume when there is a session to resume: signed-out and error
         //states keep their banner (pageshow fires on first load too)
-        if (!S.sessionValid || !S.session) return;
+        if (!S.sessionValid || !S.session || (S.local && !S.tvReady)) return;
 
         //An already-connected transport (quick background/return) stays as is
         if (S.transport && S.transport.isConnected()) return;
@@ -1447,13 +1553,21 @@ SPTVPhoneChat.App = (function () {
 
     function wire() {
         el('pc-account-button').addEventListener('click', function () {
-            if (el('pc-account-button').getAttribute('data-action') === 'disconnect') disconnect();
+            if (el('pc-account-button').getAttribute('data-action') === 'cancel') {
+                cancelDeviceLogin();
+                showBanner('signed_out', false, Strings.connect);
+            } else if (el('pc-account-button').getAttribute('data-action') === 'disconnect') disconnect();
             else startLogin();
         });
 
         el('pc-banner-action').addEventListener('click', function () {
             if (S.session && S.sessionValid) startChat();
             else startLogin();
+        });
+
+        el('pc-device-cancel').addEventListener('click', function () {
+            cancelDeviceLogin();
+            showBanner('signed_out', false, Strings.connect);
         });
 
         el('pc-jump-latest').addEventListener('click', scrollToBottom);
@@ -1512,24 +1626,44 @@ SPTVPhoneChat.App = (function () {
             S.composing = false;
         });
 
-        window.addEventListener('online', goOnline);
-        window.addEventListener('offline', goOffline);
+        window.addEventListener('online', function () {
+            if (S.local) Local.resume();
+            goOnline();
+        });
+        window.addEventListener('offline', function () {
+            if (S.local) {
+                Local.stop();
+                S.tvReady = false;
+            }
+            goOffline();
+        });
 
         window.addEventListener('pagehide', function () {
+            if (S.local) {
+                Local.stop();
+                S.tvReady = false;
+            }
             //No duplicate connections across resume: drop the socket cleanly
             if (S.transport) S.transport.stop();
         });
 
         window.addEventListener('pageshow', function () {
+            if (S.local) Local.resume();
             goOnline();
         });
 
         document.addEventListener('visibilitychange', function () {
             if (document.hidden) {
+                if (S.local) Local.stop();
                 S.lastHiddenAt = Date.now();
                 return;
             }
 
+            if (S.local) {
+                S.tvReady = false;
+                refreshComposer();
+                Local.resume();
+            }
             //After a long background interval, revalidate the session
             if (S.lastHiddenAt && Date.now() - S.lastHiddenAt > PhoneChatConfig.backgroundRevalidateMs) {
                 revalidateSession();
@@ -1558,9 +1692,84 @@ SPTVPhoneChat.App = (function () {
         });
     }
 
+    function setLocalChannel(channel) {
+        var changed = channel !== S.channel;
+        S.tvReady = !!channel;
+        if (changed) {
+            S.flowGen++;
+            S.providersGen++;
+            if (S.transport) S.transport.stop();
+            S.transport = null;
+            S.started = false;
+            S.channel = channel;
+            S.channelDisplayName = null;
+            S.broadcasterId = null;
+            S.store = null;
+            S.localEchoes = [];
+            S.resolver = null;
+            S.providers = null;
+            S.badges = null;
+            S.slowMode = 0;
+            S.lastSendTime = 0;
+            S.nearBottom = true;
+            setModeration(false, 0);
+            el('pc-input').value = '';
+            el('pc-messages').textContent = '';
+            el('pc-jump-latest').hidden = true;
+            closePicker();
+            el('pc-channel-name').textContent = channel || 'SPTV Chat';
+        }
+        if (!channel) {
+            setComposerEnabled(false);
+            if (!S.deviceLogin) showBanner('stateTvWaiting', false, null);
+            setConnection('TV connected', '');
+            return;
+        }
+        if (!Auth.isConfigured()) {
+            showBanner('config_missing', true, null);
+            return;
+        }
+        if (S.deviceLogin) return;
+        if (S.sessionValid) {
+            if (!S.started) startChat();
+            else goOnline();
+        } else if (!S.session) showBanner('signed_out', false, Strings.connect);
+        refreshComposer();
+    }
+
+    function initLocal() {
+        S.local = true;
+        S.originOk = true;
+        updateAccountButton();
+        showBanner('stateTvWaiting', false, null);
+        Local.start(setLocalChannel, function (unpaired) {
+            S.tvReady = false;
+            if (S.transport) S.transport.stop();
+            refreshComposer();
+            showBanner(unpaired ? 'statePairingExpired' : 'stateTvUnavailable', true, null);
+            setConnection(unpaired ? 'Scan the TV QR again' : 'TV disconnected', 'bad');
+        });
+        var saved = Auth.loadSession();
+        if (saved && Auth.isConfigured()) {
+            S.session = saved;
+            revalidateSession().then(function (valid) {
+                if (valid) startChat();
+            });
+        }
+    }
+
     function init() {
         el('pc-channel-name').textContent = 'SPTV Chat';
         setComposerEnabled(false);
+
+        if (Local.isLocalPage()) {
+            if (!Auth.storageAvailable()) {
+                showBanner('storage', true, null);
+                return;
+            }
+            initLocal();
+            return;
+        }
 
         //The page must be served from a configured origin
         S.originOk = !!Auth.currentCallbackUrl();

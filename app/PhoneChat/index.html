@@ -32,6 +32,8 @@
         <script src="transport.js"></script>
         <script src="auth.js"></script>
         <script src="render.js"></script>
+        <script src="local.js"></script>
+        <script src="device.js"></script>
         <script src="main.js"></script>
         <!-- this is here so release_maker can work don't remove jsend-->
     </head>
@@ -50,6 +52,14 @@
                 <div id="pc-banner-text"></div>
                 <button type="button" id="pc-banner-action" class="pc-button" hidden></button>
             </div>
+
+            <section id="pc-device-login" aria-label="Sign in to Twitch" hidden>
+                <h1>Sign in to Twitch</h1>
+                <p>Authorize in the Twitch tab, then return here. Chat connects automatically.</p>
+                <p>Your sign-in code: <strong id="pc-device-code"></strong></p>
+                <a id="pc-device-link" class="pc-button pc-primary" target="_blank" rel="noopener noreferrer">Open Twitch</a>
+                <button id="pc-device-cancel" class="pc-button" type="button">Cancel</button>
+            </section>
 
             <main id="pc-messages" aria-label="Chat messages"></main>
 

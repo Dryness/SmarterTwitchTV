@@ -26,23 +26,20 @@
  * API calls). It contains public values only: client IDs and redirect URLs
  * are public configuration. Never place client secrets or tokens here.
  *
- * OWNER SETUP REQUIRED before live OAuth works:
- *   1. Register (or reuse an owner-controlled) Twitch developer application
- *      with a "Single Page App"/browser client type (no secret).
- *   2. Register EXACTLY these callback URLs in that application
- *      (scheme, host, path and case must match):
- *        https://yofardev.github.io/SmarterTwitchTV/release/phonechat.html
- *      and, only if/when that host is actually enabled and controlled:
- *        https://smarttv-client-for-twitch.web.app/phonechat.html
- *   3. Put the application client ID in PhoneChatConfig.clientId below.
- * See docs/phone-chat-setup.md for details.
+ * OWNER SETUP: register an owner-controlled Twitch application with the Public
+ * client type (Device Code Flow), and set clientId below. Local pages require no
+ * OAuth callback registration and never embed a client secret.
+ * Hosted callback settings below remain for legacy hosted-page compatibility.
  */
 
 //Single public configuration object, shared by the TV bundle and the phone bundle.
 //It is referenced on both sides, which keeps JSHint's unused check honest.
 var PhoneChatConfig = {
-    //Empty placeholder: OAuth on the phone stays disabled (visible error state) until the owner fills this in
-    clientId: '',
+    //Owner-controlled public Twitch application for phone Device Code Flow.
+    clientId: '10b45vistuje4pezdfzwnymdlxs579',
+
+    //Device flow also works on the optional hosted page; legacy callbacks remain readable.
+    useDeviceLogin: true,
 
     //Canonical HTTPS page URL used by the TV to generate the QR code.
     //Do not derive this from window.location: the TV can load from app assets or an alternate origin
@@ -62,6 +59,8 @@ var PhoneChatConfig = {
     scopes: ['chat:read', 'chat:edit', 'user:read:emotes'],
 
     oauth: {
+        deviceUrl: 'https://id.twitch.tv/oauth2/device',
+        tokenUrl: 'https://id.twitch.tv/oauth2/token',
         authorizeUrl: 'https://id.twitch.tv/oauth2/authorize',
         validateUrl: 'https://id.twitch.tv/oauth2/validate',
         helixApi: 'https://api.twitch.tv/helix/',

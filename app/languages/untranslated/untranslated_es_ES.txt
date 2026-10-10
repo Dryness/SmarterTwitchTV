@@ -271,3 +271,6 @@
     STR_PHONE_CHAT_RESCAN = "After changing streams, scan again.";
     STR_PHONE_CHAT_CLOSE = "Close";
     STR_PHONE_CHAT_FAIL = "Could not generate the QR code";
+
+    STR_PHONE_CHAT_LOCAL_FAIL = "Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.";
+    STR_PHONE_CHAT_FOLLOWS = "Your phone follows stream changes automatically. Keep SPTV open on the TV.";

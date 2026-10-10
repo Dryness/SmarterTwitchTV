@@ -850,7 +850,9 @@
         STR_PHONE_CHAT_INSTRUCTION,
         STR_PHONE_CHAT_RESCAN,
         STR_PHONE_CHAT_CLOSE,
-        STR_PHONE_CHAT_FAIL;
+        STR_PHONE_CHAT_FAIL,
+        STR_PHONE_CHAT_LOCAL_FAIL,
+        STR_PHONE_CHAT_FOLLOWS;
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -2365,7 +2367,7 @@
 
         STR_PHONE_CHAT_OPEN = 'Chat on phone';
         STR_PHONE_CHAT_NO_CHANNEL = 'No valid channel found to open the chat on a phone';
-        STR_PHONE_CHAT_INSTRUCTION = 'Scan with your phone to read and write chat. Connect your Twitch account on the phone.';
+        STR_PHONE_CHAT_INSTRUCTION = 'Connect your phone to the same Wi-Fi, then scan to open chat and sign in to Twitch.';
         STR_PHONE_CHAT_RESCAN = 'After changing streams, scan again.';
         STR_PHONE_CHAT_CLOSE = 'Close';
         STR_PHONE_CHAT_FAIL = 'Could not generate the QR code';
@@ -2377,6 +2379,10 @@
         STR_BACKUP_SYNC_ENABLE_SUMMARY =
             "Enabling this will add a slight delay to the application's startup process, and is unnecessary if you are using the app in a single device. The app will sync all enabled options below between this device and others using the same Google Drive account. To switch devices and continue watching seamlessly, minimize the app on the current device by pressing the Home key. Then, make sure the app is fully closed on the other device before opening it.";
     }
+
+    STR_PHONE_CHAT_LOCAL_FAIL =
+        'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
+    STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -7939,23 +7945,20 @@
      * API calls). It contains public values only: client IDs and redirect URLs
      * are public configuration. Never place client secrets or tokens here.
      *
-     * OWNER SETUP REQUIRED before live OAuth works:
-     *   1. Register (or reuse an owner-controlled) Twitch developer application
-     *      with a "Single Page App"/browser client type (no secret).
-     *   2. Register EXACTLY these callback URLs in that application
-     *      (scheme, host, path and case must match):
-     *        https://yofardev.github.io/SmarterTwitchTV/release/phonechat.html
-     *      and, only if/when that host is actually enabled and controlled:
-     *        https://smarttv-client-for-twitch.web.app/phonechat.html
-     *   3. Put the application client ID in PhoneChatConfig.clientId below.
-     * See docs/phone-chat-setup.md for details.
+     * OWNER SETUP: register an owner-controlled Twitch application with the Public
+     * client type (Device Code Flow), and set clientId below. Local pages require no
+     * OAuth callback registration and never embed a client secret.
+     * Hosted callback settings below remain for legacy hosted-page compatibility.
      */
 
     //Single public configuration object, shared by the TV bundle and the phone bundle.
     //It is referenced on both sides, which keeps JSHint's unused check honest.
     var PhoneChatConfig = {
-        //Empty placeholder: OAuth on the phone stays disabled (visible error state) until the owner fills this in
-        clientId: '',
+        //Owner-controlled public Twitch application for phone Device Code Flow.
+        clientId: '10b45vistuje4pezdfzwnymdlxs579',
+
+        //Device flow also works on the optional hosted page; legacy callbacks remain readable.
+        useDeviceLogin: true,
 
         //Canonical HTTPS page URL used by the TV to generate the QR code.
         //Do not derive this from window.location: the TV can load from app assets or an alternate origin
@@ -7975,6 +7978,8 @@
         scopes: ['chat:read', 'chat:edit', 'user:read:emotes'],
 
         oauth: {
+            deviceUrl: 'https://id.twitch.tv/oauth2/device',
+            tokenUrl: 'https://id.twitch.tv/oauth2/token',
             authorizeUrl: 'https://id.twitch.tv/oauth2/authorize',
             validateUrl: 'https://id.twitch.tv/oauth2/validate',
             helixApi: 'https://api.twitch.tv/helix/',
@@ -8271,11 +8276,20 @@
     //Spacing for release maker not trow errors from jshint
     var version = {
         VersionBase: '3.0',
-        publishVersionCode: 385, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/385/SmarterPurpleTV_3_0_385.apk',
-        WebVersion: 'October 9 2026',
-        WebTag: 743, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        publishVersionCode: 386, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/386/SmarterPurpleTV_3_0_386.apk',
+        WebVersion: 'October 10 2026',
+        WebTag: 744, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 10 2026 (APK 386)',
+                changes: [
+                    'Chat on phone: the TV now hosts the phone webpage over your local network; scan its QR while on the same Wi-Fi and the phone follows live stream changes automatically',
+                    'Phone chat: sign in to Twitch independently on your phone using device authorization; no callback registration is needed for each TV address',
+                    'App updates: the update checker now checks Smarter Purple TV releases from this fork',
+                    'Note: local phone hosting requires APK 386 or newer; the phone page is bundled in the APK and does not need public web hosting'
+                ]
+            },
             {
                 title: 'October 9 2026',
                 changes: [
@@ -18113,19 +18127,11 @@
         if (checkUpdates) {
             if (Main_HasUpdate && Main_isUpdateDialogVisible() && Settings_value.update_background.defaultValue && !forceUpdate) return;
 
-            if (Main_A_includes_B(window.location.href, 'https://fgl27.github.io')) {
-                BaseXmlHttpGet(
-                    'https://fgl27.github.io/SmartTwitchTV/release/githubio/version/version.json',
-                    Main_CheckUpdateResult,
-                    Main_CheckUpdateFail
-                );
-            } else {
-                Main_setTimeout(function () {
-                    Main_Ischecking = false;
-                    Main_UpdateDialogTitle();
-                    Main_UpdateDialogSetTitle();
-                }, 1000);
-            }
+            BaseXmlHttpGet(
+                'https://yofardev.github.io/SmarterTwitchTV/release/githubio/version/version.json',
+                Main_CheckUpdateResult,
+                Main_CheckUpdateFail
+            );
         }
     }
 
@@ -21862,6 +21868,23 @@
     function OSInterface_getPlaybackState() {
         return Main_IsOn_OSInterface ? Android.getPlaybackState() : true;
     }
+
+    // Local phone chat is available from APK 386 onward. Older APKs fail gracefully.
+    function OSInterface_GetPhoneChatUrl() {
+        try {
+            return Main_IsOn_OSInterface ? Android.GetPhoneChatUrl() : '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function OSInterface_SetPhoneChatChannel(login) {
+        try {
+            if (Main_IsOn_OSInterface) Android.SetPhoneChatChannel(login || '');
+        } catch (e) {
+            //Older APK: the QR action explains the required upgrade.
+        }
+    }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -22164,10 +22187,9 @@
     /*
      * "Chat on phone" - TV side.
      *
-     * Builds the phone page link for the PRIMARY live channel, shows it in a QR
-     * dialog over the player and owns remote input while the dialog is open.
-     * No tokens, credentials or pairing secrets ever go into the link: the phone
-     * performs its own independent Twitch login.
+     * Opens a pairing QR for the APK's LAN server and publishes the current live
+     * channel. The QR carries an app pairing capability, never a Twitch token.
+     * The phone performs its own independent Twitch device login.
      *
      * Depends on: PhoneChatConfig* globals (app/general/PhoneChatConfig.js) and
      * the vendored ES5 QR generator (app/thirdparty/qrcode.js, global qrcode()).
@@ -22177,6 +22199,12 @@
     var PhoneChat_QrCanvas = null;
     var PhoneChat_PanelWasShowing = false;
     var PhoneChat_OriginControl = -1;
+    var PhoneChat_PublishTimer = null;
+
+    function PhoneChat_PublishChannel() {
+        var eligible = Play_isOn && !PlayVod_isOn && !PlayClip_isOn && !Play_MultiEnable;
+        OSInterface_SetPhoneChatChannel(eligible ? PhoneChat_GetChannel() : null);
+    }
 
     //Twitch logins are 3-25 chars of letters, digits and underscore (case insensitive)
     function PhoneChat_NormalizeLogin(login) {
@@ -22205,7 +22233,15 @@
     function PhoneChat_BuildUrl() {
         var channel = PhoneChat_GetChannel();
 
-        return channel ? PhoneChat_BuildUrlFromLogin(channel) : null;
+        if (!channel) return null;
+        if (Main_IsOn_OSInterface) {
+            var url = OSInterface_GetPhoneChatUrl();
+            if (!/^http:\/\/[0-9.]+:8978\/chat\/#pair=[a-f0-9]{64}$/.test(url)) return null;
+            PhoneChat_PublishChannel();
+            if (!PhoneChat_PublishTimer) PhoneChat_PublishTimer = setInterval(PhoneChat_PublishChannel, 2000);
+            return url;
+        }
+        return PhoneChat_BuildUrlFromLogin(channel);
     }
 
     function PhoneChat_IsQrLibraryAvailable() {
@@ -22254,7 +22290,7 @@
             canvas;
 
         if (!url) {
-            Play_showWarningMiddleDialog(STR_PHONE_CHAT_NO_CHANNEL, 1500);
+            Play_showWarningMiddleDialog(PhoneChat_GetChannel() ? STR_PHONE_CHAT_LOCAL_FAIL : STR_PHONE_CHAT_NO_CHANNEL, 5000);
             return;
         }
 
@@ -22279,7 +22315,7 @@
         Main_textContent('phone_chat_title', STR_PHONE_CHAT_OPEN);
         Main_textContent('phone_chat_channel', Play_data.data[1] + ' (' + PhoneChat_GetChannel() + ')');
         Main_textContent('phone_chat_instruction', STR_PHONE_CHAT_INSTRUCTION);
-        Main_textContent('phone_chat_rescan', STR_PHONE_CHAT_RESCAN);
+        Main_textContent('phone_chat_rescan', Main_IsOn_OSInterface ? STR_PHONE_CHAT_FOLLOWS : STR_PHONE_CHAT_RESCAN);
         Main_textContent('phone_chat_url', url);
         Main_textContent('phone_chat_close', STR_PHONE_CHAT_CLOSE);
 
@@ -22365,6 +22401,7 @@
     //replacement; never reattaches player input after the player went away
     function PhoneChat_Cleanup() {
         PhoneChat_Hide(true);
+        if (PhoneChat_PublishTimer) OSInterface_SetPhoneChatChannel('');
     }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>

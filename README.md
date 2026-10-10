@@ -9,6 +9,8 @@ Same two-part architecture as upstream — a web app (UI and most features) load
 - **Ad blocking, no proxy needed.** Ads stitched into live streams are removed directly from the playback playlists, using only Twitch's own servers. During a blocked ad the stream pauses briefly and resumes where the ad ends. On by default, can be turned off in Settings → Player → Block ads. (Requires an APK built from this fork.)
 - **A new default look.** Purple accent throughout: focused items get a purple outline and glow, the Following hearts are purple, and so are the loading spinners. Same dark base, own identity.
 
+**Chat on phone:** APK 386 can host the phone chat page on your local network. Scan the TV QR, sign in on your phone, and chat follows the live stream playing on TV. See [setup and build instructions](docs/phone-chat-setup.md); Twitch login requires an owner-controlled client ID.
+
 ## Everything else
 
 Build instructions, translations, troubleshooting and the full story of the app live in the [upstream README](https://github.com/fgl27/SmartTwitchTV#readme). To build this fork, follow the same steps against this repository.
