@@ -24,6 +24,7 @@ public final class PhoneChatServerTest {
         }
     }
     public static void main(String[] args) throws Exception {
+        checkLogRotation();
         Path assets = Paths.get(args[0]);
         PhoneChatServer server = new PhoneChatServer(path -> Files.newInputStream(assets.resolve(path)), () -> {
             try { return InetAddress.getByName("127.0.0.1"); } catch (UnknownHostException e) { return null; }
@@ -75,7 +76,36 @@ public final class PhoneChatServerTest {
             check(missing.getUrl().isEmpty(), "Missing assets fail before advertising QR");
             server.close();
             check(server.getUrl().isEmpty(), "Destroyed activity cannot restart server through a late bridge call");
-            System.out.println(checks + " native phone server checks passed");
+            System.out.println(checks + " native phone/debug server checks passed");
         } finally { server.stop(); }
+    }
+
+    private static void checkLogRotation() throws Exception {
+        Path directory = Files.createTempDirectory("sptv-log-test-");
+        try {
+            Files.write(directory.resolve("debug.log.1"), "OLDER\n".getBytes(StandardCharsets.UTF_8));
+            Files.write(directory.resolve("debug.log"), "CURRENT\n".getBytes(StandardCharsets.UTF_8));
+            String shortLog = new String(DebugLogServer.collectLogFiles(directory.toFile()), StandardCharsets.UTF_8);
+            check(shortLog.indexOf("OLDER") < shortLog.indexOf("CURRENT"), "Logs ordered oldest to newest");
+            check(shortLog.endsWith("CURRENT\n"), "Current capture is the log tail");
+            byte[] data = new byte[2 * 1024 * 1024];
+            java.util.Arrays.fill(data, (byte) 'x');
+            for (int i = 3; i >= 0; i--) {
+                String marker = i == 0 ? "LATEST_CURRENT\n" : "ROTATED_" + i + "\n";
+                byte[] bytes = marker.getBytes(StandardCharsets.UTF_8);
+                System.arraycopy(bytes, 0, data, data.length - bytes.length, bytes.length);
+                Files.write(directory.resolve(i == 0 ? "debug.log" : "debug.log." + i), data);
+            }
+            String fullLog = new String(DebugLogServer.collectLogFiles(directory.toFile()), StandardCharsets.UTF_8);
+            check(fullLog.contains("log truncated"), "Full buffer reports truncation");
+            check(fullLog.endsWith("LATEST_CURRENT\n"), "Full buffer retains newest current logs");
+            check(fullLog.contains("ROTATED_1") && fullLog.contains("ROTATED_2"), "Full buffer retains recent rotated logs");
+            check(!fullLog.contains("ROTATED_3"), "Full buffer discards oldest rotated logs");
+        } finally {
+            for (String name : new String[] {"debug.log", "debug.log.1", "debug.log.2", "debug.log.3"}) {
+                Files.deleteIfExists(directory.resolve(name));
+            }
+            Files.deleteIfExists(directory);
+        }
     }
 }

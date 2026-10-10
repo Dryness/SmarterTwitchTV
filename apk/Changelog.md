@@ -9,6 +9,11 @@ The App is divided in two part, **Apk** and **Web** you can check it version in 
 
 The app has a building update check function, so whenever there is a update a red text will show up bellow the main pages clock, also a short warning will pop on the screen let you know if is a **Apk** or **Web** update.
 
+October 10 2026 (3.0.387)
+==============
+
+* Downloaded debug logs now retain the newest messages when the buffer fills, rather than discarding them in favor of older rotated logs.
+
 October 10 2026 (3.0.386)
 ==============
 

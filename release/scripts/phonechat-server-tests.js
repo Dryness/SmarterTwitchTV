@@ -23,6 +23,7 @@ try {
         '-d',
         output,
         'apk/app/src/main/java/com/fgl27/twitch/PhoneChatServer.java',
+        'apk/app/src/main/java/com/fgl27/twitch/DebugLogServer.java',
         'release/scripts/java/PhoneChatServerTest.java'
     ]);
     run(bin ? path.join(bin, 'java') : 'java', [

@@ -192,17 +192,21 @@ public final class DebugLogServer {
     }
 
     /**
-     * The current capture file followed by the rotated copies (newest to oldest), capped to
-     * the most recent MAX_SERVED_BYTES.
+     * Rotated copies followed by the current capture (oldest to newest), capped to
+     * the most recent MAX_SERVED_BYTES. Tail truncation must never discard current logs.
      */
     private static byte[] collectLogs() {
+        return collectLogFiles(logDir());
+    }
+
+    static byte[] collectLogFiles(File directory) {
         ByteArrayOutputStream output = new ByteArrayOutputStream(64 * 1024);
 
         try {
-            appendFile(output, new File(logDir(), "debug.log"), null);
-            for (int i = 1; i <= ROTATE_COUNT; i++) {
-                appendFile(output, new File(logDir(), "debug.log." + i), "\n===== rotated part " + i + " (older) =====\n");
+            for (int i = ROTATE_COUNT; i >= 1; i--) {
+                appendFile(output, new File(directory, "debug.log." + i), "\n===== rotated part " + i + " (older) =====\n");
             }
+            appendFile(output, new File(directory, "debug.log"), "\n===== current capture =====\n");
         } catch (Exception e) {
             write(output, "error collecting logs: " + e + "\n");
         }
