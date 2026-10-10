@@ -2046,6 +2046,109 @@ asyncSections.push(async () => {
     app.sandbox.SPTVPhoneChat.Local.stop();
 });
 
+asyncSections.push(async () => {
+    const app = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+        sandbox.sessionStorage.setItem(
+            'sptv_phone_chat_session',
+            JSON.stringify({
+                token: 'goodtoken',
+                login: 'myuser',
+                userId: 'u1',
+                scopes: ['chat:read', 'chat:edit', 'user:read:emotes'],
+                expiresAt: Date.now() + 3600000
+            })
+        );
+    });
+    await flushAsync();
+    const ids = app.ids;
+    const socket = app.ws[0];
+    socket.readyState = 1;
+    socket.onopen();
+    socket.onmessage({data: ':tmi.twitch.tv 001 myuser :Welcome\r\n:myuser!myuser@myuser.tmi.twitch.tv JOIN #twitchdev\r\n'});
+    const feed = ids.get('pc-messages');
+    const click = id => ids.get(id).listeners.click[0]();
+    const receive = (id, badges, login = 'human') => {
+        socket.onmessage({
+            data:
+                '@id=' +
+                id +
+                ';user-id=' +
+                login +
+                ';badges=' +
+                badges +
+                ';display-name=Nightbot :' +
+                login +
+                '!' +
+                login +
+                '@host PRIVMSG #twitchdev :' +
+                id +
+                '\r\n'
+        });
+        return feed.querySelector('[data-id="' + id + '"]');
+    };
+    click('pc-chat-priority');
+    eq(ids.get('pc-chat-empty').hidden, false, 'filter: empty view explains missing qualifying messages');
+    const partner = receive('partner', 'subscriber/12,partner/1');
+    eq(partner.hidden, false, 'filter: Partner visible without badge artwork');
+    ok(partner.className.indexOf('pc-partner') !== -1, 'filter: Partner gets purple background class');
+    eq(ids.get('pc-chat-empty').hidden, true, 'filter: qualifying message hides empty state');
+    const vip = receive('vip', 'vip/1');
+    const mod = receive('mod', 'moderator/1');
+    eq(vip.hidden, false, 'filter: VIP visible');
+    eq(mod.hidden, false, 'filter: human moderator visible despite bot-like display name');
+    ok(vip.className.indexOf('pc-partner') === -1, 'filter: VIP does not receive Partner background');
+    const ordinary = receive('ordinary', 'subscriber/12');
+    eq(ordinary.hidden, true, 'filter: ordinary subscriber hidden');
+    eq(receive('spoof', 'notpartner/1,notvip/1').hidden, true, 'filter: badge substrings do not qualify');
+    eq(receive('zero', 'moderator/0,vip/0').hidden, true, 'filter: inactive role values do not qualify');
+    eq(receive('legacy', 'verified/1').hidden, false, 'filter: legacy verified badge supported');
+    ['Nightbot', 'StreamElements', 'Wizebot', 'Wisebot', 'Moobot', 'Fossabot'].forEach((login, index) => {
+        eq(receive('bot' + index, 'partner/1,vip/1,moderator/1', login).hidden, true, 'filter: excludes exact bot login ' + login);
+    });
+    eq(receive('humanbotname', 'moderator/1', 'nightbot_fan').hidden, false, 'filter: human login containing bot name retained');
+    click('pc-chat-all');
+    eq(ordinary.hidden, false, 'filter: switch restores previous ordinary messages');
+    eq(feed.querySelector('[data-id="bot0"]').hidden, false, 'filter: bots remain readable in All chat');
+    ok(partner.className.indexOf('pc-partner') !== -1, 'filter: Partner styling remains in All chat');
+    click('pc-chat-priority');
+    feed.scrollTop = 0;
+    feed.listeners.scroll[0]();
+    ids.get('pc-jump-latest').hidden = true;
+    receive('silent', '', 'viewer');
+    eq(ids.get('pc-jump-latest').hidden, true, 'filter: hidden incoming traffic does not prompt jump to latest');
+    receive('visible', 'vip/1');
+    eq(ids.get('pc-jump-latest').hidden, false, 'filter: visible incoming traffic prompts while reading older rows');
+    socket.onmessage({data: '@target-msg-id=partner :tmi.twitch.tv CLEARMSG #twitchdev :partner\r\n'});
+    eq(partner.textContent, 'message deleted', 'filter: deletion removes Partner text');
+    ok(partner.className.indexOf('pc-partner') !== -1, 'filter: deletion retains Partner styling');
+    click('pc-chat-all');
+    click('pc-chat-priority');
+    eq(partner.hidden, false, 'filter: deleted qualifying row retains classification after switches');
+    socket.onmessage({data: '@badges=partner/1,moderator/1 :tmi.twitch.tv USERSTATE #twitchdev\r\n'});
+    ids.get('pc-input').value = 'own moderator message';
+    app.App().trySend();
+    const own = feed.querySelector('[data-echo="echo-1"]');
+    eq(own.hidden, false, 'filter: own submitted message uses Twitch USERSTATE roles');
+    ok(own.className.indexOf('pc-partner') !== -1, 'filter: own Partner message also receives background');
+    socket.onmessage({data: '@target-user-id=human :tmi.twitch.tv CLEARCHAT #twitchdev :human\r\n'});
+    eq(feed.querySelector('[data-id="vip"]'), null, 'filter: timeout removes qualifying rows');
+    eq(feed.querySelector('[data-id="ordinary"]'), null, 'filter: timeout also removes hidden rows');
+    socket.onmessage({data: ':tmi.twitch.tv CLEARCHAT #twitchdev\r\n'});
+    eq(ids.get('pc-chat-empty').hidden, false, 'filter: room clear restores empty state');
+    ids.get('pc-chat-tabs').listeners.keydown[0]({key: 'ArrowLeft', preventDefault() {}});
+    eq(ids.get('pc-chat-all').getAttribute('aria-selected'), 'true', 'filter: keyboard switches active tab');
+    eq(ids.get('pc-chat-priority').getAttribute('tabindex'), '-1', 'filter: inactive tab outside tab sequence');
+    eq(feed.getAttribute('aria-labelledby'), 'pc-chat-all', 'filter: panel follows selected accessible label');
+    for (let i = 0; i < 350; i++) receive('bounded' + i, i % 2 ? 'vip/1' : '');
+    ok(feed.children.length <= 320, 'filter: toggling does not remove bounded-history pruning');
+    click('pc-chat-priority');
+    app.App().disconnect();
+    eq(ids.get('pc-chat-empty').hidden, false, 'filter: disconnect clears feed and updates empty state');
+});
+
 (async () => {
     for (const section of asyncSections) {
         try {

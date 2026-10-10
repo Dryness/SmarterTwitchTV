@@ -136,8 +136,54 @@ body {
 
 /*Messages*/
 
+#pc-chat-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    padding: 0 12px;
+    gap: 12px;
+    border-bottom: 1px solid #2b2438;
+}
+
+.pc-chat-tab {
+    appearance: none;
+    -webkit-appearance: none;
+    min-height: 44px;
+    padding: 10px 0;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #b4a9cf;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.pc-chat-tab[aria-selected='true'] {
+    color: #ffffff;
+    border-bottom-color: #a78bfa;
+}
+
+.pc-chat-tab:hover {
+    color: #ffffff;
+}
+
+.pc-chat-tab:focus-visible,
+#pc-messages:focus-visible {
+    outline: 2px solid #a78bfa;
+    outline-offset: -2px;
+}
+
+#pc-chat-empty {
+    margin: 0;
+    padding: 14px 12px;
+    color: #b4a9cf;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
 #pc-messages {
     flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 8px 12px 12px;
@@ -152,6 +198,12 @@ body {
 
 .pc-msg .pc-user {
     font-weight: 700;
+}
+
+.pc-msg.pc-partner {
+    background: rgba(118, 53, 252, 0.22);
+    border-radius: 4px;
+    padding: 3px 6px;
 }
 
 .pc-msg .pc-badge {

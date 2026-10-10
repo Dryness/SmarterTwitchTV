@@ -21,11 +21,19 @@
 //Spacing for release maker not trow errors from jshint
 var version = {
     VersionBase: '3.0',
-    publishVersionCode: 387, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/387/SmarterPurpleTV_3_0_387.apk',
+    publishVersionCode: 388, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/388/SmarterPurpleTV_3_0_388.apk',
     WebVersion: 'October 10 2026',
-    WebTag: 746, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 747, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 10 2026 (APK 388)',
+            changes: [
+                'Phone chat: Twitch Partner messages now have the same subtle purple background as TV chat',
+                'Phone chat: switch between All chat and Partners, VIPs & Mods; the filtered tab excludes known bot accounts',
+                'Note: update to APK 388 for these improvements to the phone page hosted on your TV'
+            ]
+        },
         {
             title: 'October 10 2026 (APK 387)',
             changes: [

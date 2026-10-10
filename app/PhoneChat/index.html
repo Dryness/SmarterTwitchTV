@@ -61,7 +61,24 @@
                 <button id="pc-device-cancel" class="pc-button" type="button">Cancel</button>
             </section>
 
-            <main id="pc-messages" aria-label="Chat messages"></main>
+            <div id="pc-chat-tabs" role="tablist" aria-label="Chat filter">
+                <button type="button" id="pc-chat-all" class="pc-chat-tab" role="tab" aria-controls="pc-messages" aria-selected="true">
+                    All chat
+                </button>
+                <button
+                    type="button"
+                    id="pc-chat-priority"
+                    class="pc-chat-tab"
+                    role="tab"
+                    aria-controls="pc-messages"
+                    aria-selected="false"
+                    tabindex="-1"
+                >
+                    Partners, VIPs &amp; Mods
+                </button>
+            </div>
+            <p id="pc-chat-empty" role="status" hidden>No Partner, VIP or moderator messages in recent chat. Known bots are excluded.</p>
+            <main id="pc-messages" role="tabpanel" aria-labelledby="pc-chat-all" tabindex="0"></main>
 
             <button type="button" id="pc-jump-latest" class="pc-button" hidden>Jump to latest</button>
 

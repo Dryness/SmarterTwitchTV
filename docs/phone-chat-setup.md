@@ -29,6 +29,24 @@ restart or address change creates a new pairing; scan it again. A phone-page
 reload retains pairing and login in the same tab. Closing the tab removes them.
 A session that expires requires signing in again; refresh tokens aren't stored.
 
+## Chat views (APK 388)
+
+Partner messages have the same subtle purple background as TV chat. **All chat**
+shows everyone; **Partners, VIPs & Mods** shows only messages carrying Twitch's
+Partner/verified, VIP or moderator badge. Badge artwork does not need to load for
+classification to work. Both tabs use the same bounded recent history; switching
+views preserves message deletions and timeouts. Your own submitted messages use
+Twitch's current USERSTATE badges.
+
+The filtered tab excludes exact, case-insensitive logins `nightbot`,
+`streamelements`, `wizebot`, `wisebot`, `moobot` and `fossabot`. Bots remain visible
+in All chat. Custom bot names are not detected automatically; extend the exact
+login list in `app/PhoneChat/render.js` if needed. System notices remain in All
+chat; connection and account warnings continue to appear above both views.
+
+These changes require APK 388 because the local phone page is bundled in the
+APK. After updating the TV, scan its QR again and reload the phone page.
+
 ## Owner setup: one public Twitch client ID
 
 1. Register an application owned by this project in the

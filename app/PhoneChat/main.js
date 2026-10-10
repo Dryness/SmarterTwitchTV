@@ -83,6 +83,7 @@ SPTVPhoneChat.App = (function () {
         resolver: null,
         providers: null, //per provider {status, records}
         badges: null, //set_id -> version -> url
+        ownBadges: null,
         store: null,
         localEchoes: [],
         slowMode: 0,
@@ -90,6 +91,7 @@ SPTVPhoneChat.App = (function () {
         composing: false,
         sending: false,
         nearBottom: true,
+        chatTab: 'all',
         pickerTab: 'twitch',
         pickerFilter: '',
         pickerShown: 0,
@@ -613,6 +615,7 @@ SPTVPhoneChat.App = (function () {
         //them across socket replacement while the existing feed stays visible.
         S.store = Render.createStore(Render.HistoryLimit);
         S.localEchoes = [];
+        S.ownBadges = null;
         setModeration(false, 0); //a fresh chat session starts unrestricted
 
         var gen = S.flowGen;
@@ -679,6 +682,9 @@ SPTVPhoneChat.App = (function () {
                 break;
             case 'message':
                 onChatMessage(event.message);
+                break;
+            case 'userstate':
+                S.ownBadges = event.tags ? event.tags.badges : null;
                 break;
             case 'notice':
                 onNotice(event);
@@ -791,11 +797,48 @@ SPTVPhoneChat.App = (function () {
         var box = el('pc-messages'),
             stick = S.nearBottom;
 
+        row.hidden = S.chatTab === 'priority' && row.getAttribute('data-priority') !== 'true';
         box.appendChild(row);
         pruneRows(box);
+        updateChatEmpty();
 
-        if (stick) scrollToBottom();
-        else el('pc-jump-latest').hidden = false;
+        //Filtered-out traffic must not interrupt reading or show an unread prompt.
+        if (!row.hidden) {
+            if (stick) scrollToBottom();
+            else el('pc-jump-latest').hidden = false;
+        }
+    }
+
+    function updateChatEmpty() {
+        var rows = el('pc-messages').children,
+            visible = false,
+            i;
+        for (i = 0; i < rows.length; i++) {
+            if (!rows[i].hidden) {
+                visible = true;
+                break;
+            }
+        }
+        el('pc-chat-empty').hidden = S.chatTab !== 'priority' || visible;
+    }
+
+    function selectChatTab(tab) {
+        S.chatTab = tab;
+        var priority = tab === 'priority',
+            rows = el('pc-messages').children,
+            allButton = el('pc-chat-all'),
+            priorityButton = el('pc-chat-priority'),
+            i;
+        allButton.setAttribute('aria-selected', String(!priority));
+        priorityButton.setAttribute('aria-selected', String(priority));
+        allButton.setAttribute('tabindex', priority ? '-1' : '0');
+        priorityButton.setAttribute('tabindex', priority ? '0' : '-1');
+        el('pc-messages').setAttribute('aria-labelledby', priority ? 'pc-chat-priority' : 'pc-chat-all');
+        for (i = 0; i < rows.length; i++) {
+            rows[i].hidden = priority && rows[i].getAttribute('data-priority') !== 'true';
+        }
+        updateChatEmpty();
+        scrollToBottom();
     }
 
     function pruneRows(box) {
@@ -831,13 +874,15 @@ SPTVPhoneChat.App = (function () {
 
         if (message.id) S.store.append({id: message.id, userId: message.tags ? message.tags['user-id'] : null});
 
-        var resolver = S.resolver,
+        var roles = Render.messageRoles(message.badges, message.login),
+            resolver = S.resolver,
             segments = Render.buildSegments(message.text, message.emotes, resolver),
             row = document.createElement('div'),
             nameSpan = document.createElement('span'),
             textSpan = document.createElement('span');
 
-        row.className = 'pc-msg' + (message.action ? ' pc-action' : '');
+        row.className = 'pc-msg' + (message.action ? ' pc-action' : '') + (roles.partner ? ' pc-partner' : '');
+        row.setAttribute('data-priority', String(roles.priority));
         if (message.id) row.setAttribute('data-id', message.id);
         if (message.tags && message.tags['user-id']) row.setAttribute('data-user-id', message.tags['user-id']);
 
@@ -898,7 +943,6 @@ SPTVPhoneChat.App = (function () {
 
         if (row) {
             row.textContent = '';
-            row.className = 'pc-msg';
             row.appendChild(document.createTextNode(Strings.deleted));
             row.className += ' pc-deleted';
         }
@@ -940,6 +984,7 @@ SPTVPhoneChat.App = (function () {
             setModeration(true, event.banDuration && event.banDuration > 0 ? event.banDuration : 0);
             refreshJoinedState();
         }
+        updateChatEmpty();
     }
 
     /* ---------- sending ---------- */
@@ -994,13 +1039,15 @@ SPTVPhoneChat.App = (function () {
         //included), marked as submitted — never as server-confirmed delivery
         S.echoSeq++;
         var rowId = 'echo-' + S.echoSeq,
+            roles = Render.messageRoles(S.ownBadges, S.session.login),
             row = document.createElement('div'),
             nameSpan = document.createElement('span'),
             textSpan = document.createElement('span'),
             mark = document.createElement('span'),
             segments;
 
-        row.className = 'pc-msg pc-local';
+        row.className = 'pc-msg pc-local' + (roles.partner ? ' pc-partner' : '');
+        row.setAttribute('data-priority', String(roles.priority));
         row.setAttribute('data-echo', rowId);
         //Echoes are this account's messages: targeted CLEARCHAT must find them
         if (S.session.userId) row.setAttribute('data-user-id', S.session.userId);
@@ -1520,8 +1567,10 @@ SPTVPhoneChat.App = (function () {
         S.store = null;
         S.broadcasterId = null;
         S.localEchoes = [];
+        S.ownBadges = null;
         setComposerEnabled(false);
         el('pc-messages').textContent = '';
+        updateChatEmpty();
         closePicker();
         updateAccountButton();
         showBanner('signed_out', false, Strings.connect);
@@ -1571,6 +1620,22 @@ SPTVPhoneChat.App = (function () {
         });
 
         el('pc-jump-latest').addEventListener('click', scrollToBottom);
+
+        el('pc-chat-all').addEventListener('click', function () {
+            selectChatTab('all');
+        });
+        el('pc-chat-priority').addEventListener('click', function () {
+            selectChatTab('priority');
+        });
+        el('pc-chat-tabs').addEventListener('keydown', function (event) {
+            var tab;
+            if (event.key === 'ArrowLeft' || event.key === 'Home') tab = 'all';
+            else if (event.key === 'ArrowRight' || event.key === 'End') tab = 'priority';
+            else return;
+            event.preventDefault();
+            selectChatTab(tab);
+            el(tab === 'all' ? 'pc-chat-all' : 'pc-chat-priority').focus();
+        });
 
         el('pc-messages').addEventListener('scroll', function () {
             S.nearBottom = nearBottom();
@@ -1709,12 +1774,14 @@ SPTVPhoneChat.App = (function () {
             S.resolver = null;
             S.providers = null;
             S.badges = null;
+            S.ownBadges = null;
             S.slowMode = 0;
             S.lastSendTime = 0;
             S.nearBottom = true;
             setModeration(false, 0);
             el('pc-input').value = '';
             el('pc-messages').textContent = '';
+            updateChatEmpty();
             el('pc-jump-latest').hidden = true;
             closePicker();
             el('pc-channel-name').textContent = channel || 'SPTV Chat';

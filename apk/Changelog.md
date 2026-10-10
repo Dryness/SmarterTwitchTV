@@ -9,6 +9,14 @@ The App is divided in two part, **Apk** and **Web** you can check it version in 
 
 The app has a building update check function, so whenever there is a update a red text will show up bellow the main pages clock, also a short warning will pop on the screen let you know if is a **Apk** or **Web** update.
 
+October 10 2026 (3.0.388)
+==============
+
+* Phone chat: Twitch Partner messages now use the same subtle purple background as TV chat.
+* Added All chat and Partners, VIPs & Mods tabs. The filtered view excludes Nightbot, StreamElements, WizeBot/Wisebot, Moobot and Fossabot by exact login.
+* Both views share recent history, message deletions and timeouts. Your own submitted messages use Twitch's USERSTATE badges.
+* The local phone page is bundled in this APK; update the TV to APK 388 and reload the phone page to use these changes.
+
 October 10 2026 (3.0.387)
 ==============
 

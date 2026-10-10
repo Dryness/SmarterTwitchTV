@@ -255,6 +255,18 @@ SPTVPhoneChat.Render = (function () {
         return typeof color === 'string' && (/^#[0-9a-fA-F]{3}$/.test(color) || /^#[0-9a-fA-F]{6}$/.test(color));
     }
 
+    //Use exact IRC badge tokens, independently of downloaded badge artwork.
+    function messageRoles(badges, login) {
+        var tokens = typeof badges === 'string' ? badges.split(',') : [],
+            partner = tokens.indexOf('partner/1') !== -1 || tokens.indexOf('verified/1') !== -1,
+            privileged = partner || tokens.indexOf('vip/1') !== -1 || tokens.indexOf('moderator/1') !== -1,
+            //Exact account logins only: never hide a human whose name contains a bot name.
+            bots = ['nightbot', 'streamelements', 'wizebot', 'wisebot', 'moobot', 'fossabot'],
+            bot = bots.indexOf(String(login || '').toLowerCase()) !== -1;
+
+        return {partner: partner, priority: privileged && !bot};
+    }
+
     /*
      * Bounded message history store. Keeps at most HistoryLimit entries and a
      * separate bounded id->state index used for dedup and deletion (the id
@@ -334,6 +346,7 @@ SPTVPhoneChat.Render = (function () {
         attachOverlays: attachOverlays,
         tokenizeText: tokenizeText,
         isValidUserColor: isValidUserColor,
+        messageRoles: messageRoles,
         createStore: createStore
     };
 })();
