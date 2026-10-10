@@ -1144,6 +1144,8 @@ function Main_CheckUpdate(forceUpdate) {
 }
 
 function Main_CheckUpdateFail() {
+    Main_Ischecking = false;
+    Main_UpdateDialogSetTitle();
     if (Main_isUpdateDialogVisible()) {
         OSInterface_showToast(STR_UPDATE_CHECKING_FAIL);
     }
@@ -1167,9 +1169,14 @@ function Main_CheckUpdateResult(responseText) {
         Main_IsWebupdate = !apkupdate && webupdate;
 
         Main_WarnUpdate(Main_IsWebupdate);
-    } else if (Main_isUpdateDialogVisible()) {
-        Main_UpdateDialogTitle();
-        OSInterface_showToast(STR_NO_UPDATES);
+    } else {
+        Main_HasUpdate = false;
+        Main_IsWebupdate = false;
+        Main_innerHTML('label_update', '');
+        if (Main_isUpdateDialogVisible()) {
+            Main_UpdateDialogTitle();
+            OSInterface_showToast(STR_NO_UPDATES);
+        }
     }
 
     Main_UpdateDialogSetTitle();
@@ -1252,6 +1259,17 @@ function Main_HideChangeDialog() {
 }
 
 var Main_UpdateCursor = 0;
+var Main_ApkUpdateTimer;
+
+//Called by the APK when download fails or the system installer takes over.
+//The watchdog also releases older APKs that cannot report a result.
+function Main_ApkUpdateFinished() {
+    Main_clearTimeout(Main_ApkUpdateTimer);
+    Main_ApkUpdateTimer = null;
+    Main_values.IsUpDating = false;
+    Main_SaveValues();
+    Main_HideLoadDialog();
+}
 function Main_UpdateDialogKeyFun(event) {
     event.stopPropagation();
 
@@ -1288,6 +1306,7 @@ function Main_UpdateDialogKeyEnter() {
         Main_showChangelogDialog();
     } else {
         if (Main_HasUpdate) {
+            if (Main_ApkUpdateTimer) return;
             Main_values.IsUpDating = true;
             Main_SaveValues();
 
@@ -1303,6 +1322,15 @@ function Main_UpdateDialogKeyEnter() {
             } else {
                 Main_showLoadDialog();
                 var fromPlay = OSInterface_getInstallFromPLay();
+
+                Main_ApkUpdateTimer = Main_setTimeout(
+                    function () {
+                        Main_ApkUpdateFinished();
+                        OSInterface_showToast(STR_UPDATE_FAIL);
+                    },
+                    120000,
+                    Main_ApkUpdateTimer
+                );
 
                 OSInterface_showToast(fromPlay ? STR_UPDATE_PLAY : STR_UPDATE_START);
 
@@ -3073,8 +3101,7 @@ function Main_CheckResume(skipPlay) {
     Main_isStopped = false;
 
     if (Main_isUpdateDialogVisible()) {
-        Main_HideLoadDialog();
-        Main_values.IsUpDating = false;
+        Main_ApkUpdateFinished();
     }
 
     if (Main_isElementShowing('backup_dialog')) {

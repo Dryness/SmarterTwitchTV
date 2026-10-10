@@ -8280,11 +8280,19 @@
     //Spacing for release maker not trow errors from jshint
     var version = {
         VersionBase: '3.0',
-        publishVersionCode: 388, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/388/SmarterPurpleTV_3_0_388.apk',
+        publishVersionCode: 389, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/389/SmarterPurpleTV_3_0_389.apk',
         WebVersion: 'October 10 2026',
-        WebTag: 747, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebTag: 748, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 10 2026 (APK 389)',
+                changes: [
+                    'App updates: fixed GitHub APK installation being rejected by Android because the install permission was missing',
+                    'App updates: open the install permission settings when needed, clear loading after download failure or installer handoff, and prevent duplicate downloads',
+                    'Update checks: clear outdated update warnings when the installed app is current; add a loading timeout for older APKs'
+                ]
+            },
             {
                 title: 'October 10 2026 (APK 388)',
                 changes: [
@@ -18160,6 +18168,8 @@
     }
 
     function Main_CheckUpdateFail() {
+        Main_Ischecking = false;
+        Main_UpdateDialogSetTitle();
         if (Main_isUpdateDialogVisible()) {
             OSInterface_showToast(STR_UPDATE_CHECKING_FAIL);
         }
@@ -18183,9 +18193,14 @@
             Main_IsWebupdate = !apkupdate && webupdate;
 
             Main_WarnUpdate(Main_IsWebupdate);
-        } else if (Main_isUpdateDialogVisible()) {
-            Main_UpdateDialogTitle();
-            OSInterface_showToast(STR_NO_UPDATES);
+        } else {
+            Main_HasUpdate = false;
+            Main_IsWebupdate = false;
+            Main_innerHTML('label_update', '');
+            if (Main_isUpdateDialogVisible()) {
+                Main_UpdateDialogTitle();
+                OSInterface_showToast(STR_NO_UPDATES);
+            }
         }
 
         Main_UpdateDialogSetTitle();
@@ -18268,6 +18283,17 @@
     }
 
     var Main_UpdateCursor = 0;
+    var Main_ApkUpdateTimer;
+
+    //Called by the APK when download fails or the system installer takes over.
+    //The watchdog also releases older APKs that cannot report a result.
+    function Main_ApkUpdateFinished() {
+        Main_clearTimeout(Main_ApkUpdateTimer);
+        Main_ApkUpdateTimer = null;
+        Main_values.IsUpDating = false;
+        Main_SaveValues();
+        Main_HideLoadDialog();
+    }
     function Main_UpdateDialogKeyFun(event) {
         event.stopPropagation();
 
@@ -18304,6 +18330,7 @@
             Main_showChangelogDialog();
         } else {
             if (Main_HasUpdate) {
+                if (Main_ApkUpdateTimer) return;
                 Main_values.IsUpDating = true;
                 Main_SaveValues();
 
@@ -18319,6 +18346,15 @@
                 } else {
                     Main_showLoadDialog();
                     var fromPlay = OSInterface_getInstallFromPLay();
+
+                    Main_ApkUpdateTimer = Main_setTimeout(
+                        function () {
+                            Main_ApkUpdateFinished();
+                            OSInterface_showToast(STR_UPDATE_FAIL);
+                        },
+                        120000,
+                        Main_ApkUpdateTimer
+                    );
 
                     OSInterface_showToast(fromPlay ? STR_UPDATE_PLAY : STR_UPDATE_START);
 
@@ -20100,8 +20136,7 @@
         Main_isStopped = false;
 
         if (Main_isUpdateDialogVisible()) {
-            Main_HideLoadDialog();
-            Main_values.IsUpDating = false;
+            Main_ApkUpdateFinished();
         }
 
         if (Main_isElementShowing('backup_dialog')) {
@@ -55468,6 +55503,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Sidepannel_CheckIfIsLiveResult: Sidepannel_CheckIfIsLiveResult,
         Main_CheckStop: Main_CheckStop,
         Main_CheckResume: Main_CheckResume,
+        Main_ApkUpdateFinished: Main_ApkUpdateFinished,
         Play_getQualities: Play_getQualities,
         Play_ShowVideoStatus: Play_ShowVideoStatus,
         Play_ShowVideoQuality: Play_ShowVideoQuality,

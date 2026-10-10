@@ -9,6 +9,13 @@ The App is divided in two part, **Apk** and **Web** you can check it version in 
 
 The app has a building update check function, so whenever there is a update a red text will show up bellow the main pages clock, also a short warning will pop on the screen let you know if is a **Apk** or **Web** update.
 
+October 10 2026 (3.0.389)
+==============
+
+* Fixed GitHub APK updates rejected by Android: the application now declares REQUEST_INSTALL_PACKAGES and opens the permission settings when required.
+* Download errors and installer handoff now close the loading screen. Downloads have bounded timeouts, reject truncated files and cannot run concurrently.
+* Update checks clear stale warnings when the installed version is current. Older APKs receive a web loading watchdog.
+
 October 10 2026 (3.0.388)
 ==============
 

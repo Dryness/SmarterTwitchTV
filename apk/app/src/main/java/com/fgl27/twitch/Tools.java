@@ -1002,8 +1002,8 @@ public final class Tools {
 
         try {
             urlConnection = (HttpURLConnection) new URL(apkURL).openConnection();
-            urlConnection.setConnectTimeout(Constants.DEFAULT_HTTP_TIMEOUT);
-            urlConnection.setReadTimeout(Constants.DEFAULT_HTTP_TIMEOUT * 10);
+            urlConnection.setConnectTimeout(15000);
+            urlConnection.setReadTimeout(15000);
 
             urlConnection.connect();
 
@@ -1019,8 +1019,17 @@ public final class Tools {
 
                     byte[] buffer = new byte[1024];
                     int count;
+                    long started = android.os.SystemClock.elapsedRealtime();
+                    long received = 0;
                     while ((count = input.read(buffer)) != -1) {
+                        if (android.os.SystemClock.elapsedRealtime() - started > 90000) {
+                            throw new java.io.IOException("APK download exceeded 90 seconds");
+                        }
                         output.write(buffer, 0, count);
+                        received += count;
+                    }
+                    if (received == 0 || (urlConnection.getContentLength() > 0 && received != urlConnection.getContentLength())) {
+                        throw new java.io.IOException("Incomplete APK download");
                     }
 
                     return file.getAbsolutePath();
@@ -1077,16 +1086,17 @@ public final class Tools {
         return null;
     }
 
-    static void installPackage(Context context, String packagePath) {
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        Uri file = getFileUri(context, packagePath);
-        intent.setDataAndType(file, "application/vnd.android.package-archive");
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION); // without this flag android returned a intent error!
-
+    static boolean installPackage(Context context, String packagePath) {
         try {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            Uri file = getFileUri(context, packagePath);
+            intent.setDataAndType(file, "application/vnd.android.package-archive");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
             context.startActivity(intent);
+            return true;
         } catch (Throwable e) {
             recordException(TAG, "installPackage ", e);
+            return false;
         }
     }
 

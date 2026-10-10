@@ -51,6 +51,7 @@
         Sidepannel_CheckIfIsLiveResult: Sidepannel_CheckIfIsLiveResult,
         Main_CheckStop: Main_CheckStop,
         Main_CheckResume: Main_CheckResume,
+        Main_ApkUpdateFinished: Main_ApkUpdateFinished,
         Play_getQualities: Play_getQualities,
         Play_ShowVideoStatus: Play_ShowVideoStatus,
         Play_ShowVideoQuality: Play_ShowVideoQuality,

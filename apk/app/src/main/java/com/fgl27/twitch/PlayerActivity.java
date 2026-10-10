@@ -3671,30 +3671,65 @@ public class PlayerActivity extends Activity {
             }
         }
 
+        private boolean apkUpdateRunning;
+
+        private void finishAPKUpdate(String error) {
+            synchronized (this) {
+                apkUpdateRunning = false;
+            }
+            runOnUiThread(() -> {
+                hideLoading(5);
+                mWebView.loadUrl("javascript:if(smartTwitchTV.Main_ApkUpdateFinished){smartTwitchTV.Main_ApkUpdateFinished();}");
+                if (error != null) Toast.makeText(mWebViewContext, error, Toast.LENGTH_LONG).show();
+            });
+        }
+
         @JavascriptInterface
-        public void UpdateAPK(String apkURL, String failAll, String failDownload) {
-            try {
-                final Context context = getApplicationContext();
-                final String appPackageName = context.getPackageName();
-
-                if (apkURL == null) {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + appPackageName)));
-                } else {
+        public synchronized void UpdateAPK(String apkURL, String failAll, String failDownload) {
+            if (apkUpdateRunning) return;
+            apkUpdateRunning = true;
+            runOnUiThread(() -> {
+                try {
+                    final Context context = getApplicationContext();
+                    if (apkURL == null) {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + context.getPackageName())));
+                        finishAPKUpdate(null);
+                        return;
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
+                        finishAPKUpdate("Allow Smarter Purple TV to install apps, then select Update again.");
+                        Intent permission = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
+                        try {
+                            startActivity(permission);
+                        } catch (Exception unsupported) {
+                            startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS));
+                        }
+                        return;
+                    }
                     DataThreadPool.execute(() -> {
-                        final String file = Tools.DownloadAPK(apkURL, context);
-
-                        if (file != null) {
-                            Tools.installPackage(context, file);
-                        } else {
-                            runOnUiThread(() -> Toast.makeText(mWebViewContext, failDownload, Toast.LENGTH_LONG).show());
+                        try {
+                            Log.i(TAG, "APK update: downloading");
+                            final String file = Tools.DownloadAPK(apkURL, context);
+                            runOnUiThread(() -> {
+                                if (file == null) {
+                                    Log.w(TAG, "APK update: download failed");
+                                    finishAPKUpdate(failDownload);
+                                } else {
+                                    boolean launched = Tools.installPackage(PlayerActivity.this, file);
+                                    Log.i(TAG, "APK update: installer launched=" + launched);
+                                    finishAPKUpdate(launched ? null : failAll);
+                                }
+                            });
+                        } catch (Exception e) {
+                            Tools.recordException(TAG, "UpdateAPK worker ", e);
+                            finishAPKUpdate(failAll);
                         }
                     });
+                } catch (Exception e) {
+                    Tools.recordException(TAG, "UpdateAPK Exception ", e);
+                    finishAPKUpdate(failAll);
                 }
-            } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(mWebViewContext, failAll, Toast.LENGTH_LONG).show());
-
-                Tools.recordException(TAG, "UpdateAPK Exception ", e);
-            }
+            });
         }
     }
 

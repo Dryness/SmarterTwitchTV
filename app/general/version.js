@@ -21,11 +21,19 @@
 //Spacing for release maker not trow errors from jshint
 var version = {
     VersionBase: '3.0',
-    publishVersionCode: 388, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/388/SmarterPurpleTV_3_0_388.apk',
+    publishVersionCode: 389, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/389/SmarterPurpleTV_3_0_389.apk',
     WebVersion: 'October 10 2026',
-    WebTag: 747, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 748, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 10 2026 (APK 389)',
+            changes: [
+                'App updates: fixed GitHub APK installation being rejected by Android because the install permission was missing',
+                'App updates: open the install permission settings when needed, clear loading after download failure or installer handoff, and prevent duplicate downloads',
+                'Update checks: clear outdated update warnings when the installed app is current; add a loading timeout for older APKs'
+            ]
+        },
         {
             title: 'October 10 2026 (APK 388)',
             changes: [
