@@ -852,7 +852,8 @@
         STR_PHONE_CHAT_CLOSE,
         STR_PHONE_CHAT_FAIL,
         STR_PHONE_CHAT_LOCAL_FAIL,
-        STR_PHONE_CHAT_FOLLOWS;
+        STR_PHONE_CHAT_FOLLOWS,
+        STR_PHONE_CHAT_SHORTCUT;
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -1114,6 +1115,9 @@
             STR_DIV_MIDLE_LEFT +
             STR_DOT +
             STR_CONTROLS_PLAY_7 +
+            STR_BR +
+            STR_DOT +
+            STR_PHONE_CHAT_SHORTCUT +
             STR_BR +
             STR_DOT +
             STR_CONTROLS_PLAY_14 +
@@ -2371,6 +2375,10 @@
         STR_PHONE_CHAT_RESCAN = 'After changing streams, scan again.';
         STR_PHONE_CHAT_CLOSE = 'Close';
         STR_PHONE_CHAT_FAIL = 'Could not generate the QR code';
+        STR_PHONE_CHAT_LOCAL_FAIL =
+            'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
+        STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';
+        STR_PHONE_CHAT_SHORTCUT = 'Phone chat QR: press 6 during a live stream to show or hide it.';
 
         STR_BACKUP_ENABLE = 'Backup enable';
         STR_BACKUP_ENABLE_SUMMARY = 'If set to YES the app will keep a backup of all user info ' + STR_BACKUP_USER_INFO;
@@ -2379,10 +2387,6 @@
         STR_BACKUP_SYNC_ENABLE_SUMMARY =
             "Enabling this will add a slight delay to the application's startup process, and is unnecessary if you are using the app in a single device. The app will sync all enabled options below between this device and others using the same Google Drive account. To switch devices and continue watching seamlessly, minimize the app on the current device by pressing the Home key. Then, make sure the app is fully closed on the other device before opening it.";
     }
-
-    STR_PHONE_CHAT_LOCAL_FAIL =
-        'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
-    STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -8279,8 +8283,14 @@
         publishVersionCode: 386, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/386/SmarterPurpleTV_3_0_386.apk',
         WebVersion: 'October 10 2026',
-        WebTag: 744, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebTag: 745, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 10 2026',
+                changes: [
+                    'Chat on phone: press 6 on the remote during a live stream to show the pairing QR, then press 6 again or Back to hide it; no new APK is needed if APK 386 is installed'
+                ]
+            },
             {
                 title: 'October 10 2026 (APK 386)',
                 changes: [
@@ -22285,6 +22295,25 @@
         }
     }
 
+    function PhoneChat_Toggle(e) {
+        e.preventDefault();
+        //A held number key must not repeatedly open and close the dialog.
+        if (e.repeat) return;
+
+        if (PhoneChat_IsVisible) PhoneChat_Hide();
+        else if (
+            Play_isOn &&
+            !PlayVod_isOn &&
+            !PlayClip_isOn &&
+            !Play_MultiEnable &&
+            !Play_isEndDialogVisible() &&
+            !Play_MultiDialogVisible() &&
+            !UserLiveFeed_isPreviewShowing()
+        ) {
+            PhoneChat_Show();
+        }
+    }
+
     function PhoneChat_Show() {
         var url = PhoneChat_BuildUrl(),
             canvas;
@@ -22317,7 +22346,7 @@
         Main_textContent('phone_chat_instruction', STR_PHONE_CHAT_INSTRUCTION);
         Main_textContent('phone_chat_rescan', Main_IsOn_OSInterface ? STR_PHONE_CHAT_FOLLOWS : STR_PHONE_CHAT_RESCAN);
         Main_textContent('phone_chat_url', url);
-        Main_textContent('phone_chat_close', STR_PHONE_CHAT_CLOSE);
+        Main_textContent('phone_chat_close', STR_PHONE_CHAT_CLOSE + ' (6)');
 
         canvas = Main_getElementById('phone_chat_qr');
         PhoneChat_QrCanvas = canvas;
@@ -22378,6 +22407,10 @@
         e.stopPropagation();
 
         switch (e.keyCode) {
+            case KEY_NUMPAD_6:
+            case KEY_6:
+                PhoneChat_Toggle(e);
+                break;
             case KEY_ENTER:
                 //The only focused action: Close
                 PhoneChat_Hide();
@@ -27763,6 +27796,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             case KEY_4:
                 Play_controls[Play_controlsChatSend].enterKey();
                 break;
+            case KEY_NUMPAD_6:
+            case KEY_6:
+                PhoneChat_Toggle(e);
+                break;
             case KEY_NUMPAD_0:
             case KEY_0:
             case KEY_U:
@@ -28797,7 +28834,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             ShowInStay: false,
             icons: 'globe',
             offsetY: -4,
-            string: STR_PHONE_CHAT_OPEN,
+            string: STR_PHONE_CHAT_OPEN + ' (6)',
             values: null,
             defaultValue: null,
             enterKey: function () {

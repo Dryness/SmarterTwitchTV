@@ -261,6 +261,9 @@ function DefaultLang() {
         STR_CONTROLS_PLAY_7 +
         STR_BR +
         STR_DOT +
+        STR_PHONE_CHAT_SHORTCUT +
+        STR_BR +
+        STR_DOT +
         STR_CONTROLS_PLAY_14 +
         STR_BR +
         STR_DOT +

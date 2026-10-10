@@ -1956,6 +1956,10 @@ function Play_handleKeyDown(e) {
         case KEY_4:
             Play_controls[Play_controlsChatSend].enterKey();
             break;
+        case KEY_NUMPAD_6:
+        case KEY_6:
+            PhoneChat_Toggle(e);
+            break;
         case KEY_NUMPAD_0:
         case KEY_0:
         case KEY_U:
@@ -2990,7 +2994,7 @@ function Play_MakeControls() {
         ShowInStay: false,
         icons: 'globe',
         offsetY: -4,
-        string: STR_PHONE_CHAT_OPEN,
+        string: STR_PHONE_CHAT_OPEN + ' (6)',
         values: null,
         defaultValue: null,
         enterKey: function () {

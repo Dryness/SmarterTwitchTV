@@ -973,6 +973,10 @@ function en_USLang() {
     STR_PHONE_CHAT_RESCAN = 'After changing streams, scan again.';
     STR_PHONE_CHAT_CLOSE = 'Close';
     STR_PHONE_CHAT_FAIL = 'Could not generate the QR code';
+    STR_PHONE_CHAT_LOCAL_FAIL =
+        'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
+    STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';
+    STR_PHONE_CHAT_SHORTCUT = 'Phone chat QR: press 6 during a live stream to show or hide it.';
 
     STR_BACKUP_ENABLE = 'Backup enable';
     STR_BACKUP_ENABLE_SUMMARY = 'If set to YES the app will keep a backup of all user info ' + STR_BACKUP_USER_INFO;
@@ -981,6 +985,3 @@ function en_USLang() {
     STR_BACKUP_SYNC_ENABLE_SUMMARY =
         "Enabling this will add a slight delay to the application's startup process, and is unnecessary if you are using the app in a single device. The app will sync all enabled options below between this device and others using the same Google Drive account. To switch devices and continue watching seamlessly, minimize the app on the current device by pressing the Home key. Then, make sure the app is fully closed on the other device before opening it.";
 }
-
-    STR_PHONE_CHAT_LOCAL_FAIL = 'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
-    STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';

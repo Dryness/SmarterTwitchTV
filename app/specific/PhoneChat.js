@@ -119,6 +119,25 @@ function PhoneChat_DrawQr(canvas, url) {
     }
 }
 
+function PhoneChat_Toggle(e) {
+    e.preventDefault();
+    //A held number key must not repeatedly open and close the dialog.
+    if (e.repeat) return;
+
+    if (PhoneChat_IsVisible) PhoneChat_Hide();
+    else if (
+        Play_isOn &&
+        !PlayVod_isOn &&
+        !PlayClip_isOn &&
+        !Play_MultiEnable &&
+        !Play_isEndDialogVisible() &&
+        !Play_MultiDialogVisible() &&
+        !UserLiveFeed_isPreviewShowing()
+    ) {
+        PhoneChat_Show();
+    }
+}
+
 function PhoneChat_Show() {
     var url = PhoneChat_BuildUrl(),
         canvas;
@@ -151,7 +170,7 @@ function PhoneChat_Show() {
     Main_textContent('phone_chat_instruction', STR_PHONE_CHAT_INSTRUCTION);
     Main_textContent('phone_chat_rescan', Main_IsOn_OSInterface ? STR_PHONE_CHAT_FOLLOWS : STR_PHONE_CHAT_RESCAN);
     Main_textContent('phone_chat_url', url);
-    Main_textContent('phone_chat_close', STR_PHONE_CHAT_CLOSE);
+    Main_textContent('phone_chat_close', STR_PHONE_CHAT_CLOSE + ' (6)');
 
     canvas = Main_getElementById('phone_chat_qr');
     PhoneChat_QrCanvas = canvas;
@@ -212,6 +231,10 @@ function PhoneChat_HandleKeyDown(e) {
     e.stopPropagation();
 
     switch (e.keyCode) {
+        case KEY_NUMPAD_6:
+        case KEY_6:
+            PhoneChat_Toggle(e);
+            break;
         case KEY_ENTER:
             //The only focused action: Close
             PhoneChat_Hide();

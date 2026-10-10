@@ -10,7 +10,9 @@ OAuth callback is needed for the phone page.
 2. Connect the phone and TV to the same local network. An Ethernet-connected TV
    is supported when the phone's Wi-Fi reaches that network. Guest networks with
    client isolation cannot connect the devices.
-3. Play a primary live stream and choose **Chat on phone** in the player controls.
+3. Play a primary live stream and press **6** on the remote, or choose
+   **Chat on phone** in the player controls. Press **6** again or **Back** to close
+   the QR. This shortcut is available from web build **745** with APK **386**.
 4. Scan the QR. It opens an address like `http://192.168.1.42:8978/chat/`.
 5. Select **Connect** on the phone. Authorize in the Twitch tab and return to chat.
    The page also provides the activation link and user code if the browser blocks

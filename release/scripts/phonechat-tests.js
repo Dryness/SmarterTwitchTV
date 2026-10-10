@@ -163,6 +163,128 @@ function loadSandbox(overrides) {
     eq(sandbox.PhoneChat_BuildUrl(), null, 'TV LAN: missing native server never falls back silently');
 }
 
+/* TV remote shortcut: exercise actual player dispatch and QR dialog ownership. */
+{
+    let panelShowing = false;
+    let sceneVisible = true;
+    let endVisible = false;
+    let multiDialogVisible = false;
+    let previewVisible = false;
+    let renders = 0;
+    const shown = new Set();
+    const listeners = new Set();
+    const texts = {};
+    const canvas = {width: 300, height: 300, getContext: () => ({clearRect: () => {}})};
+    const sandbox = loadSandbox({
+        Main_IsOn_OSInterface: false,
+        Play_isOn: true,
+        PlayVod_isOn: false,
+        PlayClip_isOn: false,
+        Play_MultiEnable: false,
+        PlayExtra_PicturePicture: false,
+        Play_data: {data: ['id', 'Display name', 0, 0, 0, 0, 'TwitchDev']},
+        Play_PanelCounter: 2,
+        Play_controls: {2: {visible: true}},
+        Main_isScene2DocVisible: () => sceneVisible,
+        Play_screeOn: () => {},
+        Play_isEndDialogVisible: () => endVisible,
+        Play_MultiDialogVisible: () => multiDialogVisible,
+        UserLiveFeed_isPreviewShowing: () => previewVisible,
+        Play_isPanelShowing: () => panelShowing,
+        Play_clearHidePanel: () => {},
+        Play_hidePanel: () => {
+            panelShowing = false;
+            sandbox.Play_PanelCounter = 0;
+        },
+        Play_ForceShowPannel: () => {
+            panelShowing = true;
+        },
+        Play_IconsAddFocus: () => {},
+        Play_ResetPanel: () => {},
+        Main_removeEventListener: (type, fn) => listeners.delete(type + ':' + fn.name),
+        Main_addEventListener: (type, fn) => listeners.add(type + ':' + fn.name),
+        Main_PlayHandleKeyDown: () => listeners.add('keydown:Play_handleKeyDown'),
+        Main_textContent: (id, text) => {
+            texts[id] = text;
+        },
+        Main_getElementById: () => canvas,
+        Main_ShowElement: id => shown.add(id),
+        Main_HideElement: id => shown.delete(id),
+        Main_isElementShowing: id => shown.has(id),
+        Main_AddClass: () => {},
+        Main_RemoveClass: () => {},
+        qrcode: () => {},
+        STR_PHONE_CHAT_OPEN: 'Chat on phone',
+        STR_PHONE_CHAT_INSTRUCTION: 'Scan',
+        STR_PHONE_CHAT_RESCAN: 'Rescan',
+        STR_PHONE_CHAT_CLOSE: 'Close'
+    });
+    vm.runInContext(fs.readFileSync(path.join(root, 'app/general/TVKeyValue.js'), 'utf8'), sandbox);
+    vm.runInContext(fs.readFileSync(path.join(root, 'app/specific/PhoneChat.js'), 'utf8'), sandbox);
+    const player = fs.readFileSync(path.join(root, 'app/specific/PlayEtc.js'), 'utf8');
+    vm.runInContext(player.slice(player.indexOf('function Play_handleKeyDown(e)'), player.indexOf('\nvar Play_controls =')), sandbox);
+    sandbox.PhoneChat_DrawQr = () => {
+        renders++;
+    };
+    listeners.add('keydown:Play_handleKeyDown');
+    const event = (keyCode, repeat = false) => ({keyCode, repeat, preventDefault: () => {}, stopPropagation: () => {}});
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+    ok(shown.has('dialog_phone_chat'), 'TV shortcut: 6 opens QR without opening player panel');
+    eq(renders, 1, 'TV shortcut: one key press generates one QR');
+    ok(
+        !listeners.has('keydown:Play_handleKeyDown') && listeners.has('keydown:PhoneChat_HandleKeyDown'),
+        'TV shortcut: QR takes remote input ownership'
+    );
+    eq(texts.phone_chat_close, 'Close (6)', 'TV shortcut: Close advertises the remote shortcut');
+    sandbox.PhoneChat_HandleKeyDown(event(sandbox.KEY_6, true));
+    ok(shown.has('dialog_phone_chat'), 'TV shortcut: held 6 does not immediately close QR');
+    sandbox.PhoneChat_HandleKeyDown(event(sandbox.KEY_6));
+    ok(!shown.has('dialog_phone_chat'), 'TV shortcut: second press closes QR');
+    ok(
+        listeners.has('keydown:Play_handleKeyDown') && !listeners.has('keydown:PhoneChat_HandleKeyDown'),
+        'TV shortcut: closing restores player input'
+    );
+    eq(panelShowing, false, 'TV shortcut: closing leaves previously hidden controls hidden');
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6, true));
+    eq(renders, 1, 'TV shortcut: key repeat after closing does not reopen QR');
+    panelShowing = true;
+    sandbox.Play_PanelCounter = 2;
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_NUMPAD_6));
+    ok(shown.has('dialog_phone_chat'), 'TV shortcut: numpad 6 opens QR over player controls');
+    sandbox.PhoneChat_HandleKeyDown(event(sandbox.KEY_NUMPAD_6));
+    ok(panelShowing && sandbox.Play_PanelCounter === 2, 'TV shortcut: numpad 6 restores original control focus');
+    sandbox.PlayExtra_PicturePicture = true;
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+    ok(shown.has('dialog_phone_chat'), 'TV shortcut: picture-in-picture supports primary-channel QR');
+    sandbox.PhoneChat_HandleKeyDown(event(sandbox.KEY_RETURN));
+    ok(!shown.has('dialog_phone_chat'), 'TV shortcut: Back still closes QR');
+    for (const flag of ['PlayVod_isOn', 'PlayClip_isOn', 'Play_MultiEnable']) {
+        sandbox[flag] = true;
+        sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+        ok(!shown.has('dialog_phone_chat'), 'TV shortcut: excluded playback mode ' + flag);
+        sandbox[flag] = false;
+    }
+    endVisible = true;
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+    ok(!shown.has('dialog_phone_chat'), 'TV shortcut: does not interrupt playback-end dialog');
+    endVisible = false;
+    multiDialogVisible = true;
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+    ok(!shown.has('dialog_phone_chat'), 'TV shortcut: does not interrupt multistream dialog');
+    multiDialogVisible = false;
+    previewVisible = true;
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+    ok(!shown.has('dialog_phone_chat'), 'TV shortcut: does not interrupt preview feed');
+    previewVisible = false;
+    sceneVisible = false;
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+    ok(!shown.has('dialog_phone_chat'), 'TV shortcut: ignored outside player scene');
+    sceneVisible = true;
+    sandbox.Play_isOn = false;
+    sandbox.Play_handleKeyDown(event(sandbox.KEY_6));
+    ok(!shown.has('dialog_phone_chat'), 'TV shortcut: ignored after player exit');
+}
+
 /* ---------- 1b. QR drawing (real vendored generator) ---------- */
 
 {

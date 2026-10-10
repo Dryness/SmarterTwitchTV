@@ -24,8 +24,14 @@ var version = {
     publishVersionCode: 386, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/386/SmarterPurpleTV_3_0_386.apk',
     WebVersion: 'October 10 2026',
-    WebTag: 744, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 745, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 10 2026',
+            changes: [
+                'Chat on phone: press 6 on the remote during a live stream to show the pairing QR, then press 6 again or Back to hide it; no new APK is needed if APK 386 is installed'
+            ]
+        },
         {
             title: 'October 10 2026 (APK 386)',
             changes: [
