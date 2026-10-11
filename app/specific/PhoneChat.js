@@ -37,7 +37,9 @@ var PhoneChat_PublishTimer = null;
 
 function PhoneChat_PublishChannel() {
     var eligible = Play_isOn && !PlayVod_isOn && !PlayClip_isOn && !Play_MultiEnable;
-    OSInterface_SetPhoneChatChannel(eligible ? PhoneChat_GetChannel() : null);
+    var channel = eligible ? PhoneChat_GetChannel() : null;
+    OSInterface_SetPhoneChatChannel(channel);
+    PhoneChat_Collect(channel);
 }
 
 //Twitch logins are 3-25 chars of letters, digits and underscore (case insensitive)
@@ -259,4 +261,99 @@ function PhoneChat_HandleKeyDown(e) {
 function PhoneChat_Cleanup() {
     PhoneChat_Hide(true);
     if (PhoneChat_PublishTimer) OSInterface_SetPhoneChatChannel('');
+}
+
+//Independent anonymous connection: continues collecting when TV chat is hidden.
+var PhoneChat_HistorySocket = null;
+var PhoneChat_HistoryChannel = null;
+var PhoneChat_HistoryRetryAt = 0;
+
+function PhoneChat_Collect(channel) {
+    if (channel !== PhoneChat_HistoryChannel) {
+        if (PhoneChat_HistorySocket) PhoneChat_HistorySocket.close();
+        PhoneChat_HistorySocket = null;
+        PhoneChat_HistoryChannel = channel;
+        PhoneChat_HistoryRetryAt = 0;
+    }
+    if (!channel || PhoneChat_HistorySocket || Date.now() < PhoneChat_HistoryRetryAt) return;
+    var socket = new WebSocket('wss://irc-ws.chat.twitch.tv:443', 'irc'),
+        buffer = '';
+    PhoneChat_HistorySocket = socket;
+    socket.onopen = function () {
+        if (socket !== PhoneChat_HistorySocket) return;
+        socket.send('CAP REQ :twitch.tv/commands twitch.tv/tags');
+        socket.send('PASS SCHMOOPIIE');
+        socket.send('NICK justinfan' + Math.floor(Math.random() * 1000000));
+        socket.send('JOIN #' + channel);
+    };
+    socket.onmessage = function (event) {
+        if (socket !== PhoneChat_HistorySocket) return;
+        buffer += event.data;
+        var lines = buffer.split('\r\n'),
+            i,
+            message,
+            tags,
+            login,
+            badges,
+            bots,
+            payload;
+        buffer = lines.pop();
+        if (buffer.length > 8192) {
+            buffer = '';
+            socket.close();
+            return;
+        }
+        for (i = 0; i < lines.length; i++) {
+            message = window.parseIRC(lines[i]);
+            tags = message.tags || {};
+            if (message.command === 'PING') {
+                socket.send('PONG :' + message.params[0]);
+                continue;
+            }
+            if (message.command === 'RECONNECT') {
+                socket.close();
+                continue;
+            }
+            payload = null;
+            if (message.command === 'PRIVMSG' && message.params[0] === '#' + channel) {
+                login = String(message.prefix || '')
+                    .split('!')[0]
+                    .toLowerCase();
+                badges = String(tags.badges || '').split(',');
+                bots = ['nightbot', 'streamelements', 'wizebot', 'wisebot', 'moobot', 'fossabot'];
+                if (
+                    bots.indexOf(login) !== -1 ||
+                    !tags.id ||
+                    (badges.indexOf('partner/1') === -1 &&
+                        badges.indexOf('verified/1') === -1 &&
+                        badges.indexOf('vip/1') === -1 &&
+                        badges.indexOf('moderator/1') === -1)
+                )
+                    continue;
+                payload = {
+                    type: 'message',
+                    message: {
+                        id: tags.id,
+                        login: login,
+                        displayName: tags['display-name'] || login,
+                        text: message.params[1],
+                        badges: tags.badges,
+                        color: tags.color,
+                        emotes: tags.emotes,
+                        tags: {'user-id': tags['user-id']}
+                    }
+                };
+            } else if (message.command === 'CLEARMSG') payload = {type: 'delete', id: tags['target-msg-id']};
+            else if (message.command === 'CLEARCHAT') payload = {type: 'clear', userId: tags['target-user-id'] || ''};
+            if (payload) OSInterface_AddPhoneChatHistory(channel, JSON.stringify(payload));
+        }
+    };
+    socket.onerror = function () {
+        socket.close();
+    };
+    socket.onclose = function () {
+        if (socket !== PhoneChat_HistorySocket) return;
+        PhoneChat_HistorySocket = null;
+        PhoneChat_HistoryRetryAt = Date.now() + 5000;
+    };
 }

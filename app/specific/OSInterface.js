@@ -1170,3 +1170,12 @@ function OSInterface_SetPhoneChatChannel(login) {
         //Older APK: the QR action explains the required upgrade.
     }
 }
+
+//Only public chat content, never phone or TV account credentials.
+function OSInterface_AddPhoneChatHistory(channel, payload) {
+    try {
+        if (Main_IsOn_OSInterface) Android.AddPhoneChatHistory(channel, payload);
+    } catch (ignore) {
+        /* Older APK. */
+    }
+}

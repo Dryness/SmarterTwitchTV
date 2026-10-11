@@ -8280,11 +8280,20 @@
     //Spacing for release maker not trow errors from jshint
     var version = {
         VersionBase: '3.0',
-        publishVersionCode: 389, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/389/SmarterPurpleTV_3_0_389.apk',
-        WebVersion: 'October 10 2026',
-        WebTag: 748, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        publishVersionCode: 390, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/390/SmarterPurpleTV_3_0_390.apk',
+        WebVersion: 'October 11 2026',
+        WebTag: 749, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 11 2026 (APK 390)',
+                changes: [
+                    'Phone chat: remember Twitch login across tabs and refresh expired device-flow credentials automatically',
+                    'Phone chat: retain twenty minutes of Partner, VIP and moderator messages independently of ordinary chat traffic',
+                    'TV chat history: after opening the pairing QR, the TV anonymously collects filtered messages while the phone is locked and sends missed messages and moderation events when it returns',
+                    'History is local to the current live channel and resets when the channel changes or the TV app restarts'
+                ]
+            },
             {
                 title: 'October 10 2026 (APK 389)',
                 changes: [
@@ -21944,6 +21953,15 @@
             //Older APK: the QR action explains the required upgrade.
         }
     }
+
+    //Only public chat content, never phone or TV account credentials.
+    function OSInterface_AddPhoneChatHistory(channel, payload) {
+        try {
+            if (Main_IsOn_OSInterface) Android.AddPhoneChatHistory(channel, payload);
+        } catch (ignore) {
+            /* Older APK. */
+        }
+    }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -22262,7 +22280,9 @@
 
     function PhoneChat_PublishChannel() {
         var eligible = Play_isOn && !PlayVod_isOn && !PlayClip_isOn && !Play_MultiEnable;
-        OSInterface_SetPhoneChatChannel(eligible ? PhoneChat_GetChannel() : null);
+        var channel = eligible ? PhoneChat_GetChannel() : null;
+        OSInterface_SetPhoneChatChannel(channel);
+        PhoneChat_Collect(channel);
     }
 
     //Twitch logins are 3-25 chars of letters, digits and underscore (case insensitive)
@@ -22484,6 +22504,101 @@
     function PhoneChat_Cleanup() {
         PhoneChat_Hide(true);
         if (PhoneChat_PublishTimer) OSInterface_SetPhoneChatChannel('');
+    }
+
+    //Independent anonymous connection: continues collecting when TV chat is hidden.
+    var PhoneChat_HistorySocket = null;
+    var PhoneChat_HistoryChannel = null;
+    var PhoneChat_HistoryRetryAt = 0;
+
+    function PhoneChat_Collect(channel) {
+        if (channel !== PhoneChat_HistoryChannel) {
+            if (PhoneChat_HistorySocket) PhoneChat_HistorySocket.close();
+            PhoneChat_HistorySocket = null;
+            PhoneChat_HistoryChannel = channel;
+            PhoneChat_HistoryRetryAt = 0;
+        }
+        if (!channel || PhoneChat_HistorySocket || Date.now() < PhoneChat_HistoryRetryAt) return;
+        var socket = new WebSocket('wss://irc-ws.chat.twitch.tv:443', 'irc'),
+            buffer = '';
+        PhoneChat_HistorySocket = socket;
+        socket.onopen = function () {
+            if (socket !== PhoneChat_HistorySocket) return;
+            socket.send('CAP REQ :twitch.tv/commands twitch.tv/tags');
+            socket.send('PASS SCHMOOPIIE');
+            socket.send('NICK justinfan' + Math.floor(Math.random() * 1000000));
+            socket.send('JOIN #' + channel);
+        };
+        socket.onmessage = function (event) {
+            if (socket !== PhoneChat_HistorySocket) return;
+            buffer += event.data;
+            var lines = buffer.split('\r\n'),
+                i,
+                message,
+                tags,
+                login,
+                badges,
+                bots,
+                payload;
+            buffer = lines.pop();
+            if (buffer.length > 8192) {
+                buffer = '';
+                socket.close();
+                return;
+            }
+            for (i = 0; i < lines.length; i++) {
+                message = window.parseIRC(lines[i]);
+                tags = message.tags || {};
+                if (message.command === 'PING') {
+                    socket.send('PONG :' + message.params[0]);
+                    continue;
+                }
+                if (message.command === 'RECONNECT') {
+                    socket.close();
+                    continue;
+                }
+                payload = null;
+                if (message.command === 'PRIVMSG' && message.params[0] === '#' + channel) {
+                    login = String(message.prefix || '')
+                        .split('!')[0]
+                        .toLowerCase();
+                    badges = String(tags.badges || '').split(',');
+                    bots = ['nightbot', 'streamelements', 'wizebot', 'wisebot', 'moobot', 'fossabot'];
+                    if (
+                        bots.indexOf(login) !== -1 ||
+                        !tags.id ||
+                        (badges.indexOf('partner/1') === -1 &&
+                            badges.indexOf('verified/1') === -1 &&
+                            badges.indexOf('vip/1') === -1 &&
+                            badges.indexOf('moderator/1') === -1)
+                    )
+                        continue;
+                    payload = {
+                        type: 'message',
+                        message: {
+                            id: tags.id,
+                            login: login,
+                            displayName: tags['display-name'] || login,
+                            text: message.params[1],
+                            badges: tags.badges,
+                            color: tags.color,
+                            emotes: tags.emotes,
+                            tags: {'user-id': tags['user-id']}
+                        }
+                    };
+                } else if (message.command === 'CLEARMSG') payload = {type: 'delete', id: tags['target-msg-id']};
+                else if (message.command === 'CLEARCHAT') payload = {type: 'clear', userId: tags['target-user-id'] || ''};
+                if (payload) OSInterface_AddPhoneChatHistory(channel, JSON.stringify(payload));
+            }
+        };
+        socket.onerror = function () {
+            socket.close();
+        };
+        socket.onclose = function () {
+            if (socket !== PhoneChat_HistorySocket) return;
+            PhoneChat_HistorySocket = null;
+            PhoneChat_HistoryRetryAt = Date.now() + 5000;
+        };
     }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>

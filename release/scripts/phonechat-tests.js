@@ -67,6 +67,7 @@ function loadSandbox(overrides) {
         parseInt: parseInt,
         isNaN: isNaN,
         sessionStorage: makeStorage(),
+        localStorage: makeStorage(),
         crypto: require('crypto').webcrypto,
         Uint8Array: Uint8Array,
         fetch: () => Promise.reject(new Error('offline-stub')),
@@ -983,6 +984,12 @@ function makeDom() {
             this.children.push(node);
             return node;
         }
+        insertBefore(node, before) {
+            if (node.parentNode) node.parentNode.removeChild(node);
+            node.parentNode = this;
+            this.children.splice(this.children.indexOf(before), 0, node);
+            return node;
+        }
         removeChild(node) {
             const i = this.children.indexOf(node);
             if (i > -1) {
@@ -1107,6 +1114,7 @@ function loadAppSandbox(setup) {
         parseInt: parseInt,
         isNaN: isNaN,
         sessionStorage: makeStorage(),
+        localStorage: makeStorage(),
         crypto: require('crypto').webcrypto,
         Uint8Array: Uint8Array,
         fetch: () => Promise.reject(new Error('no fetch router')),
@@ -2143,10 +2151,123 @@ asyncSections.push(async () => {
     eq(ids.get('pc-chat-priority').getAttribute('tabindex'), '-1', 'filter: inactive tab outside tab sequence');
     eq(feed.getAttribute('aria-labelledby'), 'pc-chat-all', 'filter: panel follows selected accessible label');
     for (let i = 0; i < 350; i++) receive('bounded' + i, i % 2 ? 'vip/1' : '');
-    ok(feed.children.length <= 320, 'filter: toggling does not remove bounded-history pruning');
+    ok(feed.children.filter(row => row.getAttribute('data-priority') !== 'true').length <= 320, 'filter: ordinary history remains bounded');
+    eq(feed.children.filter(row => row.getAttribute('data-priority') === 'true').length, 175, 'filter: all qualifying recent messages retained');
+    for (let i = 0; i < 350; i++) receive('ordinaryburst' + i, '');
+    eq(
+        feed.children.filter(row => row.getAttribute('data-priority') === 'true').length,
+        175,
+        'history: ordinary burst cannot evict qualifying history'
+    );
+    for (const row of feed.children) row.setAttribute('data-time', String(Date.now() - 21 * 60 * 1000));
+    receive('prunetrigger', '');
+    eq(feed.children.filter(row => row.getAttribute('data-priority') === 'true').length, 0, 'history: qualifying rows expire after twenty minutes');
     click('pc-chat-priority');
     app.App().disconnect();
     eq(ids.get('pc-chat-empty').hidden, false, 'filter: disconnect clears feed and updates empty state');
+});
+
+asyncSections.push(async () => {
+    const remembered = makeStorage();
+    remembered.setItem(
+        'sptv_phone_chat_session',
+        JSON.stringify({
+            token: 'expired',
+            refreshToken: 'refresh-old',
+            login: 'myuser',
+            userId: 'u1',
+            scopes: ['chat:read', 'chat:edit', 'user:read:emotes'],
+            expiresAt: Date.now() - 1000
+        })
+    );
+    const setup = sandbox => {
+        sandbox.localStorage = remembered;
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.location.search = '?channel=twitchdev';
+        sandbox.__fetchRouter = (url, options) => {
+            if (url.indexOf('/oauth2/token') > -1)
+                return jsonResponse(200, {access_token: 'renewed', refresh_token: 'refresh-new', expires_in: 3600});
+            return fullSuccessRouter(url, options);
+        };
+    };
+    const app = loadAppSandbox(setup);
+    await flushAsync();
+    const refresh = app.fetchCalls.filter(c => c.url.indexOf('/oauth2/token') > -1);
+    eq(refresh.length, 1, 'remembered login: expired credential refreshes once');
+    ok(refresh[0].options.body.indexOf('refresh_token=refresh-old') !== -1, 'remembered login: uses stored refresh token');
+    ok(refresh[0].options.body.indexOf('client_secret') === -1, 'remembered login: public device refresh has no client secret');
+    const saved = JSON.parse(remembered.getItem('sptv_phone_chat_session'));
+    eq(saved.token, 'renewed', 'remembered login: persists new access token');
+    eq(saved.refreshToken, 'refresh-new', 'remembered login: rotates single-use refresh token');
+    eq(app.ws.length, 1, 'remembered login: chat starts without interactive sign-in');
+    const reopened = loadAppSandbox(setup);
+    await flushAsync();
+    eq(reopened.ws.length, 1, 'remembered login: fresh browser tab restores session');
+    eq(reopened.fetchCalls.filter(c => c.url.indexOf('/oauth2/token') > -1).length, 0, 'remembered login: valid saved token needs no refresh');
+    reopened.App().disconnect();
+    eq(remembered.getItem('sptv_phone_chat_session'), null, 'remembered login: explicit disconnect clears persistent credentials');
+    eq(reopened.sandbox.sessionStorage.getItem('sptv_phone_chat_session'), null, 'remembered login: disconnect also clears legacy session');
+    remembered.setItem(
+        'sptv_phone_chat_session',
+        JSON.stringify({token: 'expired', refreshToken: 'keep-refresh', login: 'myuser', userId: 'u1', expiresAt: 1})
+    );
+    const offline = loadAppSandbox(sandbox => {
+        setup(sandbox);
+        sandbox.__fetchRouter = () => Promise.reject(new Error('offline'));
+    });
+    await flushAsync();
+    eq(
+        JSON.parse(remembered.getItem('sptv_phone_chat_session')).refreshToken,
+        'keep-refresh',
+        'remembered login: network failure preserves refresh credential'
+    );
+    eq(remembered.getItem('sptv_phone_refresh_lock'), null, 'remembered login: failed refresh releases cross-tab lock');
+});
+
+asyncSections.push(async () => {
+    let events = [
+        {
+            seq: 1,
+            time: Date.now() - 10 * 60 * 1000,
+            type: 'message',
+            message: {id: 'archive1', login: 'vipuser', badges: 'vip/1', text: 'before locking', tags: {'user-id': 'vip-id'}}
+        }
+    ];
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://192.168.1.42:8978', pathname: '/chat/', hash: '#pair=' + 'a'.repeat(64), search: ''};
+        s.__fetchRouter = (url, options) =>
+            url === '/chat/state' ? jsonResponse(200, {channel: 'twitchdev', history: {now: Date.now(), events}}) : fullSuccessRouter(url, options);
+    });
+    await flushAsync();
+    const feed = app.ids.get('pc-messages');
+    ok(feed.textContent.includes('before locking'), 'TV history: restored qualifying messages without phone login');
+    app.sandbox.document.hidden = true;
+    app.dispatchWindow('pagehide');
+    events = events.concat({
+        seq: 2,
+        time: Date.now(),
+        type: 'message',
+        message: {id: 'archive2', login: 'moduser', badges: 'moderator/1', text: 'while phone locked', tags: {'user-id': 'mod-id'}}
+    });
+    app.sandbox.document.hidden = false;
+    app.dispatchWindow('pageshow');
+    await flushAsync();
+    ok(feed.textContent.includes('while phone locked'), 'TV history: resumes missed messages after phone returns');
+    eq(feed.querySelectorAll('[data-id="archive1"]').length, 1, 'TV history: repeated snapshots cannot duplicate rows');
+    events = events.concat({seq: 3, time: Date.now(), type: 'delete', id: 'archive1'});
+    app.fireTimers(2000);
+    await flushAsync();
+    eq(feed.querySelector('[data-id="archive1"]').textContent, 'message deleted', 'TV history: missed deletion applied');
+    events = events.concat({seq: 4, time: Date.now() + 1, type: 'clear', userId: 'mod-id'});
+    app.fireTimers(2000);
+    await flushAsync();
+    eq(feed.querySelector('[data-id="archive2"]'), null, 'TV history: missed targeted clear applied');
+    ok(
+        app.fetchCalls.filter(c => c.url === '/chat/state').some(c => c.options.headers['X-SPTV-History-After'] === '3'),
+        'TV history: poll carries cursor'
+    );
+    app.sandbox.SPTVPhoneChat.Local.stop();
 });
 
 (async () => {

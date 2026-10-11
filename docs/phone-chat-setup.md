@@ -26,16 +26,21 @@ The TV QR control remains limited to primary live and picture-in-picture playbac
 
 If SPTV closes, the phone loses its TV connection. Reopening the QR after a TV
 restart or address change creates a new pairing; scan it again. A phone-page
-reload retains pairing and login in the same tab. Closing the tab removes them.
-A session that expires requires signing in again; refresh tokens aren't stored.
+reload and closing/reopening tabs retain login in the same browser at the same
+TV address. Access and rotating refresh tokens stay in phone localStorage; sign-out
+clears them. Old sessions without a refresh token may need one new sign-in. Clearing
+browser data, private browsing, revoked/expired authorization, or changing the TV
+IP address can require signing in again. Storage-blocked browsers fall back to a
+tab session.
 
 ## Chat views (APK 388)
 
 Partner messages have the same subtle purple background as TV chat. **All chat**
 shows everyone; **Partners, VIPs & Mods** shows only messages carrying Twitch's
 Partner/verified, VIP or moderator badge. Badge artwork does not need to load for
-classification to work. Both tabs use the same bounded recent history; switching
-views preserves message deletions and timeouts. Your own submitted messages use
+classification to work. Ordinary chat stays bounded by message count; qualifying messages are retained
+for twenty minutes independently of ordinary traffic. Switching views preserves
+message deletions and timeouts. Your own submitted messages use
 Twitch's current USERSTATE badges.
 
 The filtered tab excludes exact, case-insensitive logins `nightbot`,
@@ -46,6 +51,18 @@ chat; connection and account warnings continue to appear above both views.
 
 These changes require APK 388 because the local phone page is bundled in the
 APK. After updating the TV, scan its QR again and reload the phone page.
+
+## Locked-phone history (APK 390)
+
+Opening the TV QR starts an independent anonymous IRC collector for the primary
+live channel, including when TV chat is hidden. The TV retains twenty minutes of
+qualifying messages and moderation events in memory. Paired phone polls download
+missed events using a cursor; returning from lock/suspension catches up without
+relying on background execution on the phone. Collection begins when the QR is
+opened, so earlier messages cannot be recovered from Twitch. Keep SPTV running
+and connected: app restarts/channel changes clear this history, and network gaps
+cannot be reconstructed. History is not uploaded to external storage. All chat
+continues to be read directly through the phone's own IRC connection.
 
 ## Owner setup: one public Twitch client ID
 
@@ -76,7 +93,7 @@ callback links/tests; a Public client cannot initiate implicit authorization.
 ## Data and lifecycle
 
 - The QR contains a random 256-bit pairing capability in its URL fragment. The
-  phone scrubs the fragment and retains the capability in tab session storage.
+  phone scrubs the fragment and retains the capability in phone browser storage.
 - Pairing authorizes only the current public channel state. No TV Twitch token,
   password, phone OAuth token, debug log, or arbitrary file is served.
 - The server binds to a private IPv4 address on Wi-Fi/Ethernet, port **8978**. It
@@ -95,7 +112,7 @@ callback links/tests; a Public client cannot initiate implicit authorization.
   from the phone to HTTPS/WSS services. Twitch credentials never cross the LAN
   connection to the TV. The phone page isn't an offline Twitch service.
 - Phone login remains separate from TV login. Tokens stay in phone memory and
-  tab session storage and are validated against client ID, identity and scopes.
+  phone browser storage and are validated against client ID, identity and scopes.
 
 ## Build and verify
 

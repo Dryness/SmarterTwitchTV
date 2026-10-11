@@ -43,6 +43,35 @@ public final class PhoneChatServer {
     private String channel = "";
     private long revision;
     private long updatedAt;
+    private long historySequence;
+    private final java.util.ArrayDeque<HistoryEvent> history = new java.util.ArrayDeque<>();
+    private static final long HISTORY_MILLIS = 20 * 60 * 1000;
+    private static class HistoryEvent {
+        final long time;
+        final String json;
+        final long sequence;
+        HistoryEvent(long time, long sequence, String json) { this.time = time; this.sequence = sequence; this.json = json; }
+    }
+    private void pruneHistory(long now) {
+        while (!history.isEmpty() && history.peekFirst().time < now - HISTORY_MILLIS) history.removeFirst();
+    }
+    public synchronized void addHistory(String login, String payload) {
+        if (destroyed || !channel.equals(login) || channel.isEmpty() || payload == null || payload.length() > 8192 ||
+            !payload.startsWith("{") || !payload.endsWith("}")) return;
+        long now = System.currentTimeMillis();
+        pruneHistory(now);
+        history.addLast(new HistoryEvent(now, historySequence + 1, "{\"seq\":" + (++historySequence) + ",\"time\":" + now + "," + payload.substring(1)));
+    }
+    private String historyJSON(long now, long after) {
+        pruneHistory(now);
+        StringBuilder out = new StringBuilder("{\"now\":" + now + ",\"events\":[");
+        for (HistoryEvent event : history) {
+            if (event.sequence <= after) continue;
+            if (out.charAt(out.length() - 1) != '[') out.append(',');
+            out.append(event.json);
+        }
+        return out.append("]}").toString();
+    }
 
     public PhoneChatServer(Context context) {
         this(path -> context.getAssets().open(path), () -> localAddress(context));
@@ -90,7 +119,7 @@ public final class PhoneChatServer {
     public synchronized void setChannel(String login) {
         if (destroyed) return;
         String next = login != null && login.matches("[a-z0-9_]{3,25}") ? login : "";
-        if (!channel.equals(next)) { channel = next; revision++; }
+        if (!channel.equals(next)) { channel = next; revision++; history.clear(); }
         updatedAt = System.currentTimeMillis();
     }
 
@@ -109,6 +138,7 @@ public final class PhoneChatServer {
         origin = "";
         pairing = "";
         channel = "";
+        history.clear();
         revision++;
     }
 
@@ -162,13 +192,15 @@ public final class PhoneChatServer {
         String path = request[1];
         if ("/chat/state".equals(path)) {
             String state;
+            long after = 0;
+            try { after = Math.max(0, Long.parseLong(headers.get("x-sptv-history-after"))); } catch (RuntimeException ignored) {}
             synchronized (this) {
                 if (pairing.isEmpty() || !pairing.equals(headers.get("x-sptv-pairing"))) {
                     respond(socket, 403, "text/plain", "Scan the TV QR again"); return;
                 }
                 // Expire a stale publisher (e.g. TV web page exited or crashed) without ending the phone login.
                 String active = System.currentTimeMillis() - updatedAt < 10000 ? channel : "";
-                state = "{\"channel\":\"" + active + "\",\"revision\":" + revision + "}";
+                state = "{\"channel\":\"" + active + "\",\"revision\":" + revision + ",\"history\":" + historyJSON(System.currentTimeMillis(), after) + "}";
             }
             respond(socket, 200, "application/json", state); return;
         }

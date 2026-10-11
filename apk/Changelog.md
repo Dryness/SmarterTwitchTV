@@ -9,6 +9,14 @@ The App is divided in two part, **Apk** and **Web** you can check it version in 
 
 The app has a building update check function, so whenever there is a update a red text will show up bellow the main pages clock, also a short warning will pop on the screen let you know if is a **Apk** or **Web** update.
 
+October 11 2026 (3.0.390)
+==============
+
+* Phone chat remembers Twitch login on the same browser and TV address, with automatic device-flow token refresh.
+* Partner, VIP and moderator messages remain for twenty minutes rather than being evicted by ordinary chat traffic.
+* Opening the pairing QR starts a separate anonymous TV chat collector. Missed qualifying messages and deletions are synchronized when the phone returns from being locked.
+* History stays on the TV, covers the current live channel and resets on channel changes or app restart. Collection requires an active TV/network connection.
+
 October 10 2026 (3.0.389)
 ==============
 

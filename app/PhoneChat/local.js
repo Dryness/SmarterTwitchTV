@@ -4,9 +4,11 @@ SPTVPhoneChat.Local = (function () {
         pairing = null,
         timer = null,
         generation = 0,
+        historyAfter = 0,
         running = false,
         onChannel,
-        onUnavailable;
+        onUnavailable,
+        onHistory;
 
     function isLocalPage() {
         var match = /^http:\/\/([0-9.]+):8978$/.exec(window.location.origin),
@@ -47,7 +49,7 @@ SPTVPhoneChat.Local = (function () {
             }, 5000);
             window
                 .fetch('/chat/state', {
-                    headers: {'X-SPTV-Pairing': pairing},
+                    headers: {'X-SPTV-Pairing': pairing, 'X-SPTV-History-After': String(historyAfter)},
                     cache: 'no-store',
                     signal: controller ? controller.signal : undefined
                 })
@@ -71,6 +73,12 @@ SPTVPhoneChat.Local = (function () {
                     throw new Error('Invalid TV state');
                 }
                 onChannel(state.channel || null);
+                if (state.channel && onHistory) {
+                    onHistory(state.history);
+                    if (state.history && state.history.events && state.history.events.length) {
+                        historyAfter = state.history.events[state.history.events.length - 1].seq;
+                    }
+                }
                 timer = setTimeout(poll, 2000);
             })
             .catch(function (error) {
@@ -89,20 +97,32 @@ SPTVPhoneChat.Local = (function () {
         poll();
     }
 
-    function start(channelCallback, unavailableCallback) {
+    function start(channelCallback, unavailableCallback, historyCallback) {
         var params = SPTVPhoneChat.Auth.parseParams(window.location.hash),
             value;
         onChannel = channelCallback;
+        onHistory = historyCallback;
+        historyAfter = 0;
         onUnavailable = unavailableCallback;
         stop();
         try {
             value = params.pair || window.sessionStorage.getItem(key);
+            try {
+                value = params.pair || window.localStorage.getItem(key) || value;
+            } catch (ignore) {
+                /* Session fallback. */
+            }
             if (!/^[a-f0-9]{64}$/.test(value || '')) {
                 onUnavailable(true);
                 return;
             }
             pairing = value;
             window.sessionStorage.setItem(key, pairing);
+            try {
+                window.localStorage.setItem(key, pairing);
+            } catch (ignore) {
+                /* Session fallback. */
+            }
             window.history.replaceState(null, '', window.location.origin + '/chat/');
         } catch (e) {
             onUnavailable(true);

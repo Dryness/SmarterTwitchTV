@@ -2498,6 +2498,12 @@ public class PlayerActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void AddPhoneChatHistory(String channel, String payload) {
+            getPhoneChatServer().addHistory(channel, payload);
+        }
+
+
+        @JavascriptInterface
         public void SetDebugLog(boolean enable) {
             appPreferences.put(Constants.PREF_DEBUG_LOGS, enable);
             DebugLogServer.setEnabled(mWebViewContext, enable);

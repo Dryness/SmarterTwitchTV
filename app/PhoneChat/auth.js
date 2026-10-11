@@ -18,7 +18,7 @@
  *   history.replaceState immediately, before any network request.
  * - The token is only trusted after /oauth2/validate confirms client ID,
  *   identity and granted scopes.
- * - Tokens are kept in memory + sessionStorage only, and are never logged.
+ * - Tokens are remembered in phone browser storage, and are never logged.
  */
 
 SPTVPhoneChat.Auth = (function () {
@@ -225,13 +225,24 @@ SPTVPhoneChat.Auth = (function () {
     }
 
     function saveSession(session) {
-        return storageSet(SessionKey, JSON.stringify(session));
+        var value = JSON.stringify(session);
+        try {
+            window.localStorage.setItem(SessionKey, value);
+        } catch (e) {
+            /* Session-only fallback in private browsers. */
+        }
+        return storageSet(SessionKey, value);
     }
 
     function loadSession() {
         var raw = storageGet(SessionKey),
             session;
 
+        try {
+            raw = window.localStorage.getItem(SessionKey) || raw;
+        } catch (ignore) {
+            /* Session-only browser. */
+        }
         if (!raw) return null;
 
         try {
@@ -244,6 +255,11 @@ SPTVPhoneChat.Auth = (function () {
     }
 
     function clearSession() {
+        try {
+            window.localStorage.removeItem(SessionKey);
+        } catch (ignore) {
+            /* Unavailable storage. */
+        }
         storageRemove(SessionKey);
         storageRemove(PendingKey);
     }

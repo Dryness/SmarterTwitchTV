@@ -86,8 +86,7 @@ SPTVPhoneChat.Device = (function () {
                             .replace(/ /g, '_');
                     if (response.status === 200 && typeof json.access_token === 'string' && json.access_token) {
                         cancel();
-                        // Refresh tokens deliberately aren't persisted; this tab reauthorizes after expiry.
-                        callbacks.token(json.access_token);
+                        callbacks.token(json.access_token, json.refresh_token);
                     } else if (error === 'authorization_pending') schedule();
                     else if (error === 'slow_down' || response.status === 429) {
                         interval += 5000;
@@ -132,5 +131,12 @@ SPTVPhoneChat.Device = (function () {
         );
         return {cancel: cancel};
     }
-    return {start: start};
+    function refresh(token) {
+        return post(PhoneChatConfig.oauth.tokenUrl, {
+            client_id: PhoneChatConfig.clientId,
+            grant_type: 'refresh_token',
+            refresh_token: token
+        });
+    }
+    return {start: start, refresh: refresh};
 })();

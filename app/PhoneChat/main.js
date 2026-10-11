@@ -92,6 +92,8 @@ SPTVPhoneChat.App = (function () {
         sending: false,
         nearBottom: true,
         chatTab: 'all',
+        tvHistorySeq: 0,
+        refreshing: null,
         pickerTab: 'twitch',
         pickerFilter: '',
         pickerShown: 0,
@@ -267,6 +269,7 @@ SPTVPhoneChat.App = (function () {
     function cancelDeviceLogin() {
         S.deviceGen++;
         S.authGen++;
+        S.refreshing = null;
         if (S.deviceLogin) S.deviceLogin.cancel();
         S.deviceLogin = null;
         if (S.devicePopup && !S.devicePopupNavigated) {
@@ -313,11 +316,11 @@ SPTVPhoneChat.App = (function () {
                     }
                 }
             },
-            token: function (token) {
+            token: function (token, refreshToken) {
                 if (gen !== S.deviceGen) return;
                 S.deviceLogin = null;
                 el('pc-device-login').hidden = true;
-                validateAndUseToken(token).then(function () {
+                validateAndUseToken(token, refreshToken).then(function () {
                     if (gen !== S.deviceGen) return;
                     updateAccountButton();
                     if (!S.sessionValid) return;
@@ -499,7 +502,7 @@ SPTVPhoneChat.App = (function () {
         return true;
     }
 
-    function validateAndUseToken(token) {
+    function validateAndUseToken(token, refreshToken) {
         var gen = S.authGen;
 
         return Auth.validateToken(token).then(
@@ -524,6 +527,7 @@ SPTVPhoneChat.App = (function () {
 
                 S.session = {
                     token: token,
+                    refreshToken: refreshToken || null,
                     login: check.login,
                     userId: check.userId,
                     scopes: check.scopes,
@@ -545,16 +549,76 @@ SPTVPhoneChat.App = (function () {
                 if (gen !== S.authGen) return;
 
                 //Network failure: keep the saved session, offer an explicit retry
-                S.session = {token: token, login: null, userId: null, expiresAt: 0};
+                S.session = {token: token, refreshToken: refreshToken || null, login: null, userId: null, expiresAt: 0};
+                Auth.saveSession(S.session);
                 S.sessionValid = false;
                 showBanner('token_invalid', true, Strings.tryAgain);
             }
         );
     }
 
-    function revalidateSession() {
+    function refreshSession() {
+        if (S.refreshing) return S.refreshing;
+        var gen = S.authGen,
+            lease = String(Date.now()) + '-' + Math.random(),
+            lockKey = 'sptv_phone_refresh_lock',
+            saved = Auth.loadSession(),
+            lock;
+        if (saved && saved.refreshToken && saved.refreshToken !== S.session.refreshToken) {
+            S.session = saved;
+            return revalidateSession(true);
+        }
+        try {
+            lock = JSON.parse(window.localStorage.getItem(lockKey) || 'null');
+            if (lock && lock.until > Date.now()) {
+                return new Promise(function (resolve) {
+                    setTimeout(function () {
+                        resolve(gen === S.authGen && S.session ? revalidateSession() : false);
+                    }, 1000);
+                });
+            }
+            window.localStorage.setItem(lockKey, JSON.stringify({owner: lease, until: Date.now() + 20000}));
+        } catch (ignore) {
+            /* Session-only browser. */
+        }
+        S.refreshing = SPTVPhoneChat.Device.refresh(S.session.refreshToken)
+            .then(
+                function (response) {
+                    if (gen !== S.authGen || !S.session) return false;
+                    if (response.status !== 200 || !response.json || !response.json.access_token) {
+                        if (response.status === 400 || response.status === 401) invalidateSession();
+                        return false;
+                    }
+                    S.session.token = response.json.access_token;
+                    S.session.refreshToken = response.json.refresh_token || S.session.refreshToken;
+                    S.session.expiresAt = Date.now() + Number(response.json.expires_in || 0) * 1000;
+                    Auth.saveSession(S.session);
+                    return revalidateSession(true).then(function (valid) {
+                        if (valid && S.transport && gen === S.authGen) startTransport();
+                        return valid;
+                    });
+                },
+                function () {
+                    return false;
+                }
+            )
+            .then(function (valid) {
+                try {
+                    lock = JSON.parse(window.localStorage.getItem(lockKey) || 'null');
+                    if (lock && lock.owner === lease) window.localStorage.removeItem(lockKey);
+                } catch (ignore) {
+                    /* Session-only browser. */
+                }
+                if (gen === S.authGen) S.refreshing = null;
+                return valid;
+            });
+        return S.refreshing;
+    }
+
+    function revalidateSession(afterRefresh) {
         if (!S.session || !S.session.token) return Promise.resolve(false);
 
+        if (!afterRefresh && S.session.refreshToken && S.session.expiresAt && S.session.expiresAt < Date.now() + 60000) return refreshSession();
         var token = S.session.token,
             gen = S.authGen;
 
@@ -565,6 +629,8 @@ SPTVPhoneChat.App = (function () {
                 if (gen !== S.authGen) return false;
 
                 if (!response.ok) {
+                    if (response.status === 401 && !afterRefresh && S.session.refreshToken) return refreshSession();
+                    if (response.status >= 500) return false;
                     invalidateSession();
                     return false;
                 }
@@ -578,6 +644,7 @@ SPTVPhoneChat.App = (function () {
 
                 S.sessionValid = true;
                 S.session.expiresAt = Date.now() + check.expiresIn * 1000;
+                Auth.saveSession(S.session);
                 return true;
             },
             function () {
@@ -590,6 +657,7 @@ SPTVPhoneChat.App = (function () {
     //bannerKey is an internal state key (see BannerText); default: expired token
     function invalidateSession(bannerKey) {
         S.authGen++;
+        S.refreshing = null;
         S.flowGen++; //invalidate in-flight HTTP continuations
         Auth.clearSession();
         S.session = null;
@@ -699,7 +767,10 @@ SPTVPhoneChat.App = (function () {
                 onRoomState(event.tags);
                 break;
             case 'error':
-                if (event.kind === 'auth') invalidateSession();
+                if (event.kind === 'auth') {
+                    if (S.session && S.session.refreshToken) refreshSession();
+                    else invalidateSession();
+                }
                 break;
             default:
                 break;
@@ -798,7 +869,19 @@ SPTVPhoneChat.App = (function () {
             stick = S.nearBottom;
 
         row.hidden = S.chatTab === 'priority' && row.getAttribute('data-priority') !== 'true';
-        box.appendChild(row);
+        var before = null,
+            i,
+            time = Number(row.getAttribute('data-time'));
+        if (time) {
+            for (i = 0; i < box.children.length; i++) {
+                if (Number(box.children[i].getAttribute('data-time')) > time) {
+                    before = box.children[i];
+                    break;
+                }
+            }
+        }
+        if (before) box.insertBefore(row, before);
+        else box.appendChild(row);
         pruneRows(box);
         updateChatEmpty();
 
@@ -842,7 +925,16 @@ SPTVPhoneChat.App = (function () {
     }
 
     function pruneRows(box) {
-        while (box.childElementCount > Render.HistoryLimit + 20) box.removeChild(box.firstChild);
+        var rows = box.children,
+            ordinary = 0,
+            i,
+            row;
+        for (i = rows.length - 1; i >= 0; i--) {
+            row = rows[i];
+            if (row.getAttribute('data-priority') === 'true') {
+                if (Number(row.getAttribute('data-time')) < Date.now() - 20 * 60 * 1000) box.removeChild(row);
+            } else if (++ordinary > Render.HistoryLimit + 20) box.removeChild(row);
+        }
     }
 
     function makeSystemRow(text, cls) {
@@ -856,14 +948,15 @@ SPTVPhoneChat.App = (function () {
         if (!message || !message.text) return;
 
         //Deduplicate by message id
-        if (message.id && S.store.has(message.id)) return;
+        if (!S.store) S.store = Render.createStore(Render.HistoryLimit);
+        if (message.id && (S.store.has(message.id) || el('pc-messages').querySelector('[data-id="' + cssEscape(message.id) + '"]'))) return;
 
         //Deduplicate a matching local echo once the server echoes it back:
         //remove exactly the row belonging to the matched echo record
         if (S.session && message.login === S.session.login) {
             var i;
             for (i = 0; i < S.localEchoes.length; i++) {
-                if (S.localEchoes[i].text === message.text) {
+                if (S.localEchoes[i].text === message.text && Math.abs((message.receivedAt || Date.now()) - S.localEchoes[i].time) < 10000) {
                     var echoRow = el('pc-messages').querySelector('[data-echo="' + cssEscape(S.localEchoes[i].rowId) + '"]');
                     S.localEchoes.splice(i, 1);
                     if (echoRow && echoRow.parentNode) echoRow.parentNode.removeChild(echoRow);
@@ -883,6 +976,7 @@ SPTVPhoneChat.App = (function () {
 
         row.className = 'pc-msg' + (message.action ? ' pc-action' : '') + (roles.partner ? ' pc-partner' : '');
         row.setAttribute('data-priority', String(roles.priority));
+        row.setAttribute('data-time', String(message.receivedAt || Date.now()));
         if (message.id) row.setAttribute('data-id', message.id);
         if (message.tags && message.tags['user-id']) row.setAttribute('data-user-id', message.tags['user-id']);
 
@@ -1049,6 +1143,7 @@ SPTVPhoneChat.App = (function () {
         row.className = 'pc-msg pc-local' + (roles.partner ? ' pc-partner' : '');
         row.setAttribute('data-priority', String(roles.priority));
         row.setAttribute('data-echo', rowId);
+        row.setAttribute('data-time', String(Date.now()));
         //Echoes are this account's messages: targeted CLEARCHAT must find them
         if (S.session.userId) row.setAttribute('data-user-id', S.session.userId);
 
@@ -1554,6 +1649,7 @@ SPTVPhoneChat.App = (function () {
     function disconnect() {
         cancelDeviceLogin();
         S.authGen++;
+        S.refreshing = null;
         //Ends THIS page's session only; the Twitch authorization itself is not revoked
         S.flowGen++; //late callbacks from the old session must not touch the next one
         setModeration(false, 0);
@@ -1768,6 +1864,7 @@ SPTVPhoneChat.App = (function () {
             S.started = false;
             S.channel = channel;
             S.channelDisplayName = null;
+            S.tvHistorySeq = 0;
             S.broadcasterId = null;
             S.store = null;
             S.localEchoes = [];
@@ -1804,18 +1901,52 @@ SPTVPhoneChat.App = (function () {
         refreshComposer();
     }
 
+    function receiveTVHistory(history) {
+        if (!history || !Array.isArray(history.events)) return;
+        var i,
+            event,
+            rows,
+            j,
+            offset = Date.now() - Number(history.now || Date.now());
+        for (i = 0; i < history.events.length; i++) {
+            event = history.events[i];
+            if (!event || event.seq <= S.tvHistorySeq) continue;
+            if (event.type === 'message' && event.message) {
+                event.message.receivedAt = event.time + offset;
+                onChatMessage(event.message);
+            } else if (event.type === 'delete') onClearMsg(event.id);
+            else if (event.type === 'clear') {
+                rows = el('pc-messages').children;
+                for (j = rows.length - 1; j >= 0; j--) {
+                    if (
+                        (!event.userId || rows[j].getAttribute('data-user-id') === event.userId) &&
+                        Number(rows[j].getAttribute('data-time')) <= event.time + offset
+                    )
+                        rows[j].parentNode.removeChild(rows[j]);
+                }
+            }
+            S.tvHistorySeq = event.seq;
+        }
+        pruneRows(el('pc-messages'));
+        updateChatEmpty();
+    }
+
     function initLocal() {
         S.local = true;
         S.originOk = true;
         updateAccountButton();
         showBanner('stateTvWaiting', false, null);
-        Local.start(setLocalChannel, function (unpaired) {
-            S.tvReady = false;
-            if (S.transport) S.transport.stop();
-            refreshComposer();
-            showBanner(unpaired ? 'statePairingExpired' : 'stateTvUnavailable', true, null);
-            setConnection(unpaired ? 'Scan the TV QR again' : 'TV disconnected', 'bad');
-        });
+        Local.start(
+            setLocalChannel,
+            function (unpaired) {
+                S.tvReady = false;
+                if (S.transport) S.transport.stop();
+                refreshComposer();
+                showBanner(unpaired ? 'statePairingExpired' : 'stateTvUnavailable', true, null);
+                setConnection(unpaired ? 'Scan the TV QR again' : 'TV disconnected', 'bad');
+            },
+            receiveTVHistory
+        );
         var saved = Auth.loadSession();
         if (saved && Auth.isConfigured()) {
             S.session = saved;

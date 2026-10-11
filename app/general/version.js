@@ -21,11 +21,20 @@
 //Spacing for release maker not trow errors from jshint
 var version = {
     VersionBase: '3.0',
-    publishVersionCode: 389, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/389/SmarterPurpleTV_3_0_389.apk',
-    WebVersion: 'October 10 2026',
-    WebTag: 748, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    publishVersionCode: 390, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/390/SmarterPurpleTV_3_0_390.apk',
+    WebVersion: 'October 11 2026',
+    WebTag: 749, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 11 2026 (APK 390)',
+            changes: [
+                'Phone chat: remember Twitch login across tabs and refresh expired device-flow credentials automatically',
+                'Phone chat: retain twenty minutes of Partner, VIP and moderator messages independently of ordinary chat traffic',
+                'TV chat history: after opening the pairing QR, the TV anonymously collects filtered messages while the phone is locked and sends missed messages and moderation events when it returns',
+                'History is local to the current live channel and resets when the channel changes or the TV app restarts'
+            ]
+        },
         {
             title: 'October 10 2026 (APK 389)',
             changes: [
