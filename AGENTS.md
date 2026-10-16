@@ -25,7 +25,18 @@ node release/scripts/maker.js jsh  # lint only — JSHint over all app JS (fast 
 node release/scripts/maker.js      # full build: lint, minify JS/HTML/CSS into release/, regenerate version.json + apk/Changelog_Up.md
 ```
 
-There is no test suite; changes are verified manually (below). After a full build, commit the regenerated `release/` files (history shows commits like "up main files").
+Focused fixture harnesses (not complete end-to-end coverage):
+
+```bash
+node release/scripts/phonechat-tests.js          # phone logic and mock DOM; add --built for generated bundle
+node release/scripts/update-tests.js
+node release/scripts/phonechat-collector-tests.js
+node release/scripts/chat-optimization-tests.js # TV scheduler/cache with fake clock
+node release/scripts/request-dispatcher-tests.js # production dispatcher, JDK 8+ (--release 8)
+node release/scripts/phonechat-server-tests.js   # local server integration, JDK 17+ and Android SDK 35
+```
+
+Device and browser verification is also required (below). After a full build, commit the regenerated `release/` files (history shows commits like "up main files").
 
 ### Manual testing
 

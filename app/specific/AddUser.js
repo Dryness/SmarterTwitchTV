@@ -26,6 +26,7 @@ var AddUser_Username = null;
 
 function AddUser_init() {
     Main_values.Main_Go = Main_addUser;
+    Navigation_Render(Main_addUser);
     ScreensObj_SetTopLable(STR_USER_ADD);
     Main_HideWarningDialog();
     Main_showLoadDialog();

@@ -96,8 +96,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -244,15 +242,12 @@ public class PlayerActivity extends Activity {
     private Runtime PingRuntime;
     private boolean PingSDKBool;
 
-    private ThreadPoolExecutor DataThreadPool;
+    private final RequestDispatcher requests = new RequestDispatcher();
 
     private Transition PreviewTransition;
 
     private final int PlayerAccount = 4;
     private final int PlayerAccountPlus = PlayerAccount + 1;
-
-    private final String[] BaseXmlHttpGetResultArray = new String[500]; //0 to 29 screen, 30 to 50 preview player, 50+ etc
-    private int BaseXmlHttpGetResultPosition = 0;
 
     private final ProgressBar[] loadingView = new ProgressBar[PlayerAccount + 3];
 
@@ -414,10 +409,6 @@ public class PlayerActivity extends Activity {
             AlreadyStarted = true;
             onCreateReady = true;
 
-            //int Number_of_Cores = Runtime.getRuntime().availableProcessors();
-            //Background threads
-            DataThreadPool = new ThreadPoolExecutor(12, 12, 0, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
-
             //Main loop threads
             Looper MainLooper = Looper.getMainLooper();
             MainThreadHandler = new Handler(MainLooper);
@@ -465,7 +456,12 @@ public class PlayerActivity extends Activity {
             StopNotificationService();
             //FirebaseCrashlytics.getInstance().sendUnsentReports();
 
-            DataThreadPool.execute(() -> Tools.GetUpdateFile(getApplicationContext()));
+            try {
+                requests.execute(() -> Tools.GetUpdateFile(getApplicationContext()));
+            } catch (java.util.concurrent.RejectedExecutionException e) {
+                // The update file is also created lazily by DownloadAPK; a later attempt can retry.
+                Tools.recordException(TAG, "Update file preparation rejected ", e);
+            }
 
             registerScreenReceiver();
         }
@@ -1649,6 +1645,7 @@ public class PlayerActivity extends Activity {
 
     @Override
     public void onDestroy() {
+        requests.close();
         super.onDestroy();
         synchronized (this) {
             if (phoneChatServer != null) phoneChatServer.close();
@@ -1850,7 +1847,13 @@ public class PlayerActivity extends Activity {
     }
 
     public void LoadUrlWebView(String LoadUrlString) {
-        runOnUiThread(() -> mWebView.loadUrl(LoadUrlString));
+        if (requests.isClosed()) return;
+        requests.post(this::runOnUiThread, () -> {
+            if (!requests.isClosed() && mWebView != null) {
+                if (!LoadUrlString.startsWith("javascript:")) requests.navigate();
+                mWebView.loadUrl(LoadUrlString);
+            }
+        });
     }
 
     // A web app that loads all thumbnails content and interact with the player
@@ -1893,6 +1896,11 @@ public class PlayerActivity extends Activity {
                 @Override
                 public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     return false;
+                }
+
+                @Override
+                public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                    requests.navigate();
                 }
 
                 @Override
@@ -2335,7 +2343,8 @@ public class PlayerActivity extends Activity {
 
         @JavascriptInterface
         public void CleanAndLoadUrl(String url) {
-            runOnUiThread(() -> {
+            requests.post(PlayerActivity.this::runOnUiThread, () -> {
+                requests.navigate();
                 ClearWebViewCache(false);
                 mWebView.loadUrl(url);
             });
@@ -2873,212 +2882,111 @@ public class PlayerActivity extends Activity {
             return Tools.ResponseObjToString(checkResult);
         }
 
+        // Used only by this APK's generated callback scripts, including before the web bundle exists.
+        @JavascriptInterface
+        public boolean IsRequestPageCurrent(long page) {
+            return requests.isCurrentPage(page);
+        }
+
         @JavascriptInterface
         public String BasexmlHttpGetResult(int DataResultPos) {
-            return BaseXmlHttpGetResultArray[DataResultPos];
+            return requests.consume(DataResultPos);
+        }
+
+        // All JS consumers read a result once, synchronously as the callback argument.
+        // Rejections use an inline JSON string, so a full result store needs no extra slot.
+        private String bridgeResult(int slot, String value) {
+            if (slot < 0) return new Gson().toJson(value);
+            if (requests.publish(slot, value)) return "Android.BasexmlHttpGetResult(" + slot + ")";
+            return null;
+        }
+
+        private String jsString(String value) {
+            return new Gson().toJson(String.valueOf(value));
         }
 
         @JavascriptInterface
         public void XmlHttpGetFull(
-            String urlString,
-            int timeout,
-            String postMessage,
-            String Method,
-            String JsonHeadersArray,
-            String callback,
-            long checkResult,
-            String check_1,
-            String check_2,
-            String check_3,
-            String check_4,
-            String check_5,
-            String callBackSuccess,
-            String callBackError
+            String urlString, int timeout, String postMessage, String Method, String JsonHeadersArray,
+            String callback, long checkResult, String check_1, String check_2, String check_3,
+            String check_4, String check_5, String callBackSuccess, String callBackError
         ) {
-            BaseXmlHttpGetResultPosition++;
-            if (BaseXmlHttpGetResultPosition > BaseXmlHttpGetResultArray.length - 1) {
-                BaseXmlHttpGetResultPosition = 0;
+            if (requests.isClosed()) return;
+            final long page = requests.pageGeneration();
+            final int slot = requests.reserve(page);
+            if (slot < 0) {
+                deliverFull(page, -1, Tools.ResponseObjToString(checkResult), callback, checkResult,
+                    check_1, check_2, check_3, check_4, check_5, callBackSuccess, callBackError);
+                return;
             }
-
-            int DataResultPos = BaseXmlHttpGetResultPosition;
-            BaseXmlHttpGetResultArray[DataResultPos] = null;
-
             try {
-                DataThreadPool.execute(() -> {
-                    Tools.ResponseObj response;
-
-                    response = Tools.MethodUrlHeaders(urlString, timeout, postMessage, Method, checkResult, JsonHeadersArray);
-
-                    if (response != null) {
-                        BaseXmlHttpGetResultArray[DataResultPos] = new Gson().toJson(response);
-                        LoadUrlWebView(
-                            "javascript:smartTwitchTV." +
-                            callback +
-                            "(Android.BasexmlHttpGetResult(" +
-                            DataResultPos +
-                            "), " +
-                            checkResult +
-                            ",'" +
-                            check_1 +
-                            "','" +
-                            check_2 +
-                            "','" +
-                            check_3 +
-                            "','" +
-                            check_4 +
-                            "','" +
-                            check_5 +
-                            "','" +
-                            callBackSuccess +
-                            "','" +
-                            callBackError +
-                            "')"
-                        );
-                    } else {
-                        XmlHttpGetFullError(
-                            DataResultPos,
-                            callback,
-                            checkResult,
-                            check_1,
-                            check_2,
-                            check_3,
-                            check_4,
-                            check_5,
-                            callBackSuccess,
-                            callBackError
-                        );
+                requests.execute(() -> {
+                    if (!requests.isCurrentPage(page)) return;
+                    String value;
+                    try {
+                        Tools.ResponseObj response = Tools.MethodUrlHeaders(urlString, timeout, postMessage, Method, checkResult, JsonHeadersArray);
+                        value = response == null ? Tools.ResponseObjToString(checkResult) : new Gson().toJson(response);
+                    } catch (Exception e) {
+                        value = Tools.ResponseObjToString(checkResult);
                     }
+                    deliverFull(page, slot, value, callback, checkResult, check_1, check_2, check_3, check_4, check_5, callBackSuccess, callBackError);
                 });
-            } catch (Exception e) { //Most are RejectedExecutionException
-                XmlHttpGetFullError(
-                    DataResultPos,
-                    callback,
-                    checkResult,
-                    check_1,
-                    check_2,
-                    check_3,
-                    check_4,
-                    check_5,
-                    callBackSuccess,
-                    callBackError
-                );
-
-                Tools.recordException(TAG, "GetMethodUrlHeadersAsync Exception ", e);
+            } catch (java.util.concurrent.RejectedExecutionException e) {
+                requests.release(slot);
+                // Do not publish into the released slot: another bridge thread may reserve it.
+                deliverFull(page, -1, Tools.ResponseObjToString(checkResult), callback, checkResult,
+                    check_1, check_2, check_3, check_4, check_5, callBackSuccess, callBackError);
             }
         }
 
-        void XmlHttpGetFullError(
-            int DataResultPos,
-            String callback,
-            long checkResult,
-            String check_1,
-            String check_2,
-            String check_3,
-            String check_4,
-            String check_5,
-            String callBackSuccess,
-            String callBackError
-        ) {
-            //MethodUrl is null inform JS callback
-            BaseXmlHttpGetResultArray[DataResultPos] = Tools.ResponseObjToString(checkResult);
-            LoadUrlWebView(
-                "javascript:smartTwitchTV." +
-                callback +
-                "(Android.BasexmlHttpGetResult(" +
-                DataResultPos +
-                "), " +
-                checkResult +
-                ",'" +
-                check_1 +
-                "','" +
-                check_2 +
-                "','" +
-                check_3 +
-                "','" +
-                check_4 +
-                "','" +
-                check_5 +
-                "','" +
-                callBackSuccess +
-                "','" +
-                callBackError +
-                "')"
-            );
+        private void deliverFull(long page, int slot, String value, String callback, long checkResult,
+            String check_1, String check_2, String check_3, String check_4, String check_5, String success, String error) {
+            requests.postPage(page, PlayerActivity.this::runOnUiThread, () -> {
+                String result = bridgeResult(slot, value);
+                if (result == null || mWebView == null) return;
+                mWebView.loadUrl(RequestDispatcher.callbackScript(page, result, callback, checkResult + "," +
+                    jsString(check_1) + "," + jsString(check_2) + "," + jsString(check_3) + "," + jsString(check_4) + "," +
+                    jsString(check_5) + "," + jsString(success) + "," + jsString(error)));
+            });
         }
 
         @JavascriptInterface
         public void BasexmlHttpGet(
-            String urlString,
-            int timeout,
-            String postMessage,
-            String Method,
-            String JsonHeadersArray,
-            String callback,
-            long checkResult,
-            long key,
-            String callbackSuccess,
-            String calbackError
+            String urlString, int timeout, String postMessage, String Method, String JsonHeadersArray,
+            String callback, long checkResult, long key, String callbackSuccess, String calbackError
         ) {
-            BaseXmlHttpGetResultPosition++;
-            if (BaseXmlHttpGetResultPosition > BaseXmlHttpGetResultArray.length - 1) {
-                BaseXmlHttpGetResultPosition = 0;
+            if (requests.isClosed()) return;
+            final long page = requests.pageGeneration();
+            final int slot = requests.reserve(page);
+            if (slot < 0) {
+                deliverBase(page, -1, Tools.ResponseObjToString(checkResult), callback, checkResult, key, callbackSuccess, calbackError);
+                return;
             }
-
-            int DataResultPos = BaseXmlHttpGetResultPosition;
-            BaseXmlHttpGetResultArray[DataResultPos] = null;
-
             try {
-                DataThreadPool.execute(() -> {
-                    Tools.ResponseObj response;
-
-                    response = Tools.MethodUrlHeaders(urlString, timeout, postMessage, Method, checkResult, JsonHeadersArray);
-
-                    if (response != null) {
-                        BaseXmlHttpGetResultArray[DataResultPos] = new Gson().toJson(response);
-                        LoadUrlWebView(
-                            "javascript:smartTwitchTV." +
-                            callback +
-                            "(Android.BasexmlHttpGetResult(" +
-                            DataResultPos +
-                            "), " +
-                            key +
-                            ",'" +
-                            callbackSuccess +
-                            "','" +
-                            calbackError +
-                            "'," +
-                            checkResult +
-                            ")"
-                        );
-                    } else {
-                        BasexmlHttpGetError(callback, checkResult, key, DataResultPos, callbackSuccess, calbackError);
+                requests.execute(() -> {
+                    if (!requests.isCurrentPage(page)) return;
+                    String value;
+                    try {
+                        Tools.ResponseObj response = Tools.MethodUrlHeaders(urlString, timeout, postMessage, Method, checkResult, JsonHeadersArray);
+                        value = response == null ? Tools.ResponseObjToString(checkResult) : new Gson().toJson(response);
+                    } catch (Exception e) {
+                        value = Tools.ResponseObjToString(checkResult);
                     }
+                    deliverBase(page, slot, value, callback, checkResult, key, callbackSuccess, calbackError);
                 });
-            } catch (Exception e) { //Most are RejectedExecutionException
-                BasexmlHttpGetError(callback, checkResult, key, DataResultPos, callbackSuccess, calbackError);
-
-                Tools.recordException(TAG, "GetMethodUrlHeadersAsync Exception ", e);
+            } catch (java.util.concurrent.RejectedExecutionException e) {
+                requests.release(slot);
+                deliverBase(page, -1, Tools.ResponseObjToString(checkResult), callback, checkResult, key, callbackSuccess, calbackError);
             }
         }
 
-        void BasexmlHttpGetError(String callback, long checkResult, long key, int DataResultPos, String callBackSuccess, String callBackError) {
-            //MethodUrl is null inform JS callback
-            BaseXmlHttpGetResultArray[DataResultPos] = Tools.ResponseObjToString(checkResult);
-            LoadUrlWebView(
-                "javascript:smartTwitchTV." +
-                callback +
-                "(Android.BasexmlHttpGetResult(" +
-                DataResultPos +
-                "), " +
-                key +
-                ",'" +
-                callBackSuccess +
-                "','" +
-                callBackError +
-                "'," +
-                checkResult +
-                ")"
-            );
+        private void deliverBase(long page, int slot, String value, String callback, long checkResult, long key, String success, String error) {
+            requests.postPage(page, PlayerActivity.this::runOnUiThread, () -> {
+                String result = bridgeResult(slot, value);
+                if (result == null || mWebView == null) return;
+                mWebView.loadUrl(RequestDispatcher.callbackScript(page, result, callback, key + "," +
+                    jsString(success) + "," + jsString(error) + "," + checkResult));
+            });
         }
 
         @JavascriptInterface
@@ -3683,7 +3591,9 @@ public class PlayerActivity extends Activity {
             synchronized (this) {
                 apkUpdateRunning = false;
             }
-            runOnUiThread(() -> {
+            if (requests.isClosed()) return;
+            requests.post(PlayerActivity.this::runOnUiThread, () -> {
+                if (requests.isClosed()) return;
                 hideLoading(5);
                 mWebView.loadUrl("javascript:if(smartTwitchTV.Main_ApkUpdateFinished){smartTwitchTV.Main_ApkUpdateFinished();}");
                 if (error != null) Toast.makeText(mWebViewContext, error, Toast.LENGTH_LONG).show();
@@ -3692,9 +3602,10 @@ public class PlayerActivity extends Activity {
 
         @JavascriptInterface
         public synchronized void UpdateAPK(String apkURL, String failAll, String failDownload) {
-            if (apkUpdateRunning) return;
+            if (requests.isClosed() || apkUpdateRunning) return;
             apkUpdateRunning = true;
-            runOnUiThread(() -> {
+            requests.post(PlayerActivity.this::runOnUiThread, () -> {
+                if (requests.isClosed()) return;
                 try {
                     final Context context = getApplicationContext();
                     if (apkURL == null) {
@@ -3712,11 +3623,13 @@ public class PlayerActivity extends Activity {
                         }
                         return;
                     }
-                    DataThreadPool.execute(() -> {
+                    requests.execute(() -> {
                         try {
                             Log.i(TAG, "APK update: downloading");
                             final String file = Tools.DownloadAPK(apkURL, context);
-                            runOnUiThread(() -> {
+                            if (requests.isClosed()) return;
+                            requests.post(PlayerActivity.this::runOnUiThread, () -> {
+                                if (requests.isClosed()) return;
                                 if (file == null) {
                                     Log.w(TAG, "APK update: download failed");
                                     finishAPKUpdate(failDownload);

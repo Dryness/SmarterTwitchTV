@@ -1619,6 +1619,7 @@ function Play_ForceShowPannel() {
 }
 
 function Play_ForceHidePannel() {
+    PlayerUI_Close(false);
     Play_PanneInfoDoclId.style.opacity = 0;
 
     if (!Play_Status_Visible) Main_HideElementWithEle(Play_side_info_div);
@@ -1679,6 +1680,7 @@ function Play_showPanel() {
     Play_CleanHideExit();
     Play_ForceShowPannel();
     Play_ResetPanel(1);
+    PlayerUI_Show(1);
 }
 
 function Play_RefreshWatchingTime() {

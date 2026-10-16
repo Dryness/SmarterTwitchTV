@@ -611,6 +611,7 @@ function PlayClip_showPanel() {
     Play_ForceShowPannel();
     Play_clearHidePanel();
     PlayClip_setHidePanel();
+    PlayerUI_Show(3);
 }
 
 function PlayClip_qualityIndexReset() {
@@ -745,6 +746,10 @@ function PlayClip_CheckPreviewClip() {
 }
 
 function PlayClip_handleKeyDown(e) {
+    if (e.keyCode === KEY_DOWN && Play_isPanelShowing() && !PlayVod_PanelY && !UserLiveFeed_isPreviewShowing()) {
+        PlayerUI_Show(3);
+        return;
+    }
     //console.log('PlayClip_handleKeyDown', e.keyCode);
 
     if (!PlayClip_isOn || !Main_isScene2DocVisible()) {

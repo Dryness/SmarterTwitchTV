@@ -448,6 +448,42 @@ function SettingsColor_SetAnimationStyle(pos) {
         (animate ? 'transition: width 1s linear;' : '') +
         '}';
 
+    var surface = pos === 0 ? '#1e1b25' : background,
+        focusColor = pos === 0 ? '#bca0ff' : border === background ? TextColor : border,
+        focusSurface = pos === 0 ? '#30253f' : background;
+    cssClass +=
+        '#navigation-shell,#navigation-onboarding,#player-ui{color:' +
+        TextColor +
+        ';}' +
+        '#navigation-shell .navigation-rail,#player-ui .player-ui-bar,#player-ui .player-ui-drawer{background:' +
+        surface +
+        ';}' +
+        '#navigation-onboarding,#navigation-shell #navigation-status{background:' +
+        background +
+        ';}' +
+        '#navigation-shell .navigation-focused,#player-ui .player-ui-focused{outline-color:' +
+        focusColor +
+        ' !important;background:' +
+        focusSurface +
+        ';}' +
+        '#navigation-shell .navigation-button[aria-current="page"]{color:' +
+        focusColor +
+        ';}' +
+        '#navigation-shell #navigation-tabs [aria-selected="true"]{box-shadow:0 0.12em 0 ' +
+        focusColor +
+        ';}' +
+        '.navigation-enabled .stream_thumbnail_live{background:' +
+        background +
+        ';color:' +
+        TextColor +
+        ';}' +
+        '.navigation-enabled .stream_thumbnail_focused,.navigation-enabled .stream_thumbnail_focused_no_ani{border-color:' +
+        focusColor +
+        ' !important;box-shadow:none !important;outline:0.1em solid ' +
+        focusColor +
+        ';outline-offset:0.05em;}';
+    cssClass += '.navigation-enabled .stream_info_live,.navigation-enabled #clock_holder{color:' + TextColor + ';opacity:0.85;}';
+    Main_getElementById('scene1').style.backgroundColor = background;
     Main_innerHTML('focus_class_holder', cssClass);
 
     SettingsColor_SetAnimationStyleTest([background, TextColor, border, progressColor]);

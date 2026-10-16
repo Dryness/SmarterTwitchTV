@@ -3376,6 +3376,7 @@ function ScreensObj_ThumbInfoUpdate(obj, checkResult, check_1, check_2, check_3)
     }
 
     var data = Screens_GetObjId(id, key);
+    if (data[14] !== tempData[14]) return;
 
     if (data[13] !== tempData[13]) {
         Main_innerHTML(ScreenObj[key].ids[10] + id, STR_SPACE_HTML + STR_FOR + tempData[4] + STR_SPACE_HTML + Main_GetViewerStrings(tempData[13]));
@@ -3388,6 +3389,7 @@ function ScreensObj_ThumbInfoUpdate(obj, checkResult, check_1, check_2, check_3)
     }
     if (data[14] === tempData[14]) {
         ScreenObj[key].DataObj[id] = tempData;
+        Navigation_UpdateDetails(key);
     }
 }
 

@@ -185,7 +185,7 @@ function make_JS(jshOnly) {
             fileContent = fileContent.replace('Main_Start();', '');
         }
         mainJSContent += fileContent;
-        mainJSContentCompressed += UglifyJS.minify(fileContent, options).code;
+        if (!jshOnly) mainJSContentCompressed += UglifyJS.minify(fileContent, options).code;
     }
 
     tools.writeFileASync(mainJSFile, mainJSContent);

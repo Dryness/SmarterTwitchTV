@@ -66,6 +66,7 @@ function Users_init() {
     Main_innerHTML('label_last_refresh', '');
 
     Main_values.Main_Go = Main_Users;
+    Navigation_Render(Main_Users);
     Main_HideWarningDialog();
     ScreensObj_SetTopLable(STR_USER, STR_MAIN_USER + ' ' + AddUser_UsernameArray[0].display_name);
     Main_addEventListener('keydown', Users_handleKeyDown);

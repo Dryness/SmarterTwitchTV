@@ -566,8 +566,8 @@ function Main_SetStringsSecondary() {
     Main_textContent('exit_app_minimize', STR_MINIMIZE);
     Main_textContent('main_dialog_exit_text', STR_EXIT_MESSAGE);
 
-    Main_innerHTML('dialog_controls_text', STR_CONTROLS_MAIN_0);
-    Main_innerHTML('dialog_controls_player_text', STR_CONTROLS_PLAYER_0);
+    Main_innerHTML('dialog_controls_text', '<p>' + STR_UI.browseHelp + '</p>' + STR_CONTROLS_MAIN_0);
+    Main_innerHTML('dialog_controls_player_text', '<p>' + STR_UI.playerHelp + '</p>' + STR_CONTROLS_PLAYER_0);
     Main_textContent('side_panel_warn_text', STR_NO + STR_LIVE_CHANNELS);
     Main_textContent('side_panel_movel_top_text', STR_LIVE_FEED);
 
@@ -977,6 +977,10 @@ function Main_ReStartScreens(preventRefresh) {
 }
 
 function Main_SwitchScreen(removekey, preventRefresh) {
+    if (Navigation_Onboarding && !AddUser_IsUserSet()) {
+        Navigation_ShowOnboarding(Navigation_State.destination);
+        return;
+    }
     //Main_Log('Main_SwitchScreen removekey ' + removekey + ' Main_Go ' + Main_values.Main_Go);
 
     Main_HideWarningDialog();
@@ -1049,6 +1053,7 @@ function Main_RestoreValues() {
 }
 
 function Main_ExitCurrent(ExitCurrent) {
+    Navigation_Capture(ExitCurrent);
     //Main_Log('Main_ExitCurrent ' + ExitCurrent);
     if (ScreenObj[ExitCurrent] && ScreenObj[ExitCurrent].exit_fun) ScreenObj[ExitCurrent].exit_fun();
     if (Main_isElementShowing('settings_holder')) Settings_exit();
@@ -1609,6 +1614,7 @@ function Main_showScene1Doc() {
 }
 
 function Main_hideScene1Doc() {
+    Navigation_Close(false);
     Main_Scene1Doc.style.opacity = 0;
 
     Main_Scene1Doc.style.pointerEvents = 'none';
@@ -1631,6 +1637,8 @@ function Main_showScene2Doc() {
 }
 
 function Main_hideScene2Doc() {
+    PlayerUI_State.suspended = false;
+    PlayerUI_Close(false);
     Main_Scene2Doc.style.opacity = 0;
 
     Main_Scene2Doc.style.pointerEvents = 'none';
@@ -2975,6 +2983,10 @@ function Main_PreventClickfun(e) {
 var Main_isStopped = false;
 
 function Main_CheckStop() {
+    Navigation_Close(false);
+    PhoneChat_Hide(true);
+    PlayerUI_Close(false);
+    Screens_LoadPreviewSTop();
     // Called only by JAVA
     Main_isStopped = true;
     Main_PreventClick(true, Main_PreventClickfun);
@@ -3231,11 +3243,11 @@ function Main_LogDate(date) {
 
 function Main_addEventListener(type, fun) {
     Main_removeEventListener(type, fun);
-    Main_body.addEventListener(type, fun);
+    Main_body.addEventListener(type, UIFocus_Listener(type, fun));
 }
 
 function Main_removeEventListener(type, fun) {
-    Main_body.removeEventListener(type, fun);
+    Main_body.removeEventListener(type, UIFocus_Listener(type, fun));
 }
 
 function Main_setTimeout(fun, timeout, id) {

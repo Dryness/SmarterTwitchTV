@@ -1,0 +1,4 @@
+New UI strings in en_USLang: STR_UI object.
+Pending translations for es_ES, fr_FR, pt_BR, ru_RU, tr_TR, uk_UA.
+English is initialized first by Settings_SetAppLang and remains the fallback.
+Do not copy untranslated strings into translated language functions.

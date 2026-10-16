@@ -270,7 +270,10 @@ function Screens_first_init() {
         Main_values.Main_BeforeChannelisSet = false;
         Main_values.Main_BeforeAgameisSet = false;
 
-        ScreenObj[Main_Live].init_fun();
+        if (!live_channel_call && !game_channel_call && !screen_channel_call) {
+            if (AddUser_IsUserSet()) ScreenObj[Main_UserLive].init_fun();
+            else Navigation_ShowOnboarding();
+        } else ScreenObj[Main_Live].init_fun();
 
         if (Main_values.IsUpDating) {
             Main_showWarningDialog(STR_UPDATE_WARNING_OK, 5000);
@@ -288,6 +291,8 @@ function Screens_init(key, preventRefresh) {
     Main_addFocusVideoOffset = -1;
     Main_values.Main_Go = key; //Sidepannel, playclip, Main_updateClock Screens_Isfocused Main_CheckStop use this var
     ScreenObj[key].label_init();
+    Main_HideElement('navigation-status');
+    Navigation_Render(key);
 
     if (Main_isScene1DocVisible() && !Sidepannel_isShowingUserLive() && !Sidepannel_isShowingMenus()) {
         Main_addEventListener('keydown', ScreenObj[key].key_fun);
@@ -333,6 +338,7 @@ function Screens_needsRefresh(key, preventRefresh) {
 }
 
 function Screens_exit(key) {
+    Screens_LoadPreviewSTop();
     //Main_Log('Screens_exit ' + ScreenObj[key].screen);
 
     Main_addFocusVideoOffset = 0;
@@ -344,6 +350,13 @@ function Screens_exit(key) {
 }
 
 function Screens_StartLoad(key) {
+    Navigation_SyncAccount();
+    Navigation_Capture(key);
+    ScreenObj[key].navigationRestorePending = true;
+    ScreenObj[key].navigationRequest = null;
+    ScreenObj[key].navigationPreview = null;
+    ScreenObj[key].navigationLoadState = '';
+    Navigation_LoadState(key, 'loading');
     if (key === Main_values.Main_Go && Main_isScene1DocVisible()) {
         Screens_RemoveFocus(key);
         Main_showLoadDialog();
@@ -442,20 +455,27 @@ function Screens_loadDataRequest(key) {
             HeadersArray = ScreenObj[key].HeadersArray;
         }
 
+        var ticket = {account: Navigation_Account(), id: ++Navigation_RequestSerial};
+        ScreenObj[key].navigationRequest = ticket;
         FullxmlHttpGet(
             ScreenObj[key].url + (ScreenObj[key].useHelix || ScreenObj[key].isQuery ? '' : Main_TwitchV5Flag),
             HeadersArray,
             Screens_HttpResultStatus,
             noop_fun,
             key,
-            key,
+            ticket.id,
             Method, //Method, null for get
             PostString
         );
     }
 }
 
-function Screens_HttpResultStatus(resultObj, key) {
+function Screens_HttpResultStatus(resultObj, key, requestId) {
+    // Native dispatch round-trips a named callback and checkResult, not a JavaScript closure.
+    var request = ScreenObj[key].navigationRequest;
+    if (!request || request.id !== Number(requestId) || request.account !== Navigation_Account()) return;
+    if (resultObj.status === 401 || resultObj.status === 403) ScreenObj[key].navigationLoadState = 'auth';
+    else if (resultObj.status !== 200) ScreenObj[key].navigationLoadState = 'error';
     if (resultObj.status === 200) {
         Screens_concatenate(JSON.parse(resultObj.responseText), key);
 
@@ -547,7 +567,7 @@ function Screens_loadDataSuccess(key) {
         var response_rows = Math.ceil(response_items / ScreenObj[key].ColumnsCount),
             max_row = ScreenObj[key].row_id + response_rows;
 
-        for (ScreenObj[key].row_id; ScreenObj[key].row_id < max_row; ) {
+        for (ScreenObj[key].row_id; ScreenObj[key].row_id < max_row;) {
             if (ScreenObj[key].column_id === ScreenObj[key].ColumnsCount) {
                 ScreenObj[key].column_id = 0;
             }
@@ -962,6 +982,8 @@ function Screens_createCellLive(id, idArray, valuesArray, key, Extra_when, Extra
 }
 
 function Screens_loadDataSuccessFinish(key) {
+    Navigation_Restore(key);
+    Navigation_LoadState(key, ScreenObj[key].emptyContent ? ScreenObj[key].navigationLoadState || 'empty' : null);
     //Main_Log('Screens_loadDataSuccessFinish ' + ScreenObj[key].screen);
     ScreenObj[key].FirstRunEnd = true;
     if (!ScreenObj[key].status) {
@@ -1018,6 +1040,7 @@ function Screens_loadDataSuccessFinish(key) {
                 }
             }
         }
+        Navigation_MountRestored(key);
         ScreenObj[key].isRefreshing = false;
         Screens_Some_Screen_Is_Refreshing = false;
         Screens_SetAutoRefresh(key);
@@ -1217,6 +1240,7 @@ function Screens_addFocus(forceScroll, key) {
 }
 
 function Screens_LoadPreviewSTop(PreventCleanQualities) {
+    for (var previewKey in ScreenObj) ScreenObj[previewKey].navigationPreview = null;
     Main_clearTimeout(Screens_LoadPreviewId);
 
     if (Main_IsOn_OSInterface && !PreventCleanQualities) {
@@ -1333,6 +1357,12 @@ function Screens_LoadPreviewStart(key, obj) {
         return;
     }
 
+    ScreenObj[key].navigationPreview = {
+        id: ++Navigation_RequestSerial,
+        account: Navigation_Account(),
+        item: Navigation_ItemIdentity(ScreenObj[key], obj)
+    };
+
     var id,
         token,
         link,
@@ -1347,7 +1377,7 @@ function Screens_LoadPreviewStart(key, obj) {
             Screens_LoadPreviewResult,
             noop_fun,
             key,
-            (ScreenObj[key].posY * ScreenObj[key].ColumnsCount + ScreenObj[key].posX) % 100, //checkResult
+            ScreenObj[key].navigationPreview.id, //checkResult
             'POST', //Method, null for get
             PlayClip_postMessage.replace('%x', obj[0]) //postMessage, null for get
         );
@@ -1381,16 +1411,19 @@ function Screens_LoadPreviewStart(key, obj) {
         }
     }
 
-    PlayHLS_GetPlayListAsync(
-        isLive,
-        id,
-        (ScreenObj[key].posY * ScreenObj[key].ColumnsCount + ScreenObj[key].posX) % 100,
-        key,
-        Screens_LoadPreviewResult
-    );
+    PlayHLS_GetPlayListAsync(isLive, id, ScreenObj[key].navigationPreview.id, key, Screens_LoadPreviewResult);
 }
 
 function Screens_LoadPreviewResult(StreamData, x, y) {
+    var preview = ScreenObj[x] && ScreenObj[x].navigationPreview;
+    if (
+        !preview ||
+        preview.id !== Number(y) ||
+        preview.account !== Navigation_Account() ||
+        !Screens_ObjNotNull(x) ||
+        preview.item !== Navigation_ItemIdentity(ScreenObj[x], Screens_GetObj(x))
+    )
+        return;
     if (
         !Main_isStopped &&
         Screens_IsInUse(x) &&
@@ -1398,7 +1431,7 @@ function Screens_LoadPreviewResult(StreamData, x, y) {
         !Main_isElementShowingWithEle(Screens_dialog_thumb_div) &&
         !Main_isElementShowingWithEle(Screens_dialog_thumb_delete_div) &&
         !Main_isAboutDialogVisible() &&
-        y === (ScreenObj[x].posY * ScreenObj[x].ColumnsCount + ScreenObj[x].posX) % 100 &&
+        preview.id === Number(y) &&
         ScreenObj[x].posY + '_' + ScreenObj[x].posX === ScreenObj[x].focusPos
     ) {
         if (StreamData && Screens_ObjNotNull(x)) {
@@ -1810,6 +1843,7 @@ function Screens_addrowEnd(forceScroll, key) {
 
     Main_AddClass(ScreenObj[key].ids[0] + id, Main_classThumb);
     ScreenObj[key].focusPos = id;
+    Navigation_UpdateDetails(key);
 
     if (ScreenObj[key].screenType === 1 || ScreenObj[key].screenType === 2) {
         if (Screens_ObjNotNull(key)) {
@@ -2193,6 +2227,32 @@ function Screens_KeyUpDownClick(key, y) {
 }
 
 function Screens_handleKeyDown(key, event) {
+    if (ScreenObj[key].loadingData && (event.keyCode === KEY_UP || event.keyCode === KEY_LEFT)) {
+        Navigation_Open(ScreenObj[key].key_fun, event.keyCode === KEY_UP ? 'tabs' : 'rail');
+        return;
+    }
+    if (event.keyCode === KEY_UP && (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) && !Main_CantClick()) {
+        Screens_RemoveAllFocus(key);
+        Navigation_Open(ScreenObj[key].key_fun, 'tabs');
+        return;
+    }
+    if (
+        event.keyCode === KEY_RIGHT &&
+        (ScreenObj[key].posX === ScreenObj[key].ColumnsCount - 1 ||
+            (ScreenObj[key].dataEnded && !ScreenObj[key].DataObj[ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1)]))
+    )
+        return;
+    if (
+        event.keyCode === KEY_DOWN &&
+        ScreenObj[key].screenType === 0 &&
+        !ScreenObj[key].isHistory &&
+        ScreenObj[key].dataEnded &&
+        !ScreenObj[key].DataObj[ScreenObj[key].posY + 1 + '_' + ScreenObj[key].posX]
+    ) {
+        Screens_RemoveAllFocus(key);
+        Navigation_Open(ScreenObj[key].key_fun, 'details');
+        return;
+    }
     //Main_Log('Screens_handleKeyDown ' + event.keyCode + ' key ' + key);
     if (Main_CantClick()) return;
 

@@ -915,6 +915,10 @@ function Settings_init() {
     Main_HideElement('label_refresh');
     Settings_cursorY = 0;
     Settings_inputFocus(Settings_cursorY);
+    Navigation_Render(Main_values.Main_Go);
+    Main_textContent('navigation-heading', STR_SETTINGS);
+    Main_HideElement('navigation-tabs');
+    Main_HideElement('navigation-details');
     Main_EventScreen('Settings');
 }
 
@@ -1904,11 +1908,22 @@ function Settings_HidePlayerClock() {
 
 function Settings_HideScreenTitle() {
     Settings_HideElem('top_lable', Settings_Obj_default('hide_main_screen_title') === 1);
+    Settings_HideElem('navigation-heading', Settings_Obj_default('hide_main_screen_title') === 1);
 }
 
 function Settings_HideEtcHelp() {
     var hide = Settings_Obj_default('hide_etc_help_text') === 1;
-    var eleArray = ['top_lable_etc', 'label_thumb', 'icon_feed_refresh', 'feed_last_refresh', 'feed_end', 'icon_feed_back', 'side_panel_top_text'];
+    var eleArray = [
+        'top_lable_etc',
+        'label_thumb',
+        'icon_feed_refresh',
+        'feed_last_refresh',
+        'feed_end',
+        'icon_feed_back',
+        'side_panel_top_text',
+        'navigation-footer',
+        'player-ui-help'
+    ];
     var i = 0,
         len = eleArray.length;
 

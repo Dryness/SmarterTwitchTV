@@ -20,6 +20,40 @@
 
 //Spacing for release maker not trow errors from jshint
 function en_USLang() {
+    STR_UI = {
+        following: 'Following',
+        browse: 'Browse',
+        library: 'Library',
+        account: 'Account',
+        switchAccount: 'Switch account',
+        liveNow: 'Live now',
+        categories: 'Categories',
+        noAccount: 'No account',
+        welcomeTitle: 'Your channels, together',
+        welcomeCopy: 'Add an account to see who you follow, or browse live channels without one.',
+        browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold ← · Options    Back · Return',
+        playerHelp: '↑ ↓ · Choose    ← → · Adjust    OK · Apply    Back · Return',
+        chat: 'Chat',
+        layout: 'Layout',
+        more: 'More',
+        playback: 'Playback',
+        audio: 'Audio',
+        preview: 'Preview',
+        diagnostics: 'Diagnostics',
+        channelContent: 'Channel / content',
+        playPause: 'Play / Pause',
+        play: 'Play',
+        pause: 'Pause',
+        channels: 'Channels',
+        quality: 'Quality',
+        unavailable: 'Not available in this playback mode',
+        settingsHelp: 'About, controls and updates',
+        loading: 'Loading your channels…',
+        retry: 'Try again',
+        nobodyLive: 'Nobody is live right now. Refresh or browse live channels.',
+        authNeeded: 'Reconnect your account to load followed channels.',
+        error: 'Could not load channels. Check your connection and try again.'
+    };
     // This is a false/true var change if day comes first in your language eg (27/12/2010) day 27 month 12 year 2010
     //Then copy this and set it to true, if doesn't don't copy it
     Main_IsDayFirst = false;

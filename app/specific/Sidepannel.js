@@ -526,6 +526,7 @@ function Sidepannel_Start(callback, forceFeed) {
 }
 
 function Sidepannel_StartFeed() {
+    Main_HideElement('navigation-shell');
     Main_HideLoadDialog();
     Sidepannel_IsMain = false;
     Main_addEventListener('keydown', Sidepannel_handleKeyDown);
@@ -591,17 +592,14 @@ function Sidepannel_SetLastRefreshUpDiv(date) {
 }
 
 function Sidepannel_StartMain() {
-    Sidepannel_Hidecenefeed();
     Sidepannel_IsMain = true;
-    Sidepannel_MovelDiv.style.transform = 'translateX(' + Sidepannel_FixdefaultMargin + '%)';
-    Sidepannel_FixDiv.style.marginLeft = '';
-    Main_addEventListener('keydown', Sidepannel_handleKeyDownMain);
-    Sidepannel_AddFocusMain();
-    Main_EventScreen('Side_panel_main');
+    Sidepannel_Hidecenefeed();
+    Navigation_Render(Main_values.Main_Go);
+    Navigation_Open(Sidepannel_Callback);
 }
 
 function Sidepannel_isShowingMenus() {
-    return Main_A_equals_B(Sidepannel_MovelDiv.style.transform, 'translateX(' + Sidepannel_FixdefaultMargin + '%)');
+    return Navigation_Region === 'rail';
 }
 
 function Sidepannel_HideMain(hideAll) {
@@ -616,6 +614,7 @@ function Sidepannel_HideMain(hideAll) {
 }
 
 function Sidepannel_Hide(PreventCleanQualities) {
+    Navigation_Close(false);
     if (!PreventCleanQualities) {
         Sidepannel_HideMain();
         Sidepannel_RemoveFocusMain();

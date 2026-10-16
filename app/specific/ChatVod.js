@@ -744,6 +744,9 @@ function Chat_Clear() {
     Main_clearTimeout(Chat_loadMoreId);
     ChatLive_ClearIds(0);
     ChatLive_ClearIds(1);
+    Chat_Id[1] = 0;
+    ChatLive_CacheRelease(0);
+    ChatLive_CacheRelease(1);
     ChatLive_resetChatters(0);
 }
 

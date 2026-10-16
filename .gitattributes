@@ -1,0 +1,3 @@
+# These sources intentionally retain CRLF; do not treat CR as trailing whitespace.
+app/general/version.js whitespace=cr-at-eol
+app/specific/ChatLive.js whitespace=cr-at-eol

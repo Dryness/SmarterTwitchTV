@@ -1321,7 +1321,9 @@ function Play_PlayPauseChange(State, PlayVodClip) {
         }
     }
 
+    PlayerUI_State.paused = !State;
     Main_innerHTMLWithEle(Play_BottonIcons_Pause, Play_GetPlayPauseIcon(State));
+    if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_Render();
     Play_showWarningMiddleDialog(Play_GetPlayPauseIcon(!State), 500);
 }
 
@@ -1681,6 +1683,10 @@ function Play_handleKeyUpEndClear() {
 }
 
 function Play_handleKeyDown(e) {
+    if (e.keyCode === KEY_DOWN && Play_isPanelShowing() && !PlayVod_PanelY && !UserLiveFeed_isPreviewShowing()) {
+        PlayerUI_Show(1);
+        return;
+    }
     //console.log('Play_handleKeyDown', e.keyCode);
 
     if (!Play_isOn || !Main_isScene2DocVisible()) {
@@ -1787,8 +1793,10 @@ function Play_handleKeyDown(e) {
                     if (Play_MultiDialogPos < 0) Play_MultiDialogPos += 4;
                 }
                 Play_MultiAddFocus();
-            } else if (!UserLiveFeed_isPreviewShowing()) UserLiveFeed_ShowFeed();
-            else if (Play_isEndDialogVisible() || UserLiveFeed_isPreviewShowing()) {
+            } else if (!UserLiveFeed_isPreviewShowing()) {
+                UserLiveFeed_FeedPosX = AddUser_UserIsSet() ? UserLiveFeedobj_UserLivePos : UserLiveFeedobj_LivePos;
+                UserLiveFeed_ShowFeed();
+            } else if (Play_isEndDialogVisible() || UserLiveFeed_isPreviewShowing()) {
                 Play_EndTextClear();
                 Main_clearAllPlayerEvents();
                 Main_addEventListener('keyup', Play_handleKeyUp);
@@ -4010,7 +4018,7 @@ function Play_MakeControls() {
     };
 
     var div,
-        doc = Main_getElementById('controls_holder'),
+        doc = Main_getElementById('player-ui-actions'),
         fragment = document.createDocumentFragment(),
         keys = Object.keys(Play_controls),
         i = 0,
@@ -4121,6 +4129,10 @@ function Play_KeyChatPosChage() {
 }
 
 function Play_BottomOptionsPressed(PlayVodClip) {
+    if (!PlayerUI_State.frames.length) {
+        PlayerUI_Show(PlayVodClip);
+        return;
+    }
     if (Play_controls[Play_PanelCounter].enterKey) {
         Play_controls[Play_PanelCounter].enterKey(PlayVodClip);
     } else {
@@ -4129,6 +4141,10 @@ function Play_BottomOptionsPressed(PlayVodClip) {
 }
 
 function Play_ResetPanel(PlayVodClip) {
+    if (PlayerUI_State.frames.length) {
+        PlayerUI_ScheduleHide();
+        return;
+    }
     Play_clearHidePanel();
     if (PlayVodClip === 1) Play_setHidePanel();
     else if (PlayVodClip === 2) PlayVod_setHidePanel();
@@ -4180,7 +4196,7 @@ function Play_BottomLeftRigt(PlayVodClip, adder, skipRemoveFocus) {
 }
 
 function Play_BottomShow(position) {
-    Play_controls[position].doc.style.display = '';
+    Play_controls[position].doc.style.display = !PlayerUI_State.frames.length || PlayerUI_ControlShown(position) ? '' : 'none';
     Play_controls[position].visible = true;
 }
 
@@ -4364,6 +4380,10 @@ function Play_BottomIconsFocusClear() {
 }
 
 function Play_BottomIconsFocus(skipInfo, checkjump, skipHide) {
+    if (PlayVod_PanelY > 0 && !PlayerUI_State.suspended) {
+        PlayerUI_Show(PlayerUI_Mode());
+        return;
+    }
     if (PlayVod_PanelY < 0) {
         PlayVod_PanelY = 0;
         return;

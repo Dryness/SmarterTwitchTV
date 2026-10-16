@@ -854,6 +854,9 @@
         STR_PHONE_CHAT_LOCAL_FAIL,
         STR_PHONE_CHAT_FOLLOWS,
         STR_PHONE_CHAT_SHORTCUT;
+
+    // English defaults are loaded before every selected translation.
+    var STR_UI;
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -1415,6 +1418,40 @@
 
     //Spacing for release maker not trow errors from jshint
     function en_USLang() {
+        STR_UI = {
+            following: 'Following',
+            browse: 'Browse',
+            library: 'Library',
+            account: 'Account',
+            switchAccount: 'Switch account',
+            liveNow: 'Live now',
+            categories: 'Categories',
+            noAccount: 'No account',
+            welcomeTitle: 'Your channels, together',
+            welcomeCopy: 'Add an account to see who you follow, or browse live channels without one.',
+            browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold ← · Options    Back · Return',
+            playerHelp: '↑ ↓ · Choose    ← → · Adjust    OK · Apply    Back · Return',
+            chat: 'Chat',
+            layout: 'Layout',
+            more: 'More',
+            playback: 'Playback',
+            audio: 'Audio',
+            preview: 'Preview',
+            diagnostics: 'Diagnostics',
+            channelContent: 'Channel / content',
+            playPause: 'Play / Pause',
+            play: 'Play',
+            pause: 'Pause',
+            channels: 'Channels',
+            quality: 'Quality',
+            unavailable: 'Not available in this playback mode',
+            settingsHelp: 'About, controls and updates',
+            loading: 'Loading your channels…',
+            retry: 'Try again',
+            nobodyLive: 'Nobody is live right now. Refresh or browse live channels.',
+            authNeeded: 'Reconnect your account to load followed channels.',
+            error: 'Could not load channels. Check your connection and try again.'
+        };
         // This is a false/true var change if day comes first in your language eg (27/12/2010) day 27 month 12 year 2010
         //Then copy this and set it to true, if doesn't don't copy it
         Main_IsDayFirst = false;
@@ -8280,11 +8317,28 @@
     //Spacing for release maker not trow errors from jshint
     var version = {
         VersionBase: '3.0',
-        publishVersionCode: 390, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/390/SmarterPurpleTV_3_0_390.apk',
-        WebVersion: 'October 11 2026',
-        WebTag: 749, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
+        WebVersion: 'October 16 2026',
+        WebTag: 751, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 16 2026 (Web 751)',
+                changes: [
+                    'TV interface: Following home, stable navigation rail, browsing tabs and focused channel details',
+                    'Player: compact controls and named drawers for chat, quality, layout, audio and playback options',
+                    'Navigation: preserve channel focus during refresh and ignore stale account and preview responses'
+                ]
+            },
+            {
+                title: 'October 16 2026 (APK 391)',
+                changes: [
+                    'TV chat: use one delay timer per chat and retain at most twenty inactive channel caches while keeping current shared channels available',
+                    'TV chat: message animation now fades and slides into its final height',
+                    'Phone chat: batch history maintenance and scrolling while preserving moderation and twenty-minute priority history',
+                    'Android: bound waiting network requests and prevent stale responses or APK installer callbacks after activity destruction'
+                ]
+            },
             {
                 title: 'October 11 2026 (APK 390)',
                 changes: [
@@ -8869,6 +8923,7 @@
 
     function AddUser_init() {
         Main_values.Main_Go = Main_addUser;
+        Navigation_Render(Main_addUser);
         ScreensObj_SetTopLable(STR_USER_ADD);
         Main_HideWarningDialog();
         Main_showLoadDialog();
@@ -12056,6 +12111,7 @@
     function ChannelContent_init() {
         Main_values.Main_CenterLablesVectorPos = 1;
         Main_values.Main_Go = Main_ChannelContent;
+        Navigation_Render(Main_ChannelContent);
 
         if (ChannelContent_ChannelValueIsset && !Main_values.Search_isSearching && Main_values.Main_selectedChannel_id) {
             ChannelContent_RestoreChannelValue();
@@ -12841,6 +12897,63 @@
     var ChatLive_sharedProfileImg = {};
     var ChatLive_sharedChannelBadgeLoaded = [];
 
+    // One union index; active slots and their current shared participants are pinned.
+    var ChatLive_CacheInactiveLimit = 20;
+    var ChatLive_CacheRecent = [];
+    var ChatLive_CachePins = [{}, {}];
+
+    function ChatLive_CacheTrim() {
+        var inactive = [],
+            i,
+            channel,
+            provider,
+            providers = ['bttv', 'ffz', 'seven_tv', 'ChannelEmotes', 'BadgesChannel', 'cheers'];
+        for (i = 0; i < ChatLive_CacheRecent.length; i++) {
+            channel = ChatLive_CacheRecent[i];
+            if (!ChatLive_CachePins[0][channel] && !ChatLive_CachePins[1][channel]) inactive.push(channel);
+        }
+        while (inactive.length > ChatLive_CacheInactiveLimit) {
+            channel = inactive.shift();
+            ChatLive_CacheRecent.splice(ChatLive_CacheRecent.indexOf(channel), 1);
+            for (provider = 0; provider < providers.length; provider++) delete extraEmotesDone[providers[provider]][channel];
+            delete cheers[channel];
+            delete ChatLive_sharedProfileImg[channel];
+        }
+    }
+
+    function ChatLive_CacheTouch(channel) {
+        if (!channel) return;
+        channel = String(channel);
+        var index = ChatLive_CacheRecent.indexOf(channel);
+        if (index !== -1) ChatLive_CacheRecent.splice(index, 1);
+        ChatLive_CacheRecent.push(channel);
+        ChatLive_CacheTrim();
+    }
+
+    function ChatLive_CacheRelease(chat_number) {
+        ChatLive_sharedChannelBadgeLoaded[chat_number] = {};
+        extraEmotes[chat_number] = {};
+        ChatLive_selectedChannel_id[chat_number] = null;
+        ChatLive_CachePins[chat_number] = {};
+        ChatLive_CacheTrim();
+    }
+
+    function ChatLive_CacheSetPins(chat_number, participants) {
+        var pins = {},
+            i,
+            channel,
+            loaded = ChatLive_sharedChannelBadgeLoaded[chat_number];
+        if (ChatLive_selectedChannel_id[chat_number]) pins[ChatLive_selectedChannel_id[chat_number]] = true;
+        for (i = 0; i < Math.min(participants.length, 100); i++) pins[participants[i].broadcaster_id] = true;
+        ChatLive_CachePins[chat_number] = pins;
+        if (loaded) {
+            for (channel in loaded) {
+                if (!pins[channel]) delete loaded[channel];
+            }
+        }
+        ChatLive_CacheTrim();
+    }
+
     var ChatLive_selectedChannel_id = [];
     var ChatLive_isShared = [];
     var ChatLive_SharedShowedWarning = [];
@@ -12987,11 +13100,14 @@
     var ChatLive_Highlight_Verified;
 
     function ChatLive_SetOptions(chat_number, Channel_id, selectedChannel) {
+        ChatLive_DelayClear(chat_number);
         extraEmotes[chat_number] = {};
 
         Chat_loadBadgesGlobal();
 
         ChatLive_selectedChannel_id[chat_number] = Channel_id;
+        ChatLive_CacheSetPins(chat_number, []);
+        ChatLive_CacheTouch(Channel_id);
         ChatLive_selectedChannel[chat_number] = selectedChannel;
         if (ChatLive_selectedChannel[chat_number]) ChatLive_selectedChannel[chat_number] = ChatLive_selectedChannel[chat_number].toLowerCase();
 
@@ -13031,7 +13147,7 @@
             ChatLive_User_Regex_Replace = new RegExp('@' + AddUser_UsernameArray[0].name, 'gi');
         }
 
-        Chat_Id[chat_number] = new Date().getTime();
+        Chat_Id[chat_number] = ++ChatLive_Generation;
 
         ChatLive_sharedChannelBadgeLoaded[chat_number] = {};
 
@@ -13076,6 +13192,8 @@
                 len = Math.min(participants.length, 100),
                 channelsIds = '';
 
+            ChatLive_CacheSetPins(chat_number, participants);
+
             for (i; i < len; i++) {
                 channelsIds += channelsIds ? '&id=' : 'id=';
                 channelsIds += participants[i].broadcaster_id;
@@ -13098,6 +13216,7 @@
             }
         } else {
             ChatLive_isShared[chat_number] = false;
+            ChatLive_CacheSetPins(chat_number, []);
 
             if (Settings_value.show_chatters.defaultValue) {
                 ChatLive_loadChattersCheckTypeRun(chat_number, Chat_Id[chat_number]);
@@ -13126,9 +13245,14 @@
                 return a.display_name < b.display_name ? -1 : a.display_name > b.display_name ? 1 : 0;
             });
 
+            for (i = 0; i < len; i++) {
+                if (!ChatLive_CachePins[chat_number][response.data[i].id]) continue;
+                ChatLive_sharedProfileImg[response.data[i].id] = response.data[i].profile_image_url;
+                ChatLive_CacheTouch(response.data[i].id);
+            }
             if (!ChatLive_SharedShowedWarning[chat_number] && ChatLive_isShared[chat_number]) {
-                for (i; i < len; i++) {
-                    ChatLive_sharedProfileImg[response.data[i].id] = response.data[i].profile_image_url;
+                for (i = 0; i < len; i++) {
+                    if (!ChatLive_CachePins[chat_number][response.data[i].id]) continue;
                     chatWarning +=
                         STR_BR +
                         '<span class="tag" style=" background-image: url(' +
@@ -13217,9 +13341,9 @@
     }
 
     function ChatLive_loadChannelEmotes(chat_number, id) {
+        if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
         if (!extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]]) {
-            extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]] = {};
-
             var theUrl = Main_helix_api + 'chat/emotes?broadcaster_id=' + ChatLive_selectedChannel_id[chat_number];
 
             BaseXmlHttpGet(theUrl, ChatLive_loadChannelEmotesSuccess, noop_fun, chat_number, id, true);
@@ -13229,7 +13353,13 @@
     }
 
     function ChatLive_loadChannelEmotesSuccess(responseText, chat_number, chat_id) {
-        ChatLive_loadTwitchEmotesSuccess(responseText, chat_number, chat_id, extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]]);
+        if (chat_id !== Chat_Id[chat_number]) return;
+        var data = JSON.parse(responseText),
+            loaded = {};
+        if (!data || !Array.isArray(data.data)) return;
+        ChatLive_loadTwitchEmotesSuccess(responseText, chat_number, chat_id, loaded);
+        extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]] = loaded;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
     }
 
     function ChatLive_checkSubFail(chat_number, id) {
@@ -13242,6 +13372,7 @@
         if (id !== Chat_Id[chat_number]) return;
 
         var channelId = input_channelId ? input_channelId : ChatLive_selectedChannel_id[chat_number];
+        ChatLive_CacheTouch(channelId);
 
         if (!extraEmotesDone.BadgesChannel[channelId]) {
             var theUrl = Main_helix_api + 'chat/badges?broadcaster_id=' + channelId;
@@ -13256,6 +13387,8 @@
     function ChatLive_loadBadgesChannelSuccess(obj, id, chat_number, channelId) {
         if (id !== Chat_Id[chat_number]) return;
 
+        if (!ChatLive_CachePins[chat_number][channelId]) return;
+        ChatLive_CacheTouch(channelId);
         extraEmotesDone.BadgesChannel[channelId] = Chat_loadBadgesTransform(obj, channelId, true, chat_number);
         ChatLive_sharedChannelBadgeLoaded[chat_number][channelId] = true;
 
@@ -13417,25 +13550,26 @@
 
                 emoticon.code = emoteReplace[emoticon.name] || emoticon.name;
 
-                if (userEmote[AddUser_UsernameArray[0].id].hasOwnProperty(emoticon.code)) return;
-
                 replaceDark = emoticon.theme_mode.includes('dark');
                 srcset = ChatLive_Twitch_srcset(emoticon.images, replaceDark);
 
                 url = emoteURLFromObj(emoticon.images, replaceDark);
                 id = emoticon.code + emoticon.id; //combine code and id to make t uniq
 
-                extraEmotes[chat_number][emoticon.code] = {
+                extraEmotesDone_obj[emoticon.code] = {
                     code: emoticon.code,
                     id: id,
-                    chat_div: emoteTemplate(url, srcset),
                     '4x': url,
                     srcset: srcset
                 };
 
-                extraEmotesDone_obj[emoticon.code] = {
+                // Channel/global cache ownership is independent of the account picker deduplication.
+                if (userEmote[AddUser_UsernameArray[0].id].hasOwnProperty(emoticon.code)) return;
+
+                extraEmotes[chat_number][emoticon.code] = {
                     code: emoticon.code,
                     id: id,
+                    chat_div: emoteTemplate(url, srcset),
                     '4x': url,
                     srcset: srcset
                 };
@@ -13469,6 +13603,7 @@
 
     function ChatLive_loadEmotesChannelBTTV(chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
         if (!extraEmotesDone.bttv[ChatLive_selectedChannel_id[chat_number]]) {
             BaseXmlHttpGet(
@@ -13485,8 +13620,11 @@
 
     function ChatLive_loadEmotesChannelBTTVSuccess(data, chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
-        ChatLive_loadEmotesbttv(JSON.parse(data), chat_number, false);
+        data = JSON.parse(data);
+        if (!data || !Array.isArray(data.channelEmotes) || !Array.isArray(data.sharedEmotes)) return;
+        ChatLive_loadEmotesbttv(data, chat_number, false);
     }
 
     function ChatLive_loadEmotesbttv(data, chat_number) {
@@ -13496,13 +13634,14 @@
             ChatLive_loadEmotesbttvChannel(data.channelEmotes, chat_number);
             ChatLive_loadEmotesbttvChannel(data.sharedEmotes, chat_number);
 
-            var len = data.bots.length,
+            var len = data.bots ? data.bots.length : 0,
                 i = 0;
 
             for (i; i < len; i++) {
                 KnowBots[data.bots[i]] = 1;
             }
         } catch (e) {
+            delete extraEmotesDone.bttv[ChatLive_selectedChannel_id[chat_number]];
             Main_Log('ChatLive_loadEmotesbttv ' + e);
         }
     }
@@ -13553,6 +13692,7 @@
 
     function ChatLive_loadCheersChannel(chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
         if (!extraEmotesDone.cheers[ChatLive_selectedChannel_id[chat_number]]) {
             var theUrl = Main_helix_api + 'bits/cheermotes?broadcaster_id=' + ChatLive_selectedChannel_id[chat_number];
@@ -13563,6 +13703,7 @@
 
     function ChatLive_loadCheersChannelSuccess(responseText, chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
         cheers[ChatLive_selectedChannel_id[chat_number]] = {};
         var data = JSON.parse(responseText);
 
@@ -13600,6 +13741,7 @@
 
     function ChatLive_loadEmotesChannelFFZ(chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
         if (!extraEmotesDone.ffz[ChatLive_selectedChannel_id[chat_number]]) {
             BaseXmlHttpGet(
@@ -13616,8 +13758,11 @@
 
     function ChatLive_loadEmotesChannelFFZSuccess(data, chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
-        ChatLive_loadEmotesffz(JSON.parse(data), chat_number, false);
+        data = JSON.parse(data);
+        if (!data || !data.sets) return;
+        ChatLive_loadEmotesffz(data, chat_number, false);
     }
 
     function ChatLive_loadEmotesffz(data, chat_number, isGlobal) {
@@ -13674,6 +13819,7 @@
                 }
             });
         } catch (e) {
+            if (!isGlobal) delete extraEmotesDone.ffz[ChatLive_selectedChannel_id[chat_number]];
             Main_Log('ChatLive_loadEmotesffz ' + e);
         }
     }
@@ -13694,6 +13840,7 @@
 
     function ChatLive_loadEmotesChannelSeven_tv(chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
         if (!extraEmotesDone.seven_tv[ChatLive_selectedChannel_id[chat_number]]) {
             BaseXmlHttpGet(
@@ -13710,8 +13857,11 @@
 
     function ChatLive_loadEmotesChannelSeven_tvSuccess(data, chat_number, id) {
         if (id !== Chat_Id[chat_number]) return;
+        ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
-        ChatLive_loadEmotesseven_tv(JSON.parse(data), chat_number, false);
+        data = JSON.parse(data);
+        if (!data || !data.id) return;
+        ChatLive_loadEmotesseven_tv(data, chat_number, false);
     }
 
     function ChatLive_loadEmotesseven_tv(data, chat_number, isGlobal) {
@@ -13793,6 +13943,7 @@
                 }
             });
         } catch (e) {
+            if (!isGlobal) delete extraEmotesDone.seven_tv[ChatLive_selectedChannel_id[chat_number]];
             Main_Log('ChatLive_loadEmotesseven_tvChannel ' + e);
         }
     }
@@ -14679,13 +14830,74 @@
         else ChatLive_LineAddDelay(chat_number, Chat_Id[chat_number], messageObj);
     }
 
-    function ChatLive_LineAddDelay(chat_number, id, messageObj) {
-        Main_setTimeout(
+    var ChatLive_Delayed = [];
+    var ChatLive_Generation = 0;
+
+    function ChatLive_DelayClear(chat_number) {
+        var state = ChatLive_Delayed[chat_number];
+        if (state) Main_clearTimeout(state.timer);
+        ChatLive_Delayed[chat_number] = null;
+    }
+
+    function ChatLive_DelayBefore(a, b) {
+        return a.due < b.due || (a.due === b.due && a.sequence < b.sequence);
+    }
+
+    function ChatLive_DelayArm(chat_number, state) {
+        if (!state.queue.length || state.timer !== null) return;
+        state.deadline = state.queue[0].due;
+        state.timer = Main_setTimeout(
             function () {
-                if (id === Chat_Id[chat_number]) ChatLive_LineAdd(messageObj);
+                if (ChatLive_Delayed[chat_number] !== state) return;
+                state.timer = null;
+                while (state.queue.length && state.queue[0].due <= Date.now()) {
+                    var entry = state.queue[0],
+                        last = state.queue.pop(),
+                        index = 0,
+                        child;
+                    if (state.queue.length) {
+                        state.queue[0] = last;
+                        while ((child = index * 2 + 1) < state.queue.length) {
+                            if (child + 1 < state.queue.length && ChatLive_DelayBefore(state.queue[child + 1], state.queue[child])) child++;
+                            if (!ChatLive_DelayBefore(state.queue[child], last)) break;
+                            state.queue[index] = state.queue[child];
+                            index = child;
+                        }
+                        state.queue[index] = last;
+                    }
+                    if (entry.generation === Chat_Id[chat_number]) ChatLive_LineAdd(entry.message);
+                    if (ChatLive_Delayed[chat_number] !== state) return;
+                }
+                ChatLive_DelayArm(chat_number, state);
             },
-            Play_ChatDelayPosition === 1 ? ChatLive_Latency[chat_number] : Play_ChatDelayPosition
+            Math.max(0, state.deadline - Date.now())
         );
+    }
+
+    function ChatLive_LineAddDelay(chat_number, id, messageObj) {
+        var delay = Number(Play_ChatDelayPosition === 1 ? ChatLive_Latency[chat_number] : Play_ChatDelayPosition),
+            state = ChatLive_Delayed[chat_number],
+            index,
+            parent;
+        if (!state) {
+            state = {queue: [], timer: null, sequence: 0, deadline: 0};
+            ChatLive_Delayed[chat_number] = state;
+        }
+        var entry = {generation: id, message: messageObj, due: Date.now() + (isFinite(delay) && delay > 0 ? delay : 0), sequence: state.sequence++};
+        index = state.queue.length;
+        state.queue.push(entry);
+        while (index > 0) {
+            parent = Math.floor((index - 1) / 2);
+            if (!ChatLive_DelayBefore(entry, state.queue[parent])) break;
+            state.queue[index] = state.queue[parent];
+            index = parent;
+        }
+        state.queue[index] = entry;
+        if (state.timer !== null && entry.due < state.deadline) {
+            Main_clearTimeout(state.timer);
+            state.timer = null;
+        }
+        ChatLive_DelayArm(chat_number, state);
     }
 
     function ChatLive_GetBadges(tags, chat_number) {
@@ -14951,6 +15163,7 @@
     }
 
     function ChatLive_ClearIds(chat_number) {
+        ChatLive_DelayClear(chat_number);
         ChatLive_CheckClear(chat_number);
         Main_clearTimeout(ChatLive_socketSendCheckID);
         Main_clearTimeout(ChatLive_loadBadgesChannelId);
@@ -14965,6 +15178,7 @@
         ChatLive_ClearIds(chat_number);
 
         Chat_Id[chat_number] = 0;
+        ChatLive_CacheRelease(chat_number);
         ChatLive_LineAddCounter[chat_number] = 0;
         ChatLive_Messages[chat_number] = [];
 
@@ -16844,6 +17058,9 @@
         Main_clearTimeout(Chat_loadMoreId);
         ChatLive_ClearIds(0);
         ChatLive_ClearIds(1);
+        Chat_Id[1] = 0;
+        ChatLive_CacheRelease(0);
+        ChatLive_CacheRelease(1);
         ChatLive_resetChatters(0);
     }
 
@@ -17596,8 +17813,8 @@
         Main_textContent('exit_app_minimize', STR_MINIMIZE);
         Main_textContent('main_dialog_exit_text', STR_EXIT_MESSAGE);
 
-        Main_innerHTML('dialog_controls_text', STR_CONTROLS_MAIN_0);
-        Main_innerHTML('dialog_controls_player_text', STR_CONTROLS_PLAYER_0);
+        Main_innerHTML('dialog_controls_text', '<p>' + STR_UI.browseHelp + '</p>' + STR_CONTROLS_MAIN_0);
+        Main_innerHTML('dialog_controls_player_text', '<p>' + STR_UI.playerHelp + '</p>' + STR_CONTROLS_PLAYER_0);
         Main_textContent('side_panel_warn_text', STR_NO + STR_LIVE_CHANNELS);
         Main_textContent('side_panel_movel_top_text', STR_LIVE_FEED);
 
@@ -18010,6 +18227,10 @@
     }
 
     function Main_SwitchScreen(removekey, preventRefresh) {
+        if (Navigation_Onboarding && !AddUser_IsUserSet()) {
+            Navigation_ShowOnboarding(Navigation_State.destination);
+            return;
+        }
         //Main_Log('Main_SwitchScreen removekey ' + removekey + ' Main_Go ' + Main_values.Main_Go);
 
         Main_HideWarningDialog();
@@ -18082,6 +18303,7 @@
     }
 
     function Main_ExitCurrent(ExitCurrent) {
+        Navigation_Capture(ExitCurrent);
         //Main_Log('Main_ExitCurrent ' + ExitCurrent);
         if (ScreenObj[ExitCurrent] && ScreenObj[ExitCurrent].exit_fun) ScreenObj[ExitCurrent].exit_fun();
         if (Main_isElementShowing('settings_holder')) Settings_exit();
@@ -18642,6 +18864,7 @@
     }
 
     function Main_hideScene1Doc() {
+        Navigation_Close(false);
         Main_Scene1Doc.style.opacity = 0;
 
         Main_Scene1Doc.style.pointerEvents = 'none';
@@ -18664,6 +18887,8 @@
     }
 
     function Main_hideScene2Doc() {
+        PlayerUI_State.suspended = false;
+        PlayerUI_Close(false);
         Main_Scene2Doc.style.opacity = 0;
 
         Main_Scene2Doc.style.pointerEvents = 'none';
@@ -20017,6 +20242,10 @@
     var Main_isStopped = false;
 
     function Main_CheckStop() {
+        Navigation_Close(false);
+        PhoneChat_Hide(true);
+        PlayerUI_Close(false);
+        Screens_LoadPreviewSTop();
         // Called only by JAVA
         Main_isStopped = true;
         Main_PreventClick(true, Main_PreventClickfun);
@@ -20275,11 +20504,11 @@
 
     function Main_addEventListener(type, fun) {
         Main_removeEventListener(type, fun);
-        Main_body.addEventListener(type, fun);
+        Main_body.addEventListener(type, UIFocus_Listener(type, fun));
     }
 
     function Main_removeEventListener(type, fun) {
-        Main_body.removeEventListener(type, fun);
+        Main_body.removeEventListener(type, UIFocus_Listener(type, fun));
     }
 
     function Main_setTimeout(fun, timeout, id) {
@@ -20780,6 +21009,797 @@
         }
 
         return obj;
+    }
+    /* Logical routes over existing screen IDs. Construct lazily: source and bundle load orders differ. */
+    var Navigation_State = {destination: 'following', tab: 0, generation: 0, account: '', origins: [], bookmarks: []};
+    var Navigation_BookmarkLimit = 24;
+
+    function Navigation_Destinations() {
+        return [
+            {id: 'following', screens: [Main_UserLive, Main_UserVod, Main_UserChannels, Main_usergames], account: true},
+            {id: 'browse', screens: [Main_Live, Main_Featured, Main_games, Main_Vod, Main_Clip]},
+            {id: 'search', screens: [Main_Search, Main_SearchLive, Main_SearchChannels, Main_SearchGames, Main_SearchVod]},
+            {id: 'library', screens: [Main_HistoryLive, Main_HistoryVod, Main_HistoryClip], account: true},
+            {id: 'account', screens: [Main_Users, Main_addUser, Main_Blocked]},
+            {id: 'settings', screens: []},
+            {id: 'exit', screens: []}
+        ];
+    }
+
+    function Navigation_Route(screen) {
+        var routes = Navigation_Destinations(),
+            i,
+            tab;
+        for (i = 0; i < routes.length; i++) {
+            tab = routes[i].screens.indexOf(screen);
+            if (tab !== -1) return {destination: routes[i].id, tab: tab, screen: screen};
+        }
+        return null; // Channel/category details inherit their actual origin, not a guessed top-level destination.
+    }
+
+    function Navigation_Target(destination, tab) {
+        var routes = Navigation_Destinations(),
+            i;
+        for (i = 0; i < routes.length; i++) {
+            if (routes[i].id === destination && tab >= 0 && tab === Math.floor(tab) && tab < routes[i].screens.length) {
+                return routes[i].screens[tab];
+            }
+        }
+        return null;
+    }
+
+    function Navigation_SetAccount(account) {
+        account = String(account || '');
+        if (Navigation_State.account === account) return false;
+        Navigation_State.account = account;
+        Navigation_State.generation++;
+        Navigation_State.origins = [];
+        Navigation_State.bookmarks = [];
+        return true;
+    }
+
+    function Navigation_Context(context) {
+        return {account: Navigation_State.account, generation: Navigation_State.generation, context: context};
+    }
+
+    function Navigation_IsCurrent(ticket, context) {
+        return Boolean(
+            ticket && ticket.account === Navigation_State.account && ticket.generation === Navigation_State.generation && ticket.context === context
+        );
+    }
+
+    function Navigation_SaveBookmark(screen, context, itemId, index, anchor) {
+        var bookmarks = Navigation_State.bookmarks,
+            i;
+        for (i = bookmarks.length - 1; i >= 0; i--) {
+            if (bookmarks[i].screen === screen && bookmarks[i].context === context) bookmarks.splice(i, 1);
+        }
+        bookmarks.push({screen: screen, context: context, itemId: itemId, index: index, anchor: anchor, account: Navigation_State.account});
+        if (bookmarks.length > Navigation_BookmarkLimit) bookmarks.shift();
+    }
+
+    function Navigation_Bookmark(screen, context) {
+        var bookmarks = Navigation_State.bookmarks,
+            i;
+        for (i = bookmarks.length - 1; i >= 0; i--) {
+            if (bookmarks[i].screen === screen && bookmarks[i].context === context && bookmarks[i].account === Navigation_State.account) {
+                return bookmarks[i];
+            }
+        }
+        return null;
+    }
+
+    function Navigation_Enter(screen, origin) {
+        var route = Navigation_Route(screen);
+        if (origin) {
+            Navigation_State.origins.push(origin);
+            if (Navigation_State.origins.length > Navigation_BookmarkLimit) Navigation_State.origins.shift();
+        }
+        if (route) {
+            Navigation_State.destination = route.destination;
+            Navigation_State.tab = route.tab;
+        }
+        Navigation_State.generation++;
+        return route;
+    }
+
+    function Navigation_BackOrigin() {
+        return Navigation_State.origins.pop() || null;
+    }
+
+    /* The integration supplies the existing lifecycle, never a second screen registry or listener. */
+    function Navigation_Transition(screen, adapter, origin) {
+        if (!adapter || !adapter.valid(screen)) return false;
+        adapter.capture();
+        adapter.cancelPreview();
+        UIFocus_Clear();
+        adapter.exit();
+        Navigation_Enter(screen, origin);
+        adapter.init(screen);
+        return true;
+    }
+
+    /* Startup policy only; callers retain the current intent/restore implementation. */
+    function Navigation_Startup(options) {
+        if (options.intent) return {action: 'intent', screen: options.intentScreen};
+        if (options.startUser) return {action: 'screen', screen: Main_Users};
+        if (options.restore && options.wasPlaying) return {action: 'restore', screen: options.previousScreen};
+        if (options.explicitScreen !== undefined && options.explicitScreen !== null) return {action: 'screen', screen: options.explicitScreen};
+        return {action: options.hasAccount ? 'screen' : 'onboarding', screen: options.hasAccount ? Main_UserLive : null};
+    }
+
+    var Navigation_Region = '';
+    var Navigation_Position = 0;
+    var Navigation_Callback = null;
+    var Navigation_Onboarding = false;
+    var Navigation_LastScreen = null;
+    var Navigation_RequestSerial = 0;
+
+    function Navigation_Account() {
+        return AddUser_UsernameArray[0] ? String(AddUser_UsernameArray[0].id || AddUser_UsernameArray[0].name) : '';
+    }
+
+    function Navigation_Labels() {
+        return [
+            STR_UI.following,
+            STR_UI.browse,
+            STR_SEARCH,
+            STR_UI.library,
+            STR_UI.account,
+            STR_SETTINGS,
+            STR_EXIT,
+            STR_ABOUT,
+            STR_CONTROLS,
+            STR_UPDATE_CHANGELOG
+        ];
+    }
+
+    function Navigation_Tabs(destination) {
+        if (destination === 'following') return [STR_UI.liveNow, STR_VIDEOS, STR_CHANNELS, STR_UI.categories];
+        if (destination === 'browse') return [STR_LIVE, STR_FEATURED, STR_UI.categories, STR_VIDEOS, STR_CLIPS];
+        if (destination === 'library') return [STR_LIVE, STR_VIDEOS, STR_CLIPS];
+        if (destination === 'search') return [STR_SEARCH, STR_LIVE, STR_CHANNELS, STR_UI.categories, STR_VIDEOS];
+        if (destination === 'account') return [STR_UI.switchAccount, STR_USER_ADD, STR_USER_MY_CHANNEL, STR_BLOCKED];
+        return [];
+    }
+
+    function Navigation_Button(parent, id, label, callback, icon) {
+        var button = document.createElement('button'),
+            span = document.createElement('span');
+        button.type = 'button';
+        button.id = id;
+        button.className = 'navigation-button';
+        button.setAttribute('aria-label', label);
+        if (icon) {
+            var glyph = document.createElement('i');
+            glyph.className = 'icon icon-' + icon;
+            glyph.setAttribute('aria-hidden', 'true');
+            button.appendChild(glyph);
+        }
+        span.textContent = label;
+        button.appendChild(span);
+        button.onclick = callback;
+        if (id.indexOf('navigation-') === 0) {
+            button.onfocus = function () {
+                Navigation_ElementFocus(id);
+            };
+            button.onkeydown = function (event) {
+                if (!Navigation_Region) {
+                    var region =
+                        id.indexOf('navigation-route-') === 0 || id === 'navigation-about' || id === 'navigation-help' || id === 'navigation-updates'
+                            ? 'rail'
+                            : id.indexOf('navigation-recovery-') === 0
+                              ? 'recovery'
+                              : id === 'navigation-detail-action'
+                                ? 'details'
+                                : 'tabs';
+                    Navigation_Open(null, region);
+                }
+                Navigation_ElementFocus(id);
+                UIFocus_Dispatch(event, false);
+            };
+        }
+        parent.appendChild(button);
+        return button;
+    }
+
+    function Navigation_Render(screen) {
+        var rail = Main_getElementById('navigation-destinations');
+        if (!rail || !STR_UI) return;
+        Navigation_SyncAccount();
+        var route = Navigation_Route(screen),
+            routes = Navigation_Destinations(),
+            labels = Navigation_Labels(),
+            icons = ['heart', 'gamepad', 'search', 'history', 'user', 'options', 'return'],
+            i,
+            tabLabels,
+            button;
+        if (route && !Navigation_Onboarding) {
+            Navigation_State.destination = route.destination;
+            Navigation_State.tab = screen === Main_Blocked ? 3 : route.tab;
+        }
+        if (Settings_isVisible()) {
+            Navigation_State.destination = 'settings';
+            Navigation_State.tab = 0;
+        }
+        if (Navigation_LastScreen !== screen) {
+            Navigation_State.generation++;
+            Navigation_LastScreen = screen;
+        }
+        Main_emptyWithEle(rail);
+        for (i = 0; i < routes.length; i++) {
+            button = Navigation_Button(rail, 'navigation-route-' + i, labels[i], Navigation_Activate.bind(null, i), icons[i]);
+            if (routes[i].id === Navigation_State.destination) button.setAttribute('aria-current', 'page');
+        }
+        Main_textContent(
+            'navigation-heading',
+            labels[
+                routes
+                    .map(function (item) {
+                        return item.id;
+                    })
+                    .indexOf(Navigation_State.destination)
+            ]
+        );
+        Main_textContent(
+            'navigation-account',
+            AddUser_UsernameArray[0] ? AddUser_UsernameArray[0].display_name || AddUser_UsernameArray[0].name : STR_UI.noAccount
+        );
+        Main_empty('navigation-tabs');
+        tabLabels = Navigation_Tabs(Navigation_State.destination);
+        for (i = 0; i < tabLabels.length; i++) {
+            button = Navigation_Button(
+                Main_getElementById('navigation-tabs'),
+                'navigation-tab-' + i,
+                tabLabels[i],
+                Navigation_ActivateTab.bind(null, i)
+            );
+            button.setAttribute('role', 'tab');
+            button.setAttribute('aria-selected', String(i === Navigation_State.tab));
+        }
+        Main_textContent('navigation-refresh', STR_REFRESH);
+        Main_textContent('navigation-detail-action', STR_CHANNEL_CONT);
+        Main_textContent('navigation-footer', STR_UI.browseHelp);
+        Main_getElementById('navigation-refresh').onclick = Navigation_Refresh;
+        Navigation_BindStaticKeys();
+        Main_getElementById('navigation-detail-action').onclick = Navigation_OpenDetails;
+        Main_AddClass('scene1', 'navigation-enabled');
+        var obj = ScreenObj[screen],
+            live = Boolean(obj && obj.screenType === 0 && !obj.isHistory && !Settings_isVisible());
+        if (live && !Navigation_Onboarding) Main_AddClass('scene1', 'navigation-live');
+        else Main_RemoveClass('scene1', 'navigation-live');
+        if (live && !Navigation_Onboarding) Main_ShowElement('navigation-details');
+        else Main_HideElement('navigation-details');
+        Main_ShowElement('navigation-shell');
+        if (Settings_isVisible()) {
+            Main_HideElement('navigation-tabs');
+            Main_HideElement('navigation-refresh');
+        } else {
+            Main_ShowElement('navigation-tabs');
+            Main_ShowElement('navigation-refresh');
+        }
+        Main_textContent('navigation-about', STR_ABOUT);
+        Main_textContent('navigation-help', STR_CONTROLS);
+        Main_textContent('navigation-updates', STR_UPDATE_CHANGELOG);
+        Main_getElementById('navigation-about').onclick = Navigation_Activate.bind(null, 7);
+        Main_getElementById('navigation-help').onclick = Navigation_Activate.bind(null, 8);
+        Main_getElementById('navigation-updates').onclick = Navigation_Activate.bind(null, 9);
+        Navigation_UpdateDetails(screen);
+    }
+
+    function Navigation_SyncAccount() {
+        if (!Navigation_SetAccount(Navigation_Account())) return;
+        Navigation_FeedRequests = {};
+        for (var feed = UserLiveFeedobj_UserLivePos; feed <= UserLiveFeedobj_UserVodHistoryPos; feed++) {
+            if (!UserLiveFeed_obj[feed]) continue;
+            Navigation_FeedGenerations[feed] = (Navigation_FeedGenerations[feed] || 0) + 1;
+            UserLiveFeed_DataObj[feed] = [];
+            UserLiveFeed_loadingData[feed] = false;
+            UserLiveFeed_status[feed] = false;
+            UserLiveFeed_obj[feed].loadingMore = false;
+            if (UserLiveFeed_obj[feed].div) Main_emptyWithEle(UserLiveFeed_obj[feed].div);
+        }
+        // An in-flight response carries the old account ticket; clear account-scoped rendered data now.
+        for (var key in ScreenObj) {
+            var obj = ScreenObj[key];
+            if (obj.IsUser || obj.isHistory || Number(key) === Main_Blocked) {
+                obj.navigationRequest = null;
+                obj.navigationPreview = null;
+                obj.status = false;
+                obj.loadingData = false;
+                obj.isRefreshing = false;
+                obj.DataObj = {};
+                obj.Cells = [];
+                obj.itemsCount = 0;
+                if (obj.tableDoc) Main_emptyWithEle(obj.tableDoc);
+            }
+        }
+    }
+
+    function Navigation_Focus() {
+        var shell = Main_getElementById('navigation-shell'),
+            old = shell.querySelector('.navigation-focused'),
+            id;
+        if (old) old.classList.remove('navigation-focused');
+        if (Navigation_Region === 'rail')
+            id =
+                Navigation_Position < 7
+                    ? 'navigation-route-' + Navigation_Position
+                    : ['navigation-about', 'navigation-help', 'navigation-updates'][Navigation_Position - 7];
+        else if (Navigation_Region === 'tabs')
+            id =
+                Navigation_Position < Navigation_Tabs(Navigation_State.destination).length
+                    ? 'navigation-tab-' + Navigation_Position
+                    : 'navigation-refresh';
+        else if (Navigation_Region === 'details') id = 'navigation-detail-action';
+        else id = 'navigation-recovery-' + Navigation_Position;
+        var target = Main_getElementById(id);
+        if (target) {
+            target.classList.add('navigation-focused');
+            target.focus();
+        }
+    }
+
+    function Navigation_Open(callback, region) {
+        if (Navigation_Region) Navigation_Close(false);
+        Navigation_Callback = callback || (ScreenObj[Main_values.Main_Go] && ScreenObj[Main_values.Main_Go].key_fun);
+        Navigation_Region = region || 'rail';
+        Navigation_Position = Navigation_Region === 'tabs' ? Navigation_State.tab : 0;
+        if (Navigation_Region === 'rail') {
+            var routes = Navigation_Destinations();
+            for (var i = 0; i < routes.length; i++) if (routes[i].id === Navigation_State.destination) Navigation_Position = i;
+        }
+        if (Navigation_Callback) Main_removeEventListener('keydown', Navigation_Callback);
+        Screens_LoadPreviewSTop();
+        if (Navigation_Region === 'rail') Main_AddClass('navigation-rail', 'navigation-expanded');
+        UIFocus_Push({
+            id: 'navigation',
+            handle: Navigation_Handle,
+            cleanup: function () {
+                Navigation_Region = '';
+                Main_RemoveClass('navigation-rail', 'navigation-expanded');
+                var focused = Main_getElementById('navigation-shell').querySelector('.navigation-focused');
+                if (focused) focused.classList.remove('navigation-focused');
+                Main_removeEventListener('keydown', Navigation_HandleListener);
+            }
+        });
+        Main_addEventListener('keydown', Navigation_HandleListener);
+        Navigation_Focus();
+    }
+
+    function Navigation_HandleListener() {
+        // UIFocus_Listener owns dispatch, including suspension and held-key release.
+    }
+
+    function Navigation_Close(restore) {
+        if (Navigation_Region) UIFocus_Pop(false);
+        if (restore && Navigation_Callback) {
+            Main_addEventListener('keydown', Navigation_Callback);
+            var obj = ScreenObj[Main_values.Main_Go];
+            if (obj && obj.addFocus && obj.itemsCount && !Navigation_Onboarding) Screens_addFocus(true, Main_values.Main_Go);
+            if (obj && obj.emptyContent && Main_values.Main_Go === Main_UserLive && !Navigation_Onboarding)
+                Main_getElementById('navigation-retry').focus();
+        }
+    }
+
+    function Navigation_Handle(event, up) {
+        if (up) return true;
+        var code = event.keyCode;
+        if (code === 9) return false;
+        var tabs = Navigation_Tabs(Navigation_State.destination);
+        if (code === KEY_RETURN || code === KEY_KEYBOARD_BACKSPACE || code === 27) {
+            if (Navigation_Onboarding) {
+                Navigation_Region = 'rail';
+                Navigation_Position = 0;
+                Main_AddClass('navigation-rail', 'navigation-expanded');
+                Navigation_Focus();
+            } else Navigation_Close(true);
+        } else if (code === KEY_ENTER || code === KEY_PLAY || code === KEY_PLAYPAUSE || code === KEY_KEYBOARD_SPACE) {
+            if (Navigation_Region === 'rail') Navigation_Activate(Navigation_Position);
+            else if (Navigation_Region === 'tabs') {
+                if (Navigation_Position === tabs.length) Navigation_Refresh();
+                else Navigation_ActivateTab(Navigation_Position);
+            } else if (Navigation_Region === 'details') Navigation_OpenDetails();
+            else if (!Navigation_Position) Navigation_Go(Main_addUser);
+            else Navigation_Go(Main_Live);
+        } else if (code === KEY_6 || code === KEY_PAUSE) {
+            Navigation_Activate(5);
+            return true;
+        } else if (code === KEY_7 || code === KEY_A) {
+            Navigation_Activate(7);
+            return true;
+        } else if (code === KEY_8 || code === KEY_C) {
+            Navigation_Activate(8);
+            return true;
+        } else if (code === KEY_9 || code === KEY_E) {
+            Navigation_Activate(6);
+            return true;
+        } else if (Navigation_Region === 'rail') {
+            if (code === KEY_UP || code === KEY_DOWN)
+                Navigation_Position = Math.max(0, Math.min(Navigation_Labels().length - 1, Navigation_Position + (code === KEY_UP ? -1 : 1)));
+            else if (code === KEY_RIGHT) {
+                if (Navigation_Onboarding) {
+                    Navigation_Region = 'recovery';
+                    Navigation_Position = 0;
+                    Main_RemoveClass('navigation-rail', 'navigation-expanded');
+                } else {
+                    Navigation_Close(true);
+                    return true;
+                }
+            } else if (code === KEY_LEFT || code === KEY_3) {
+                Navigation_Close(false);
+                if (AddUser_UserHasToken()) Sidepannel_StartFeed();
+                else {
+                    Sidepannel_ShowNoUserWarning();
+                    Navigation_Open(Navigation_Callback);
+                }
+                return true;
+            }
+        } else if (Navigation_Region === 'tabs') {
+            if (code === KEY_LEFT && !Navigation_Position) {
+                Navigation_Open(Navigation_Callback, 'rail');
+                return true;
+            }
+            if (code === KEY_LEFT || code === KEY_RIGHT)
+                Navigation_Position = Math.max(0, Math.min(tabs.length, Navigation_Position + (code === KEY_LEFT ? -1 : 1)));
+            else if (code === KEY_DOWN) {
+                if (Navigation_Onboarding) {
+                    Navigation_Region = 'recovery';
+                    Navigation_Position = 0;
+                } else {
+                    Navigation_Close(true);
+                    return true;
+                }
+            }
+        } else if (Navigation_Region === 'details' && code === KEY_UP) {
+            Navigation_Close(true);
+            return true;
+        } else if (Navigation_Region === 'recovery') {
+            if (code === KEY_LEFT || code === KEY_RIGHT) Navigation_Position = code === KEY_LEFT ? 0 : 1;
+            else if (code === KEY_UP) {
+                Navigation_Region = 'tabs';
+                Navigation_Position = 0;
+            }
+        }
+        Navigation_Focus();
+        return true;
+    }
+
+    function Navigation_Activate(index) {
+        Navigation_Close(false);
+        if (index >= 7) {
+            if (index === 7) Main_showAboutDialog(Navigation_Callback, Navigation_UtilityReturn);
+            else if (index === 8) Main_showControlsDialog(Navigation_Callback, Navigation_UtilityReturn);
+            else Main_UpdateDialogShowCheck();
+            return;
+        }
+        var id = Navigation_Destinations()[index].id;
+        if (id === 'settings') {
+            Navigation_Onboarding = false;
+            Main_HideElement('navigation-onboarding');
+            Navigation_ExitCurrent();
+            Settings_init();
+            return;
+        }
+        if (id === 'exit') {
+            Main_showExitDialog();
+            return;
+        }
+        if ((id === 'following' || id === 'library') && !AddUser_IsUserSet()) {
+            Navigation_ShowOnboarding(id);
+            return;
+        }
+        if (id === 'search') {
+            Navigation_Go(Main_Search);
+            return;
+        }
+        Navigation_Go(id === 'account' ? (AddUser_IsUserSet() ? Main_Users : Main_addUser) : Navigation_Target(id, 0));
+    }
+
+    function Navigation_ActivateTab(tab) {
+        if (Navigation_Onboarding) return;
+        if (Navigation_State.destination === 'search' && tab && !Main_values.Search_data) {
+            Navigation_Go(Main_Search);
+            return;
+        }
+        if (Navigation_State.destination === 'account') {
+            if (!AddUser_IsUserSet() && tab !== 1) {
+                Navigation_Go(Main_addUser);
+                return;
+            }
+            if (tab === 2) {
+                if (!AddUser_IsUserSet()) {
+                    Navigation_Go(Main_addUser);
+                    return;
+                }
+                Navigation_Close(false);
+                Navigation_State.tab = 2;
+                Sidepannel_Sidepannel_Pos = 7;
+                Sidepannel_KeyEnterUser();
+                return;
+            }
+            Navigation_Go(tab === 0 ? Main_Users : tab === 1 ? Main_addUser : Main_Blocked);
+        } else Navigation_Go(Navigation_Target(Navigation_State.destination, tab));
+    }
+
+    function Navigation_ExitCurrent() {
+        var current = Main_values.Main_Go;
+        Navigation_Capture(current);
+        if (Main_isElementShowing('add_user_scroll')) AddUser_exit();
+        else if (Main_isElementShowing('search_scroll')) Search_exit();
+        else if (Settings_isVisible()) Settings_exit();
+        else Main_ExitCurrent(current);
+    }
+
+    function Navigation_Go(screen) {
+        if (screen === null || screen === undefined) return;
+        Navigation_Close(false);
+        Navigation_Onboarding = false;
+        Main_HideElement('navigation-onboarding');
+        var previous = Main_values.Main_Go;
+        Navigation_ExitCurrent();
+        Main_values.Main_Before = previous;
+        if (screen === Main_Search) {
+            Main_values.Main_BeforeSearch = previous;
+            Main_values.Main_Go = Main_Search;
+            Search_init();
+            return;
+        }
+        if (Navigation_Route(screen).destination !== 'search') Main_values.Search_isSearching = false;
+        Main_values.Main_Go = screen;
+        if (screen === Main_addUser) AddUser_init();
+        else if (screen === Main_Users) Users_init();
+        else ScreenObj[screen].init_fun();
+        Main_SaveValuesWithTimeout();
+    }
+
+    function Navigation_UtilityReturn(event) {
+        if (event.keyCode !== KEY_ENTER && event.keyCode !== KEY_RETURN && event.keyCode !== KEY_KEYBOARD_BACKSPACE) return;
+        Main_HideAboutDialog();
+        Main_HideControlsDialog();
+        Main_removeEventListener('keydown', Navigation_UtilityReturn);
+        Navigation_Open(Navigation_Callback);
+    }
+
+    function Navigation_Refresh() {
+        Navigation_Close(true);
+        if (ScreenObj[Main_values.Main_Go] && ScreenObj[Main_values.Main_Go].start_fun) Main_ReloadScreen();
+    }
+
+    function Navigation_ShowOnboarding(destination) {
+        Main_ExitCurrent(Main_values.Main_Go);
+        Navigation_Onboarding = true;
+        Navigation_State.destination = destination || 'following';
+        Navigation_State.tab = 0;
+        Main_textContent('navigation-welcome-title', STR_UI.welcomeTitle);
+        Main_textContent('navigation-welcome-copy', STR_UI.welcomeCopy);
+        Main_textContent('navigation-recovery-0', STR_USER_ADD);
+        Main_textContent('navigation-recovery-1', STR_UI.browse);
+        Main_getElementById('navigation-recovery-0').onclick = Navigation_Go.bind(null, Main_addUser);
+        Main_getElementById('navigation-recovery-1').onclick = Navigation_Go.bind(null, Main_Live);
+        Navigation_Render(Main_values.Main_Go);
+        Main_ShowElement('navigation-onboarding');
+        Main_HideLoadDialog();
+        Main_FirstRun = false;
+        Navigation_Open(null, 'recovery');
+    }
+
+    function Navigation_ItemIdentity(obj, data) {
+        if (!data || data.image || data.empty) return null;
+        return String(obj.screenType === 0 ? data[14] || data[6] : obj.screenType === 1 || obj.screenType === 2 ? data[7] : data[7] || data[0]);
+    }
+
+    function Navigation_Capture(screen) {
+        var obj = ScreenObj[screen];
+        if (!obj || !obj.DataObj || obj.posY < 0) return;
+        var data = obj.DataObj[obj.posY + '_' + obj.posX],
+            identity = Navigation_ItemIdentity(obj, data);
+        if (identity) Navigation_SaveBookmark(screen, Navigation_ScreenContext(screen), identity, obj.posY * obj.ColumnsCount + obj.posX, obj.posY);
+    }
+
+    function Navigation_Restore(screen) {
+        var obj = ScreenObj[screen];
+        if (!obj.navigationRestorePending) return;
+        var mark = Navigation_Bookmark(screen, Navigation_ScreenContext(screen)),
+            keys = Object.keys(obj.DataObj),
+            i,
+            data,
+            chosen = null;
+        keys.sort(function (a, b) {
+            return parseInt(a, 10) - parseInt(b, 10) || Number(a.split('_')[1]) - Number(b.split('_')[1]);
+        });
+        for (i = 0; i < keys.length; i++) {
+            data = obj.DataObj[keys[i]];
+            if (mark && Navigation_ItemIdentity(obj, data) === mark.itemId) {
+                chosen = keys[i];
+                break;
+            }
+        }
+        if (!chosen && mark && keys.length) chosen = keys[Math.min(keys.length - 1, mark.index)];
+        if (chosen) {
+            obj.posY = Number(chosen.split('_')[0]);
+            obj.posX = Number(chosen.split('_')[1]);
+        }
+        obj.navigationRemount = Boolean(chosen && obj.posY > 1);
+        obj.navigationRestorePending = false;
+    }
+
+    /* Rebuild the bounded row window after an identity restore jumps beyond adjacent rows. */
+    function Navigation_MountRestored(screen) {
+        var obj = ScreenObj[screen];
+        if (!obj.navigationRemount) return;
+        obj.navigationRemount = false;
+        var count = obj.visiblerows,
+            start = Math.max(0, Math.min(obj.posY - Math.floor(count / 2), obj.Cells.length - count)),
+            i;
+        for (i = 0; i < obj.Cells.length; i++) Main_RemoveElement(obj.Cells[i]);
+        for (i = start; i < Math.min(start + count, obj.Cells.length); i++) {
+            obj.tableDoc.appendChild(obj.Cells[i]);
+            obj.Cells[i].style.position = '';
+            obj.Cells[i].style.transition = 'none';
+            obj.Cells[i].style.transform = 'translateY(' + (i - start) * obj.offsettop + 'em)';
+        }
+        obj.currY = obj.posY;
+        if (count === 3) obj.ScrollDoc.style.transform = 'translateY(-' + obj.offsettop + 'em)';
+    }
+
+    function Navigation_UpdateDetails(screen) {
+        var obj = ScreenObj[screen],
+            data;
+        if (!obj || !obj.DataObj) return;
+        data = obj.DataObj[obj.posY + '_' + obj.posX];
+        Main_textContent('navigation-detail-category', data && !data.image ? data[3] : '');
+        Main_textContent('navigation-detail-title', data && !data.image ? data[2] : '');
+        Main_textContent('navigation-detail-name', data && !data.image ? data[1] + ' · ' + data[4] + ' ' + STR_VIEWERS : '');
+    }
+
+    function Navigation_OpenDetails() {
+        var key = Main_values.Main_Go;
+        Navigation_Close(true);
+        if (ScreenObj[key] && Screens_ObjNotNull(key) && !Screens_GetObj(key).image) {
+            Screens_values_Play_data = Screens_GetObj(key);
+            Screens_OpenChannel(key);
+        }
+    }
+
+    function Navigation_ScreenContext(screen) {
+        var obj = ScreenObj[screen],
+            route = Navigation_Route(screen);
+        return obj && obj.gameSelected_Id
+            ? String(obj.gameSelected_Id)
+            : route && route.destination === 'search'
+              ? Main_values.Search_data || ''
+              : '';
+    }
+
+    function Navigation_ElementFocus(id) {
+        if (!Navigation_Region) return;
+        if (id.indexOf('navigation-route-') === 0) {
+            Navigation_Region = 'rail';
+            Navigation_Position = Number(id.substring(17));
+        } else if (id.indexOf('navigation-tab-') === 0) {
+            Navigation_Region = 'tabs';
+            Navigation_Position = Number(id.substring(15));
+        } else if (id.indexOf('navigation-recovery-') === 0) {
+            Navigation_Region = 'recovery';
+            Navigation_Position = Number(id.substring(20));
+        } else if (id === 'navigation-refresh') {
+            Navigation_Region = 'tabs';
+            Navigation_Position = Navigation_Tabs(Navigation_State.destination).length;
+        } else if (id === 'navigation-detail-action') Navigation_Region = 'details';
+    }
+
+    function Navigation_BindStaticKeys() {
+        var ids = [
+            'navigation-refresh',
+            'navigation-detail-action',
+            'navigation-recovery-0',
+            'navigation-recovery-1',
+            'navigation-about',
+            'navigation-help',
+            'navigation-updates'
+        ];
+        for (var i = 0; i < ids.length; i++) {
+            var node = Main_getElementById(ids[i]);
+            node.onfocus = Navigation_ElementFocus.bind(null, ids[i]);
+            node.onkeydown = Navigation_StaticKey.bind(null, ids[i]);
+        }
+    }
+
+    function Navigation_StaticKey(id, event) {
+        if (!Navigation_Region)
+            Navigation_Open(
+                null,
+                id.indexOf('navigation-recovery-') === 0
+                    ? 'recovery'
+                    : id === 'navigation-detail-action'
+                      ? 'details'
+                      : id === 'navigation-refresh'
+                        ? 'tabs'
+                        : 'rail'
+            );
+        Navigation_ElementFocus(id);
+        if (id === 'navigation-about') Navigation_Position = 7;
+        else if (id === 'navigation-help') Navigation_Position = 8;
+        else if (id === 'navigation-updates') Navigation_Position = 9;
+        UIFocus_Dispatch(event, false);
+    }
+
+    function Navigation_LoadState(screen, state) {
+        if (screen !== Main_UserLive || screen !== Main_values.Main_Go || Navigation_Onboarding) return;
+        var panel = Main_getElementById('navigation-status');
+        if (!state) {
+            Main_HideElementWithEle(panel);
+            return;
+        }
+        Main_textContent(
+            'navigation-status-copy',
+            state === 'loading' ? STR_UI.loading : state === 'auth' ? STR_UI.authNeeded : state === 'empty' ? STR_UI.nobodyLive : STR_UI.error
+        );
+        Main_textContent('navigation-retry', STR_UI.retry);
+        Main_getElementById('navigation-retry').onclick = Navigation_Refresh;
+        Main_getElementById('navigation-retry').style.display = state === 'loading' ? 'none' : '';
+        Main_getElementById('navigation-retry').onkeydown = function (event) {
+            if (event.keyCode === KEY_ENTER) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                Navigation_Refresh();
+            } else if (event.keyCode === KEY_UP || event.keyCode === KEY_LEFT) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                Navigation_Open(null, event.keyCode === KEY_UP ? 'tabs' : 'rail');
+            }
+        };
+        Main_ShowElementWithEle(panel);
+    }
+
+    /* Existing feed transports still fetch; these tickets only reject obsolete presentation results. */
+    var Navigation_FeedRequests = {};
+    var Navigation_FeedGenerations = {};
+
+    function Navigation_FeedTicket(callback, error, key, check) {
+        var id = ++Navigation_RequestSerial;
+        Navigation_FeedRequests[id] = {
+            account: Navigation_Account(),
+            generation: Navigation_FeedGenerations[key] || 0,
+            callback: callback,
+            error: error,
+            key: key,
+            check: check
+        };
+        var ids = Object.keys(Navigation_FeedRequests);
+        if (ids.length > 128) delete Navigation_FeedRequests[ids[0]];
+        return id;
+    }
+
+    function Navigation_FeedTake(id) {
+        var ticket = Navigation_FeedRequests[id];
+        delete Navigation_FeedRequests[id];
+        if (!ticket || ticket.account !== Navigation_Account() || ticket.generation !== (Navigation_FeedGenerations[ticket.key] || 0)) return null;
+        return ticket;
+    }
+
+    function Navigation_FeedBase(url, callback, error, key, check, headers) {
+        BaseXmlHttpGet(url, Navigation_FeedBaseResult, Navigation_FeedBaseError, key, Navigation_FeedTicket(callback, error, key, check), headers);
+    }
+
+    function Navigation_FeedBaseResult(response, key, id) {
+        var ticket = Navigation_FeedTake(id);
+        if (ticket) ticket.callback(response, key, ticket.check);
+    }
+
+    function Navigation_FeedBaseError(key, id, response) {
+        var ticket = Navigation_FeedTake(id);
+        if (ticket) ticket.error(key, ticket.check, response);
+    }
+
+    function Navigation_FeedFull(url, headers, callback, error, key, check, method, post) {
+        FullxmlHttpGet(url, headers, Navigation_FeedFullResult, noop_fun, key, Navigation_FeedTicket(callback, error, key, check), method, post);
+    }
+
+    function Navigation_FeedFullResult(response, key, id) {
+        var ticket = Navigation_FeedTake(id);
+        if (ticket) ticket.callback(response, key, ticket.check);
     }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
@@ -21962,6 +22982,16 @@
             /* Older APK. */
         }
     }
+
+    //Native callback scripts also call this check before the web bundle has initialized.
+    //Older APKs do not generate page-owned callbacks.
+    function OSInterface_IsRequestPageCurrent(page) {
+        try {
+            return !Main_IsOn_OSInterface || Android.IsRequestPageCurrent(page);
+        } catch (ignore) {
+            return true;
+        }
+    }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -22397,6 +23427,8 @@
             return;
         }
 
+        if (typeof PlayerUI_SuspendPhone === 'function') PlayerUI_SuspendPhone();
+
         //Take remote input ownership: the player panel cannot act beneath the dialog
         Main_removeEventListener('keydown', Play_handleKeyDown);
         Main_addEventListener('keydown', PhoneChat_HandleKeyDown);
@@ -22470,6 +23502,7 @@
 
         PhoneChat_PanelWasShowing = false;
         PhoneChat_OriginControl = -1;
+        if (typeof PlayerUI_ResumePhone === 'function') PlayerUI_ResumePhone(skipFocusRestore);
     }
 
     function PhoneChat_HandleKeyDown(e) {
@@ -24224,6 +25257,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Play_ForceHidePannel() {
+        PlayerUI_Close(false);
         Play_PanneInfoDoclId.style.opacity = 0;
 
         if (!Play_Status_Visible) Main_HideElementWithEle(Play_side_info_div);
@@ -24284,6 +25318,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Play_CleanHideExit();
         Play_ForceShowPannel();
         Play_ResetPanel(1);
+        PlayerUI_Show(1);
     }
 
     function Play_RefreshWatchingTime() {
@@ -25503,6 +26538,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Play_ForceShowPannel();
         Play_clearHidePanel();
         PlayClip_setHidePanel();
+        PlayerUI_Show(3);
     }
 
     function PlayClip_qualityIndexReset() {
@@ -25640,6 +26676,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function PlayClip_handleKeyDown(e) {
+        if (e.keyCode === KEY_DOWN && Play_isPanelShowing() && !PlayVod_PanelY && !UserLiveFeed_isPreviewShowing()) {
+            PlayerUI_Show(3);
+            return;
+        }
         //console.log('PlayClip_handleKeyDown', e.keyCode);
 
         if (!PlayClip_isOn || !Main_isScene2DocVisible()) {
@@ -27325,7 +28365,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             }
         }
 
+        PlayerUI_State.paused = !State;
         Main_innerHTMLWithEle(Play_BottonIcons_Pause, Play_GetPlayPauseIcon(State));
+        if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_Render();
         Play_showWarningMiddleDialog(Play_GetPlayPauseIcon(!State), 500);
     }
 
@@ -27685,6 +28727,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Play_handleKeyDown(e) {
+        if (e.keyCode === KEY_DOWN && Play_isPanelShowing() && !PlayVod_PanelY && !UserLiveFeed_isPreviewShowing()) {
+            PlayerUI_Show(1);
+            return;
+        }
         //console.log('Play_handleKeyDown', e.keyCode);
 
         if (!Play_isOn || !Main_isScene2DocVisible()) {
@@ -27791,8 +28837,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                         if (Play_MultiDialogPos < 0) Play_MultiDialogPos += 4;
                     }
                     Play_MultiAddFocus();
-                } else if (!UserLiveFeed_isPreviewShowing()) UserLiveFeed_ShowFeed();
-                else if (Play_isEndDialogVisible() || UserLiveFeed_isPreviewShowing()) {
+                } else if (!UserLiveFeed_isPreviewShowing()) {
+                    UserLiveFeed_FeedPosX = AddUser_UserIsSet() ? UserLiveFeedobj_UserLivePos : UserLiveFeedobj_LivePos;
+                    UserLiveFeed_ShowFeed();
+                } else if (Play_isEndDialogVisible() || UserLiveFeed_isPreviewShowing()) {
                     Play_EndTextClear();
                     Main_clearAllPlayerEvents();
                     Main_addEventListener('keyup', Play_handleKeyUp);
@@ -30017,7 +31065,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         };
 
         var div,
-            doc = Main_getElementById('controls_holder'),
+            doc = Main_getElementById('player-ui-actions'),
             fragment = document.createDocumentFragment(),
             keys = Object.keys(Play_controls),
             i = 0,
@@ -30129,6 +31177,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Play_BottomOptionsPressed(PlayVodClip) {
+        if (!PlayerUI_State.frames.length) {
+            PlayerUI_Show(PlayVodClip);
+            return;
+        }
         if (Play_controls[Play_PanelCounter].enterKey) {
             Play_controls[Play_PanelCounter].enterKey(PlayVodClip);
         } else {
@@ -30137,6 +31189,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Play_ResetPanel(PlayVodClip) {
+        if (PlayerUI_State.frames.length) {
+            PlayerUI_ScheduleHide();
+            return;
+        }
         Play_clearHidePanel();
         if (PlayVodClip === 1) Play_setHidePanel();
         else if (PlayVodClip === 2) PlayVod_setHidePanel();
@@ -30188,7 +31244,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Play_BottomShow(position) {
-        Play_controls[position].doc.style.display = '';
+        Play_controls[position].doc.style.display = !PlayerUI_State.frames.length || PlayerUI_ControlShown(position) ? '' : 'none';
         Play_controls[position].visible = true;
     }
 
@@ -30372,6 +31428,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Play_BottomIconsFocus(skipInfo, checkjump, skipHide) {
+        if (PlayVod_PanelY > 0 && !PlayerUI_State.suspended) {
+            PlayerUI_Show(PlayerUI_Mode());
+            return;
+        }
         if (PlayVod_PanelY < 0) {
             PlayVod_PanelY = 0;
             return;
@@ -33303,6 +34363,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         Play_ForceShowPannel();
         if (PlayVod_muted_segments_warn && autoHide) PlayVod_muted_WarningDialog();
+        if (autoHide) PlayerUI_Show(2);
     }
 
     function PlayVod_RefreshProgressBarrStart(showVideoQuality, who_called) {
@@ -33770,6 +34831,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function PlayVod_handleKeyDown(e) {
+        if (e.keyCode === KEY_DOWN && Play_isPanelShowing() && !PlayVod_PanelY && !UserLiveFeed_isPreviewShowing()) {
+            PlayerUI_Show(2);
+            return;
+        }
         //console.log('PlayVod_handleKeyDown', e.keyCode);
 
         if ((!PlayVod_isOn || !Main_isScene2DocVisible()) && !Play_isVodDialogVisible()) {
@@ -34649,6 +35714,445 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     //     };
     //     PlayVod_ProcessChapters(obj);
     // }
+    /* Player presentation adapter. Playback objects and their original callbacks remain authoritative. */
+    var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, paused: false};
+
+    function PlayerUI_Mode() {
+        return Play_isOn ? 1 : PlayVod_isOn ? 2 : PlayClip_isOn ? 3 : 0;
+    }
+
+    function PlayerUI_Groups() {
+        return {
+            chat: [Play_controlsPhoneChat, Play_controlsChat, Play_controlsChatSend, Play_controlsChatSettings],
+            quality: [Play_controlsQuality, Play_controlsQualityMini, Play_controlsQualityMulti],
+            layout: [Play_controlsChatSide, Play_MultiStream],
+            content: [
+                Play_controlsSearch,
+                Play_controlsChanelCont,
+                Play_controlsGameCont,
+                Play_controlsOpenLive,
+                Play_controlsOpenVod,
+                Play_controlsFollow,
+                Play_controlsContentLang
+            ],
+            playback: [
+                Play_controlsSpeed,
+                Play_controlsExternal,
+                Play_controlsRewind,
+                Play_controlsScreeOff,
+                Play_controlsLowLatency,
+                Play_controlsChapters
+            ],
+            audio: [
+                Play_controlsAudioAll,
+                Play_controlsAudio_Volume_100,
+                Play_controlsAudioEna0,
+                Play_controlsAudioVol0,
+                Play_controlsAudioEna1,
+                Play_controlsAudioVol1,
+                Play_controlsAudioEna2,
+                Play_controlsAudioVol2,
+                Play_controlsAudioEna3,
+                Play_controlsAudioVol3
+            ],
+            preview: [Play_controlsPreviewEnable, Play_controlsPreviewSize, Play_controlsPreviewVolume, Play_controlsPreviewMainVolume],
+            diagnostics: [Play_controlsPlayerStatus, Play_controlsControls],
+            chatSettings: [
+                Play_controlsChatForceDis,
+                Play_controlsChatDisShared,
+                Play_controlsChatDelay,
+                Play_controlsChatPos,
+                Play_controlsChatSize,
+                Play_controlsChatBright,
+                Play_controlsChatFont
+            ]
+        };
+    }
+
+    function PlayerUI_Labels() {
+        return {
+            chat: STR_UI.chat,
+            quality: STR_UI.quality,
+            layout: STR_UI.layout,
+            more: STR_UI.more,
+            content: STR_UI.channelContent,
+            playback: STR_UI.playback,
+            audio: STR_UI.audio,
+            preview: STR_UI.preview,
+            diagnostics: STR_UI.diagnostics,
+            chatSettings: STR_CHAT_EXTRA
+        };
+    }
+
+    function PlayerUI_Visibility() {
+        if (PlayerUI_State.mode === 2) return 'ShowInVod';
+        if (PlayerUI_State.mode === 3) return 'ShowInClip';
+        return Play_StayDialogVisible() ? 'ShowInStay' : Play_MultiEnable ? 'ShowInMulti' : PlayExtra_PicturePicture ? 'ShowInPP' : 'ShowInLive';
+    }
+
+    function PlayerUI_Available(key, group) {
+        var control = Play_controls[key];
+        if (!control) return false;
+        if (group === 'chatSettings') return Boolean(control.ShowInChat);
+        if (group === 'preview') return Boolean(control.ShowInPreview);
+        if (group === 'audio') {
+            var visibility = Play_MultiEnable ? 'ShowInAudioMulti' : PlayExtra_PicturePicture ? 'ShowInAudioPP' : 'ShowInAudio';
+            if (!control[visibility]) return false;
+            if (key >= Play_controlsAudioEna0 && key <= Play_controlsAudioVol3 && Play_MultiEnable) {
+                var slot = Math.floor((key - Play_controlsAudioEna0) / 2);
+                return Boolean(Play_MultiArray[slot] && Play_MultiArray[slot].data.length);
+            }
+            return true;
+        }
+        if (key === Play_controlsChapters) return PlayerUI_State.mode === 2 && PlayVod_ChaptersArray.length > 0;
+        if (key === Play_controlsOpenLive) return PlayerUI_State.mode > 1 && Boolean(Play_HasLive);
+        if (key === Play_controlsOpenVod) return PlayerUI_State.mode === 3 && Boolean(PlayClip_HasVOD);
+        return Boolean(control[PlayerUI_Visibility()]);
+    }
+
+    function PlayerUI_Frame() {
+        return PlayerUI_State.frames[PlayerUI_State.frames.length - 1];
+    }
+
+    function PlayerUI_Show(mode) {
+        if (!mode || !Main_isScene2DocVisible() || PlayerUI_State.suspended || PlayerUI_State.closing) return;
+        if (PlayerUI_State.frames.length) {
+            if (PlayerUI_State.mode === mode) return;
+            PlayerUI_Close(false);
+        }
+        PlayerUI_State.mode = mode;
+        PlayerUI_State.frames = [{group: 'bar', index: 0}];
+        Play_clearHidePanel();
+        UIFocus_Push({
+            id: 'player',
+            handle: PlayerUI_Handle,
+            cleanup: function () {
+                Main_clearTimeout(PlayerUI_State.hiddenTimer);
+                PlayerUI_State.frames = [];
+                PlayerUI_State.suspended = false;
+                Main_HideElement('player-ui');
+                Main_RemoveClass('scene2', 'player-ui-active');
+                Main_removeEventListener('keydown', PlayerUI_Listener);
+            }
+        });
+        Main_addEventListener('keydown', PlayerUI_Listener);
+        Main_AddClass('scene2', 'player-ui-active');
+        Main_ShowElement('player-ui');
+        PlayerUI_Render();
+        PlayerUI_ScheduleHide();
+    }
+
+    function PlayerUI_Listener() {
+        // Input is dispatched by UIFocus_Listener before this existing-listener adapter is reached.
+    }
+
+    function PlayerUI_ScheduleHide() {
+        Main_clearTimeout(PlayerUI_State.hiddenTimer);
+        Play_clearHidePanel();
+        if (PlayerUI_State.frames.length === 1 && !PlayerUI_State.suspended) {
+            PlayerUI_State.hiddenTimer = Main_setTimeout(function () {
+                PlayerUI_Close(true);
+            }, 5000);
+        }
+    }
+
+    function PlayerUI_Close(hidePanel) {
+        if (PlayerUI_State.closing || PlayerUI_State.suspended) return;
+        PlayerUI_State.closing = true;
+        if (PlayerUI_State.frames.length) UIFocus_Pop(false);
+        if (hidePanel && PlayerUI_Mode()) Play_hidePanelFull(PlayerUI_Mode());
+        PlayerUI_State.closing = false;
+    }
+
+    function PlayerUI_Open(group) {
+        Main_clearTimeout(PlayerUI_State.hiddenTimer);
+        Play_clearHidePanel();
+        var initializer =
+            group === 'audio'
+                ? Play_controlsAudio
+                : group === 'preview'
+                  ? Play_controlsPreview
+                  : group === 'chatSettings'
+                    ? Play_controlsChatSettings
+                    : null;
+        if (initializer !== null && Play_controls[initializer]) {
+            Play_PanelCounter = initializer;
+            Play_controls[initializer].enterKey.call(Play_controls[initializer], PlayerUI_State.mode);
+        }
+        PlayerUI_State.frames.push({group: group, index: 0});
+        PlayerUI_Render();
+    }
+
+    function PlayerUI_Back() {
+        if (PlayerUI_State.frames.length < 2) {
+            PlayerUI_Close(true);
+            return;
+        }
+        PlayerUI_State.frames.pop();
+        // Cancel uncommitted quality/speed/latency selections through the original reset paths.
+        if (PlayerUI_State.mode === 1) Play_qualityReset();
+        else if (PlayerUI_State.mode === 2) PlayVod_qualityReset();
+        else PlayClip_qualityReset();
+        Play_ResetSpeed();
+        Play_ResetLowlatency();
+        PlayerUI_Render();
+        PlayerUI_ScheduleHide();
+    }
+
+    function PlayerUI_Action(key, adjust) {
+        var frame = PlayerUI_Frame(),
+            control = Play_controls[key];
+        if (!frame || !PlayerUI_Available(key, frame.group)) return false;
+        frame.index = frame.entries.indexOf(key);
+        Play_PanelCounter = key;
+        if (adjust) {
+            if (control.updown) control.updown.call(control, adjust, PlayerUI_State.mode);
+        } else if (key === Play_controlsChatSettings) {
+            PlayerUI_Open('chatSettings');
+            return true;
+        } else {
+            var phone = key === Play_controlsPhoneChat,
+                leave =
+                    [
+                        Play_controlsSearch,
+                        Play_controlsChanelCont,
+                        Play_controlsGameCont,
+                        Play_controlsOpenLive,
+                        Play_controlsOpenVod,
+                        Play_controlsExternal,
+                        Play_controlsRewind,
+                        Play_controlsScreeOff,
+                        Play_controlsChapters,
+                        Play_MultiStream,
+                        Play_controlsChatSend,
+                        Play_controlsControls
+                    ].indexOf(key) !== -1;
+            var mode = PlayerUI_State.mode;
+            if (leave && !phone) PlayerUI_Close(false);
+            // Multistream takes a shutdown boolean, unlike ordinary controls taking a mode number.
+            if (control.enterKey) control.enterKey.call(control, key === Play_MultiStream ? false : mode);
+        }
+        Play_clearHidePanel();
+        if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) {
+            if (PlayerUI_Mode() !== PlayerUI_State.mode) PlayerUI_Close(false);
+            else {
+                PlayerUI_Render();
+                PlayerUI_ScheduleHide();
+            }
+        }
+        return true;
+    }
+
+    function PlayerUI_Render() {
+        var frame = PlayerUI_Frame();
+        if (!frame) return;
+        var previousKey = frame.entries ? frame.entries[frame.index] : null;
+        var labels = PlayerUI_Labels(),
+            bar = Main_getElementById('player-ui-buttons'),
+            menu = Main_getElementById('player-ui-menu'),
+            drawer = Main_getElementById('player-ui-drawer'),
+            actionRoot = Main_getElementById('player-ui-actions'),
+            i,
+            key,
+            control,
+            keys,
+            node;
+        Main_emptyWithEle(bar);
+        Main_emptyWithEle(menu);
+        // Reuse the actual control DOM; there is no invisible duplicate strip behind the drawers.
+        for (key in Play_controls) Play_controls[key].doc.style.display = 'none';
+        var barGroups = ['pause', 'chat', 'quality', 'layout', 'more', 'channels'];
+        for (i = 0; i < barGroups.length; i++) {
+            key = barGroups[i];
+            node = Navigation_Button(
+                bar,
+                'player-ui-bar-' + i,
+                key === 'pause' ? (PlayerUI_State.paused ? STR_UI.play : STR_UI.pause) : key === 'channels' ? STR_UI.channels : labels[key],
+                PlayerUI_ActivateBar.bind(null, i)
+            );
+            node.onfocus = PlayerUI_SetIndex.bind(null, i, 'bar');
+            if (!i) node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
+        }
+        Main_textContent(
+            'player-ui-value',
+            PlayerUI_State.mode === 1 ? Play_data.qualityPlaying : PlayerUI_State.mode === 2 ? PlayVod_qualityPlaying : PlayClip_qualityPlaying
+        );
+        Main_textContent('player-ui-name', PlayerUI_State.mode === 1 ? Play_data.data[1] : Main_values.Main_selectedChannelDisplayname);
+        Main_textContent('player-ui-help', STR_UI.playerHelp);
+        drawer.style.display = frame.group === 'bar' ? 'none' : '';
+        Main_textContent('player-ui-title', labels[frame.group] || '');
+        if (frame.group === 'bar') {
+            frame.entries = barGroups;
+        } else if (frame.group === 'more') {
+            frame.entries = ['content', 'playback', 'audio', 'preview', 'diagnostics'];
+            for (i = 0; i < frame.entries.length; i++) {
+                node = Navigation_Button(menu, 'player-ui-row-' + i, labels[frame.entries[i]], PlayerUI_OpenAt.bind(null, i, frame.entries[i]));
+                node.onfocus = PlayerUI_SetIndex.bind(null, i, 'more');
+            }
+        } else {
+            keys = PlayerUI_Groups()[frame.group] || [];
+            frame.entries = [];
+            for (i = 0; i < keys.length; i++) {
+                key = keys[i];
+                control = Play_controls[key];
+                if (!PlayerUI_Available(key, frame.group)) continue;
+                frame.entries.push(key);
+                if (control.setLabel) control.setLabel();
+                if (control.bottomArrows) control.bottomArrows();
+                control.doc.style.display = '';
+                control.doc.className = 'player-ui-action';
+                control.doc.setAttribute('role', 'button');
+                control.doc.setAttribute('tabindex', '0');
+                control.doc.setAttribute('aria-label', control.doc_title.textContent);
+                control.doc.onclick = PlayerUI_Action.bind(null, key, 0);
+                control.doc.onfocus = PlayerUI_SetIndex.bind(null, frame.entries.length - 1, frame.group);
+                actionRoot.appendChild(control.doc);
+            }
+            if (!frame.entries.length) Main_textContentWithEle(menu, STR_UI.unavailable);
+        }
+        if (previousKey !== null && frame.entries.indexOf(previousKey) !== -1) frame.index = frame.entries.indexOf(previousKey);
+        frame.index = Math.max(0, Math.min(frame.index, frame.entries.length - 1));
+        PlayerUI_Focus();
+    }
+
+    function PlayerUI_Focus() {
+        var root = Main_getElementById('player-ui'),
+            old = root.querySelector('.player-ui-focused'),
+            frame = PlayerUI_Frame(),
+            target;
+        if (old) old.classList.remove('player-ui-focused');
+        if (!frame || !frame.entries.length) return;
+        if (frame.group === 'bar') target = Main_getElementById('player-ui-bar-' + frame.index);
+        else if (frame.group === 'more') target = Main_getElementById('player-ui-row-' + frame.index);
+        else {
+            Play_PanelCounter = frame.entries[frame.index];
+            target = Play_controls[Play_PanelCounter].doc;
+        }
+        if (target) {
+            target.classList.add('player-ui-focused');
+            target.focus();
+            if (frame.group !== 'bar' && target.offsetTop > 0) {
+                var list = Main_getElementById('player-ui-scroll');
+                if (target.offsetTop < list.scrollTop) list.scrollTop = target.offsetTop;
+                else if (target.offsetTop + target.offsetHeight > list.scrollTop + list.clientHeight)
+                    list.scrollTop = target.offsetTop + target.offsetHeight - list.clientHeight;
+            }
+        }
+    }
+
+    function PlayerUI_ActivateBar(index) {
+        var groups = ['pause', 'chat', 'quality', 'layout', 'more', 'channels'];
+        if (!PlayerUI_Frame()) return;
+        PlayerUI_Frame().index = index;
+        if (!index) {
+            OSInterface_PlayPauseChange(PlayerUI_State.mode);
+            PlayerUI_ScheduleHide();
+        } else if (groups[index] === 'channels') PlayerUI_Channels();
+        else PlayerUI_Open(groups[index]);
+    }
+
+    function PlayerUI_Channels() {
+        var mode = PlayerUI_State.mode;
+        PlayerUI_Close(true);
+        if (!mode) return;
+        UserLiveFeed_FeedPosX = AddUser_UserIsSet() ? UserLiveFeedobj_UserLivePos : UserLiveFeedobj_LivePos;
+        var data = UserLiveFeed_DataObj[UserLiveFeed_FeedPosX] || [],
+            currentId = mode === 1 ? Play_data.data[14] : null;
+        for (var i = 0; i < data.length; i++) {
+            if (currentId && String(data[i][14]) === String(currentId)) {
+                UserLiveFeed_FeedPosY[UserLiveFeed_FeedPosX] = i;
+                Main_values.UserLiveFeed_LastPositionId[UserLiveFeed_FeedPosX] = currentId;
+                Main_values.UserLiveFeed_LastPosition[UserLiveFeed_FeedPosX] = i;
+                break;
+            }
+        }
+        UserLiveFeed_ShowFeed();
+    }
+
+    function PlayerUI_Handle(event, up) {
+        if (up) return true;
+        if (PlayerUI_State.mode !== PlayerUI_Mode() || !Main_isScene2DocVisible()) {
+            PlayerUI_Close(false);
+            return true;
+        }
+        var frame = PlayerUI_Frame(),
+            code = event.keyCode;
+        if (code === 9) return false;
+        if (!frame) return false;
+        if (frame.group !== 'bar' && frame.group !== 'more') PlayerUI_Render();
+        if (code === KEY_RETURN || code === KEY_KEYBOARD_BACKSPACE || code === 27) PlayerUI_Back();
+        else if (code === KEY_ENTER) {
+            if (frame.group === 'bar') PlayerUI_ActivateBar(frame.index);
+            else if (frame.group === 'more') PlayerUI_Open(frame.entries[frame.index]);
+            else if (frame.entries.length) PlayerUI_Action(frame.entries[frame.index], 0);
+        } else if (code === KEY_LEFT || code === KEY_RIGHT || code === KEY_UP || code === KEY_DOWN) {
+            if (frame.group === 'bar') {
+                if (code === KEY_LEFT || code === KEY_RIGHT)
+                    frame.index = Math.max(0, Math.min(frame.entries.length - 1, frame.index + (code === KEY_LEFT ? -1 : 1)));
+                else if (code === KEY_UP) {
+                    // Hand timeline navigation back to its existing mode handler.
+                    PlayerUI_Close(false);
+                    PlayVod_PanelY = 0;
+                    Play_BottomIconsFocus();
+                    return true;
+                }
+            } else if (code === KEY_UP || code === KEY_DOWN)
+                frame.index = Math.max(0, Math.min(frame.entries.length - 1, frame.index + (code === KEY_UP ? -1 : 1)));
+            else if (frame.group !== 'more' && frame.entries.length) PlayerUI_Action(frame.entries[frame.index], code === KEY_LEFT ? -1 : 1);
+            PlayerUI_Focus();
+            PlayerUI_ScheduleHide();
+        } else {
+            // Media, number and specialized shortcuts keep their existing mode meaning.
+            PlayerUI_Close(false);
+            return false;
+        }
+        return true;
+    }
+
+    function PlayerUI_SuspendPhone() {
+        if (!PlayerUI_State.frames.length) return;
+        PlayerUI_State.suspended = true;
+        Main_clearTimeout(PlayerUI_State.hiddenTimer);
+        UIFocus_Suspend('player', true);
+        Main_HideElement('player-ui');
+    }
+
+    function PlayerUI_ResumePhone(skipRestore) {
+        if (!PlayerUI_State.suspended) return;
+        PlayerUI_State.suspended = false;
+        UIFocus_Suspend('player', false);
+        if (skipRestore || PlayerUI_Mode() !== PlayerUI_State.mode) {
+            PlayerUI_Close(false);
+            return;
+        }
+        Main_ShowElement('player-ui');
+        Play_ForceShowPannel();
+        Main_addEventListener('keydown', PlayerUI_Listener);
+        PlayerUI_Render();
+        PlayerUI_ScheduleHide();
+    }
+
+    function PlayerUI_OpenAt(index, group) {
+        if (PlayerUI_Frame()) PlayerUI_Frame().index = index;
+        PlayerUI_Open(group);
+    }
+
+    function PlayerUI_ControlShown(key) {
+        var frame = PlayerUI_Frame();
+        return Boolean(
+            frame &&
+            frame.group !== 'bar' &&
+            frame.group !== 'more' &&
+            frame.entries &&
+            frame.entries.indexOf(Number(key)) !== -1 &&
+            PlayerUI_Available(Number(key), frame.group)
+        );
+    }
+
+    function PlayerUI_SetIndex(index, group) {
+        var frame = PlayerUI_Frame();
+        if (frame && frame.group === group) frame.index = index;
+    }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
      *
@@ -34926,7 +36430,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             Main_values.Main_BeforeChannelisSet = false;
             Main_values.Main_BeforeAgameisSet = false;
 
-            ScreenObj[Main_Live].init_fun();
+            if (!live_channel_call && !game_channel_call && !screen_channel_call) {
+                if (AddUser_IsUserSet()) ScreenObj[Main_UserLive].init_fun();
+                else Navigation_ShowOnboarding();
+            } else ScreenObj[Main_Live].init_fun();
 
             if (Main_values.IsUpDating) {
                 Main_showWarningDialog(STR_UPDATE_WARNING_OK, 5000);
@@ -34944,6 +36451,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_addFocusVideoOffset = -1;
         Main_values.Main_Go = key; //Sidepannel, playclip, Main_updateClock Screens_Isfocused Main_CheckStop use this var
         ScreenObj[key].label_init();
+        Main_HideElement('navigation-status');
+        Navigation_Render(key);
 
         if (Main_isScene1DocVisible() && !Sidepannel_isShowingUserLive() && !Sidepannel_isShowingMenus()) {
             Main_addEventListener('keydown', ScreenObj[key].key_fun);
@@ -34989,6 +36498,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Screens_exit(key) {
+        Screens_LoadPreviewSTop();
         //Main_Log('Screens_exit ' + ScreenObj[key].screen);
 
         Main_addFocusVideoOffset = 0;
@@ -35000,6 +36510,13 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Screens_StartLoad(key) {
+        Navigation_SyncAccount();
+        Navigation_Capture(key);
+        ScreenObj[key].navigationRestorePending = true;
+        ScreenObj[key].navigationRequest = null;
+        ScreenObj[key].navigationPreview = null;
+        ScreenObj[key].navigationLoadState = '';
+        Navigation_LoadState(key, 'loading');
         if (key === Main_values.Main_Go && Main_isScene1DocVisible()) {
             Screens_RemoveFocus(key);
             Main_showLoadDialog();
@@ -35098,20 +36615,27 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 HeadersArray = ScreenObj[key].HeadersArray;
             }
 
+            var ticket = {account: Navigation_Account(), id: ++Navigation_RequestSerial};
+            ScreenObj[key].navigationRequest = ticket;
             FullxmlHttpGet(
                 ScreenObj[key].url + (ScreenObj[key].useHelix || ScreenObj[key].isQuery ? '' : Main_TwitchV5Flag),
                 HeadersArray,
                 Screens_HttpResultStatus,
                 noop_fun,
                 key,
-                key,
+                ticket.id,
                 Method, //Method, null for get
                 PostString
             );
         }
     }
 
-    function Screens_HttpResultStatus(resultObj, key) {
+    function Screens_HttpResultStatus(resultObj, key, requestId) {
+        // Native dispatch round-trips a named callback and checkResult, not a JavaScript closure.
+        var request = ScreenObj[key].navigationRequest;
+        if (!request || request.id !== Number(requestId) || request.account !== Navigation_Account()) return;
+        if (resultObj.status === 401 || resultObj.status === 403) ScreenObj[key].navigationLoadState = 'auth';
+        else if (resultObj.status !== 200) ScreenObj[key].navigationLoadState = 'error';
         if (resultObj.status === 200) {
             Screens_concatenate(JSON.parse(resultObj.responseText), key);
 
@@ -35627,6 +37151,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Screens_loadDataSuccessFinish(key) {
+        Navigation_Restore(key);
+        Navigation_LoadState(key, ScreenObj[key].emptyContent ? ScreenObj[key].navigationLoadState || 'empty' : null);
         //Main_Log('Screens_loadDataSuccessFinish ' + ScreenObj[key].screen);
         ScreenObj[key].FirstRunEnd = true;
         if (!ScreenObj[key].status) {
@@ -35683,6 +37209,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     }
                 }
             }
+            Navigation_MountRestored(key);
             ScreenObj[key].isRefreshing = false;
             Screens_Some_Screen_Is_Refreshing = false;
             Screens_SetAutoRefresh(key);
@@ -35882,6 +37409,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Screens_LoadPreviewSTop(PreventCleanQualities) {
+        for (var previewKey in ScreenObj) ScreenObj[previewKey].navigationPreview = null;
         Main_clearTimeout(Screens_LoadPreviewId);
 
         if (Main_IsOn_OSInterface && !PreventCleanQualities) {
@@ -35998,6 +37526,12 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             return;
         }
 
+        ScreenObj[key].navigationPreview = {
+            id: ++Navigation_RequestSerial,
+            account: Navigation_Account(),
+            item: Navigation_ItemIdentity(ScreenObj[key], obj)
+        };
+
         var id,
             token,
             link,
@@ -36012,7 +37546,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 Screens_LoadPreviewResult,
                 noop_fun,
                 key,
-                (ScreenObj[key].posY * ScreenObj[key].ColumnsCount + ScreenObj[key].posX) % 100, //checkResult
+                ScreenObj[key].navigationPreview.id, //checkResult
                 'POST', //Method, null for get
                 PlayClip_postMessage.replace('%x', obj[0]) //postMessage, null for get
             );
@@ -36046,16 +37580,19 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             }
         }
 
-        PlayHLS_GetPlayListAsync(
-            isLive,
-            id,
-            (ScreenObj[key].posY * ScreenObj[key].ColumnsCount + ScreenObj[key].posX) % 100,
-            key,
-            Screens_LoadPreviewResult
-        );
+        PlayHLS_GetPlayListAsync(isLive, id, ScreenObj[key].navigationPreview.id, key, Screens_LoadPreviewResult);
     }
 
     function Screens_LoadPreviewResult(StreamData, x, y) {
+        var preview = ScreenObj[x] && ScreenObj[x].navigationPreview;
+        if (
+            !preview ||
+            preview.id !== Number(y) ||
+            preview.account !== Navigation_Account() ||
+            !Screens_ObjNotNull(x) ||
+            preview.item !== Navigation_ItemIdentity(ScreenObj[x], Screens_GetObj(x))
+        )
+            return;
         if (
             !Main_isStopped &&
             Screens_IsInUse(x) &&
@@ -36063,7 +37600,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             !Main_isElementShowingWithEle(Screens_dialog_thumb_div) &&
             !Main_isElementShowingWithEle(Screens_dialog_thumb_delete_div) &&
             !Main_isAboutDialogVisible() &&
-            y === (ScreenObj[x].posY * ScreenObj[x].ColumnsCount + ScreenObj[x].posX) % 100 &&
+            preview.id === Number(y) &&
             ScreenObj[x].posY + '_' + ScreenObj[x].posX === ScreenObj[x].focusPos
         ) {
             if (StreamData && Screens_ObjNotNull(x)) {
@@ -36477,6 +38014,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         Main_AddClass(ScreenObj[key].ids[0] + id, Main_classThumb);
         ScreenObj[key].focusPos = id;
+        Navigation_UpdateDetails(key);
 
         if (ScreenObj[key].screenType === 1 || ScreenObj[key].screenType === 2) {
             if (Screens_ObjNotNull(key)) {
@@ -36861,6 +38399,32 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Screens_handleKeyDown(key, event) {
+        if (ScreenObj[key].loadingData && (event.keyCode === KEY_UP || event.keyCode === KEY_LEFT)) {
+            Navigation_Open(ScreenObj[key].key_fun, event.keyCode === KEY_UP ? 'tabs' : 'rail');
+            return;
+        }
+        if (event.keyCode === KEY_UP && (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) && !Main_CantClick()) {
+            Screens_RemoveAllFocus(key);
+            Navigation_Open(ScreenObj[key].key_fun, 'tabs');
+            return;
+        }
+        if (
+            event.keyCode === KEY_RIGHT &&
+            (ScreenObj[key].posX === ScreenObj[key].ColumnsCount - 1 ||
+                (ScreenObj[key].dataEnded && !ScreenObj[key].DataObj[ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1)]))
+        )
+            return;
+        if (
+            event.keyCode === KEY_DOWN &&
+            ScreenObj[key].screenType === 0 &&
+            !ScreenObj[key].isHistory &&
+            ScreenObj[key].dataEnded &&
+            !ScreenObj[key].DataObj[ScreenObj[key].posY + 1 + '_' + ScreenObj[key].posX]
+        ) {
+            Screens_RemoveAllFocus(key);
+            Navigation_Open(ScreenObj[key].key_fun, 'details');
+            return;
+        }
         //Main_Log('Screens_handleKeyDown ' + event.keyCode + ' key ' + key);
         if (Main_CantClick()) return;
 
@@ -42364,6 +43928,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
 
         var data = Screens_GetObjId(id, key);
+        if (data[14] !== tempData[14]) return;
 
         if (data[13] !== tempData[13]) {
             Main_innerHTML(
@@ -42379,6 +43944,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
         if (data[14] === tempData[14]) {
             ScreenObj[key].DataObj[id] = tempData;
+            Navigation_UpdateDetails(key);
         }
     }
 
@@ -42521,6 +44087,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     //Variable initialization end
 
     function Search_init() {
+        Navigation_Render(Main_Search);
         Main_HideWarningDialog();
         Main_HideElement('label_refresh');
         Main_IconLoad('label_thumb', 'icon-return', STR_GOBACK);
@@ -43634,6 +45201,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_HideElement('label_refresh');
         Settings_cursorY = 0;
         Settings_inputFocus(Settings_cursorY);
+        Navigation_Render(Main_values.Main_Go);
+        Main_textContent('navigation-heading', STR_SETTINGS);
+        Main_HideElement('navigation-tabs');
+        Main_HideElement('navigation-details');
         Main_EventScreen('Settings');
     }
 
@@ -44628,6 +46199,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
     function Settings_HideScreenTitle() {
         Settings_HideElem('top_lable', Settings_Obj_default('hide_main_screen_title') === 1);
+        Settings_HideElem('navigation-heading', Settings_Obj_default('hide_main_screen_title') === 1);
     }
 
     function Settings_HideEtcHelp() {
@@ -44639,7 +46211,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             'feed_last_refresh',
             'feed_end',
             'icon_feed_back',
-            'side_panel_top_text'
+            'side_panel_top_text',
+            'navigation-footer',
+            'player-ui-help'
         ];
         var i = 0,
             len = eleArray.length;
@@ -47035,6 +48609,42 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             (animate ? 'transition: width 1s linear;' : '') +
             '}';
 
+        var surface = pos === 0 ? '#1e1b25' : background,
+            focusColor = pos === 0 ? '#bca0ff' : border === background ? TextColor : border,
+            focusSurface = pos === 0 ? '#30253f' : background;
+        cssClass +=
+            '#navigation-shell,#navigation-onboarding,#player-ui{color:' +
+            TextColor +
+            ';}' +
+            '#navigation-shell .navigation-rail,#player-ui .player-ui-bar,#player-ui .player-ui-drawer{background:' +
+            surface +
+            ';}' +
+            '#navigation-onboarding,#navigation-shell #navigation-status{background:' +
+            background +
+            ';}' +
+            '#navigation-shell .navigation-focused,#player-ui .player-ui-focused{outline-color:' +
+            focusColor +
+            ' !important;background:' +
+            focusSurface +
+            ';}' +
+            '#navigation-shell .navigation-button[aria-current="page"]{color:' +
+            focusColor +
+            ';}' +
+            '#navigation-shell #navigation-tabs [aria-selected="true"]{box-shadow:0 0.12em 0 ' +
+            focusColor +
+            ';}' +
+            '.navigation-enabled .stream_thumbnail_live{background:' +
+            background +
+            ';color:' +
+            TextColor +
+            ';}' +
+            '.navigation-enabled .stream_thumbnail_focused,.navigation-enabled .stream_thumbnail_focused_no_ani{border-color:' +
+            focusColor +
+            ' !important;box-shadow:none !important;outline:0.1em solid ' +
+            focusColor +
+            ';outline-offset:0.05em;}';
+        cssClass += '.navigation-enabled .stream_info_live,.navigation-enabled #clock_holder{color:' + TextColor + ';opacity:0.85;}';
+        Main_getElementById('scene1').style.backgroundColor = background;
         Main_innerHTML('focus_class_holder', cssClass);
 
         SettingsColor_SetAnimationStyleTest([background, TextColor, border, progressColor]);
@@ -47895,6 +49505,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Sidepannel_StartFeed() {
+        Main_HideElement('navigation-shell');
         Main_HideLoadDialog();
         Sidepannel_IsMain = false;
         Main_addEventListener('keydown', Sidepannel_handleKeyDown);
@@ -47960,17 +49571,14 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Sidepannel_StartMain() {
-        Sidepannel_Hidecenefeed();
         Sidepannel_IsMain = true;
-        Sidepannel_MovelDiv.style.transform = 'translateX(' + Sidepannel_FixdefaultMargin + '%)';
-        Sidepannel_FixDiv.style.marginLeft = '';
-        Main_addEventListener('keydown', Sidepannel_handleKeyDownMain);
-        Sidepannel_AddFocusMain();
-        Main_EventScreen('Side_panel_main');
+        Sidepannel_Hidecenefeed();
+        Navigation_Render(Main_values.Main_Go);
+        Navigation_Open(Sidepannel_Callback);
     }
 
     function Sidepannel_isShowingMenus() {
-        return Main_A_equals_B(Sidepannel_MovelDiv.style.transform, 'translateX(' + Sidepannel_FixdefaultMargin + '%)');
+        return Navigation_Region === 'rail';
     }
 
     function Sidepannel_HideMain(hideAll) {
@@ -47985,6 +49593,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Sidepannel_Hide(PreventCleanQualities) {
+        Navigation_Close(false);
         if (!PreventCleanQualities) {
             Sidepannel_HideMain();
             Sidepannel_RemoveFocusMain();
@@ -48357,6 +49966,104 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             default:
                 break;
         }
+    }
+    /* Presentation focus helpers. No keyboard listener: the current input owner calls Dispatch. */
+    var UIFocus_Stack = [];
+    var UIFocus_SuppressedKeys = {};
+
+    function UIFocus_Push(owner) {
+        if (!owner || !owner.id || typeof owner.handle !== 'function') return false;
+        // Reopening an owner closes descendants and cancels each pending operation once.
+        for (var i = 0; i < UIFocus_Stack.length; i++) {
+            if (UIFocus_Stack[i].id === owner.id) {
+                while (UIFocus_Stack.length > i) UIFocus_Pop(false);
+                break;
+            }
+        }
+        UIFocus_Stack.push(owner);
+        return true;
+    }
+
+    function UIFocus_Pop(restore) {
+        var owner = UIFocus_Stack.pop();
+        if (!owner) return null;
+        if (owner.cleanup) owner.cleanup();
+        if (restore !== false && owner.restore) owner.restore(owner.returnTarget);
+        return owner;
+    }
+
+    function UIFocus_Clear() {
+        while (UIFocus_Stack.length) UIFocus_Pop(false);
+        // Keep key-up suppression until those physical keys are released.
+    }
+
+    function UIFocus_Dispatch(event, isKeyUp) {
+        var key = event.keyCode,
+            owner = UIFocus_Stack[UIFocus_Stack.length - 1],
+            handled = false;
+        if (!isKeyUp && UIFocus_SuppressedKeys[key] && UIFocus_SuppressedKeys[key] !== owner) {
+            // A held key belongs to the owner that received its initial key-down.
+            handled = true;
+        } else if (isKeyUp && UIFocus_SuppressedKeys[key]) {
+            delete UIFocus_SuppressedKeys[key];
+            handled = true;
+        } else if (owner && !owner.suspended) {
+            handled = owner.handle(event, Boolean(isKeyUp)) === true;
+            if (handled && !isKeyUp) UIFocus_SuppressedKeys[key] = owner;
+        }
+        if (handled) {
+            if (event.preventDefault) event.preventDefault();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        }
+        return handled;
+    }
+
+    function UIFocus_Suspend(id, suspended) {
+        for (var i = UIFocus_Stack.length - 1; i >= 0; i--) {
+            if (UIFocus_Stack[i].id === id) {
+                UIFocus_Stack[i].suspended = suspended;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function UIFocus_Resolve(items, identity, previousIndex) {
+        var i;
+        for (i = 0; i < items.length; i++) {
+            if (items[i].id === identity) return i;
+        }
+        if (!items.length) return -1;
+        return Math.max(0, Math.min(items.length - 1, Math.floor(Number(previousIndex) || 0)));
+    }
+
+    function UIFocus_GridNeighbor(index, columns, count, direction) {
+        if (!count || columns < 1) return -1;
+        index = Math.max(0, Math.min(index, count - 1));
+        if (direction === 'left') return index % columns ? index - 1 : index;
+        if (direction === 'right') return index % columns < columns - 1 && index + 1 < count ? index + 1 : index;
+        if (direction === 'up') return index >= columns ? index - columns : index;
+        if (direction === 'down') return index + columns < count ? index + columns : index;
+        return index;
+    }
+
+    /* Wrap the existing listener rather than registering a competing keyboard listener. */
+    function UIFocus_Listener(type, handler) {
+        if ((type !== 'keydown' && type !== 'keyup') || !handler) return handler;
+        var property = type === 'keydown' ? 'uiFocusDown' : 'uiFocusUp';
+        if (!handler[property]) {
+            handler[property] = function (event) {
+                var previous = UIFocus_Stack[UIFocus_Stack.length - 1];
+                if (!UIFocus_Dispatch(event, type === 'keyup')) {
+                    handler(event);
+                    if (type === 'keydown' && UIFocus_Stack[UIFocus_Stack.length - 1] !== previous) {
+                        // A legacy key-down that opens an overlay still owns the held press.
+                        UIFocus_SuppressedKeys[event.keyCode] = previous || {};
+                    }
+                }
+            };
+        }
+        return handler[property];
     }
     /*
      * Copyright (c) 2017–present Felipe de Leon <fglfgl27@gmail.com>
@@ -49935,6 +51642,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function UserLiveFeedobj_loadDataPrepare(pos) {
+        Navigation_FeedGenerations[pos] = (Navigation_FeedGenerations[pos] || 0) + 1;
         UserLiveFeed_loadingData[pos] = true;
         Screens_Some_Screen_Is_Refreshing = true;
     }
@@ -49942,7 +51650,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     function UserLiveFeedobj_BaseLoad(url, callback, CheckOffset, pos) {
         if (CheckOffset) UserLiveFeedobj_CheckOffset(pos);
 
-        BaseXmlHttpGet(url, callback, UserLiveFeedobj_loadDataError, pos, null, UserLiveFeed_obj[pos].useHelix);
+        Navigation_FeedBase(url, callback, UserLiveFeedobj_loadDataError, pos, null, UserLiveFeed_obj[pos].useHelix);
     }
 
     function UserLiveFeedobj_loadDataError(pos) {
@@ -50118,7 +51826,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function UserLiveFeedobj_HistoryGetLives(ids, pos) {
-        FullxmlHttpGet(
+        Navigation_FeedFull(
             PlayClip_BaseUrl,
             Main_OAuth_User_Headers,
             UserLiveFeedobj_HistoryGetLivesEnd,
@@ -50242,7 +51950,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         } else {
             var lang = Main_ContentLang !== '' && !UserLiveFeed_obj[pos].LoadAllLangForced ? ',language:\\"' + Main_ContentLang + '\\"' : '';
 
-            FullxmlHttpGet(
+            Navigation_FeedFull(
                 PlayClip_BaseUrl,
                 Play_base_backup_headers_Array,
                 UserLiveFeedobj_loadDataFeaturedSuccess,
@@ -50428,7 +52136,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     function UserLiveFeedobj_loadUserGames() {
         UserLiveFeedobj_GamesFeedOldUserName = AddUser_UsernameArray[0].name;
 
-        FullxmlHttpGet(
+        Navigation_FeedFull(
             PlayClip_BaseUrl,
             Play_base_backup_headers_Array,
             UserLiveFeedobj_loadDataUserGamesSuccess,
@@ -50568,7 +52276,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
             UserLiveFeedobj_loadDataGamesSuccessEnd(ScreenObj[key].data.slice(0, 100), ScreenObj[key].MaxOffset, pos, UserLiveFeed_itemsCount[pos]);
         } else {
-            FullxmlHttpGet(
+            Navigation_FeedFull(
                 PlayClip_BaseUrl,
                 Play_base_backup_headers_Array,
                 UserLiveFeedobj_loadDataGamesSuccess,
@@ -51016,7 +52724,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function UserLiveFeedobj_loadChannelUserLive() {
-        FullxmlHttpGet(
+        Navigation_FeedFull(
             PlayClip_BaseUrl,
             Main_OAuth_User_Headers,
             UserLiveFeedobj_loadChannelUserLiveGetEnd,
@@ -51238,7 +52946,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function UserLiveFeedobj_loadUserVodGet() {
-        FullxmlHttpGet(
+        Navigation_FeedFull(
             PlayClip_BaseUrl,
             Main_OAuth_User_Headers,
             UserLiveFeedobj_loadUserVodGetEnd,
@@ -51837,6 +53545,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_innerHTML('label_last_refresh', '');
 
         Main_values.Main_Go = Main_Users;
+        Navigation_Render(Main_Users);
         Main_HideWarningDialog();
         ScreensObj_SetTopLable(STR_USER, STR_MAIN_USER + ' ' + AddUser_UsernameArray[0].display_name);
         Main_addEventListener('keydown', Users_handleKeyDown);

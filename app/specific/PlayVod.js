@@ -633,6 +633,7 @@ function PlayVod_showPanel(autoHide) {
 
     Play_ForceShowPannel();
     if (PlayVod_muted_segments_warn && autoHide) PlayVod_muted_WarningDialog();
+    if (autoHide) PlayerUI_Show(2);
 }
 
 function PlayVod_RefreshProgressBarrStart(showVideoQuality, who_called) {
@@ -1083,6 +1084,10 @@ function PlayVod_SetPreview() {
 }
 
 function PlayVod_handleKeyDown(e) {
+    if (e.keyCode === KEY_DOWN && Play_isPanelShowing() && !PlayVod_PanelY && !UserLiveFeed_isPreviewShowing()) {
+        PlayerUI_Show(2);
+        return;
+    }
     //console.log('PlayVod_handleKeyDown', e.keyCode);
 
     if ((!PlayVod_isOn || !Main_isScene2DocVisible()) && !Play_isVodDialogVisible()) {
@@ -1613,8 +1618,7 @@ function PlayVod_previews_tmp_images_next() {
     //Preload the seek preview sprites staggered, loading them all at once
     //competes with the video stream startup for bandwidth on low end devices
     if (PlayVod_PreviewType && PlayVod_previews_tmp_images_pos < PlayVod_previews_tmp_images.length) {
-        PlayVod_previews_tmp_images[PlayVod_previews_tmp_images_pos].src =
-            PlayVod_previews_obj.images[PlayVod_previews_tmp_images_pos];
+        PlayVod_previews_tmp_images[PlayVod_previews_tmp_images_pos].src = PlayVod_previews_obj.images[PlayVod_previews_tmp_images_pos];
 
         PlayVod_previews_tmp_images_pos++;
 

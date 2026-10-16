@@ -860,19 +860,61 @@ SPTVPhoneChat.App = (function () {
     function scrollToBottom() {
         var box = el('pc-messages');
         box.scrollTop = box.scrollHeight;
+        rowAutoScrollTop = box.scrollTop;
         S.nearBottom = true;
         el('pc-jump-latest').hidden = true;
     }
 
+    var rowAutoScrollTop = null,
+        rowBatchDepth = 0,
+        rowFlushHandle = null,
+        rowFlushIsFrame = false,
+        rowFlushVisible = false,
+        rowFlushGeneration = 0;
+
+    function cancelRowFlush() {
+        rowFlushGeneration++;
+        rowAutoScrollTop = null;
+        if (rowFlushHandle !== null) {
+            if (rowFlushIsFrame) window.cancelAnimationFrame(rowFlushHandle);
+            else clearTimeout(rowFlushHandle);
+        }
+        rowFlushHandle = null;
+        rowFlushVisible = false;
+    }
+
+    function flushRows() {
+        rowFlushHandle = null;
+        pruneRows(el('pc-messages'));
+        updateChatEmpty();
+        if (rowFlushVisible) {
+            if (S.nearBottom) scrollToBottom();
+            else el('pc-jump-latest').hidden = false;
+        }
+        rowFlushVisible = false;
+    }
+
+    function scheduleRowFlush(visible) {
+        rowFlushVisible = rowFlushVisible || visible;
+        if (rowBatchDepth || rowFlushHandle !== null) return;
+        var generation = rowFlushGeneration;
+        rowFlushIsFrame = !document.hidden && !!(window.requestAnimationFrame && window.cancelAnimationFrame);
+        var run = function () {
+            if (generation === rowFlushGeneration) flushRows();
+        };
+        rowFlushHandle = rowFlushIsFrame ? window.requestAnimationFrame(run) : setTimeout(run, 16);
+    }
+
     function appendRow(row) {
-        var box = el('pc-messages'),
-            stick = S.nearBottom;
+        var box = el('pc-messages');
 
         row.hidden = S.chatTab === 'priority' && row.getAttribute('data-priority') !== 'true';
         var before = null,
             i,
-            time = Number(row.getAttribute('data-time'));
-        if (time) {
+            time = Number(row.getAttribute('data-time')),
+            tail = box.children[box.children.length - 1],
+            tailTime = tail && Number(tail.getAttribute('data-time'));
+        if (time && !(tailTime && time > tailTime)) {
             for (i = 0; i < box.children.length; i++) {
                 if (Number(box.children[i].getAttribute('data-time')) > time) {
                     before = box.children[i];
@@ -882,14 +924,8 @@ SPTVPhoneChat.App = (function () {
         }
         if (before) box.insertBefore(row, before);
         else box.appendChild(row);
-        pruneRows(box);
-        updateChatEmpty();
-
-        //Filtered-out traffic must not interrupt reading or show an unread prompt.
-        if (!row.hidden) {
-            if (stick) scrollToBottom();
-            else el('pc-jump-latest').hidden = false;
-        }
+        // Insert synchronously so moderation later in a replay sees this row.
+        scheduleRowFlush(!row.hidden);
     }
 
     function updateChatEmpty() {
@@ -1665,6 +1701,7 @@ SPTVPhoneChat.App = (function () {
         S.localEchoes = [];
         S.ownBadges = null;
         setComposerEnabled(false);
+        cancelRowFlush();
         el('pc-messages').textContent = '';
         updateChatEmpty();
         closePicker();
@@ -1734,6 +1771,13 @@ SPTVPhoneChat.App = (function () {
         });
 
         el('pc-messages').addEventListener('scroll', function () {
+            var top = el('pc-messages').scrollTop;
+            // A queued event from our last scroll may arrive after new rows grew the box.
+            if (rowAutoScrollTop !== null && top === rowAutoScrollTop) {
+                rowAutoScrollTop = null;
+                return;
+            }
+            rowAutoScrollTop = null;
             S.nearBottom = nearBottom();
             if (S.nearBottom) el('pc-jump-latest').hidden = true;
         });
@@ -1800,6 +1844,7 @@ SPTVPhoneChat.App = (function () {
         });
 
         window.addEventListener('pagehide', function () {
+            cancelRowFlush();
             if (S.local) {
                 Local.stop();
                 S.tvReady = false;
@@ -1815,6 +1860,12 @@ SPTVPhoneChat.App = (function () {
 
         document.addEventListener('visibilitychange', function () {
             if (document.hidden) {
+                // Hidden pages may suspend animation frames while IRC still receives messages.
+                if (rowFlushHandle !== null) {
+                    var pendingVisible = rowFlushVisible;
+                    cancelRowFlush();
+                    scheduleRowFlush(pendingVisible);
+                }
                 if (S.local) Local.stop();
                 S.lastHiddenAt = Date.now();
                 return;
@@ -1857,6 +1908,7 @@ SPTVPhoneChat.App = (function () {
         var changed = channel !== S.channel;
         S.tvReady = !!channel;
         if (changed) {
+            cancelRowFlush();
             S.flowGen++;
             S.providersGen++;
             if (S.transport) S.transport.stop();
@@ -1908,27 +1960,35 @@ SPTVPhoneChat.App = (function () {
             rows,
             j,
             offset = Date.now() - Number(history.now || Date.now());
-        for (i = 0; i < history.events.length; i++) {
-            event = history.events[i];
-            if (!event || event.seq <= S.tvHistorySeq) continue;
-            if (event.type === 'message' && event.message) {
-                event.message.receivedAt = event.time + offset;
-                onChatMessage(event.message);
-            } else if (event.type === 'delete') onClearMsg(event.id);
-            else if (event.type === 'clear') {
-                rows = el('pc-messages').children;
-                for (j = rows.length - 1; j >= 0; j--) {
-                    if (
-                        (!event.userId || rows[j].getAttribute('data-user-id') === event.userId) &&
-                        Number(rows[j].getAttribute('data-time')) <= event.time + offset
-                    )
-                        rows[j].parentNode.removeChild(rows[j]);
+        // Fold any pending live maintenance into this synchronous replay.
+        var visible = rowFlushVisible;
+        cancelRowFlush();
+        rowFlushVisible = visible;
+        rowBatchDepth++;
+        try {
+            for (i = 0; i < history.events.length; i++) {
+                event = history.events[i];
+                if (!event || event.seq <= S.tvHistorySeq) continue;
+                if (event.type === 'message' && event.message) {
+                    event.message.receivedAt = event.time + offset;
+                    onChatMessage(event.message);
+                } else if (event.type === 'delete') onClearMsg(event.id);
+                else if (event.type === 'clear') {
+                    rows = el('pc-messages').children;
+                    for (j = rows.length - 1; j >= 0; j--) {
+                        if (
+                            (!event.userId || rows[j].getAttribute('data-user-id') === event.userId) &&
+                            Number(rows[j].getAttribute('data-time')) <= event.time + offset
+                        )
+                            rows[j].parentNode.removeChild(rows[j]);
+                    }
                 }
+                S.tvHistorySeq = event.seq;
             }
-            S.tvHistorySeq = event.seq;
+        } finally {
+            rowBatchDepth--;
+            if (!rowBatchDepth) flushRows();
         }
-        pruneRows(el('pc-messages'));
-        updateChatEmpty();
     }
 
     function initLocal() {

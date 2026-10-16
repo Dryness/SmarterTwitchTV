@@ -2102,6 +2102,7 @@ asyncSections.push(async () => {
     const partner = receive('partner', 'subscriber/12,partner/1');
     eq(partner.hidden, false, 'filter: Partner visible without badge artwork');
     ok(partner.className.indexOf('pc-partner') !== -1, 'filter: Partner gets purple background class');
+    app.fireTimers(16); // Flush coalesced live row maintenance.
     eq(ids.get('pc-chat-empty').hidden, true, 'filter: qualifying message hides empty state');
     const vip = receive('vip', 'vip/1');
     const mod = receive('mod', 'moderator/1');
@@ -2128,6 +2129,7 @@ asyncSections.push(async () => {
     receive('silent', '', 'viewer');
     eq(ids.get('pc-jump-latest').hidden, true, 'filter: hidden incoming traffic does not prompt jump to latest');
     receive('visible', 'vip/1');
+    app.fireTimers(16); // Flush coalesced live row maintenance.
     eq(ids.get('pc-jump-latest').hidden, false, 'filter: visible incoming traffic prompts while reading older rows');
     socket.onmessage({data: '@target-msg-id=partner :tmi.twitch.tv CLEARMSG #twitchdev :partner\r\n'});
     eq(partner.textContent, 'message deleted', 'filter: deletion removes Partner text');
@@ -2145,12 +2147,14 @@ asyncSections.push(async () => {
     eq(feed.querySelector('[data-id="vip"]'), null, 'filter: timeout removes qualifying rows');
     eq(feed.querySelector('[data-id="ordinary"]'), null, 'filter: timeout also removes hidden rows');
     socket.onmessage({data: ':tmi.twitch.tv CLEARCHAT #twitchdev\r\n'});
+    app.fireTimers(16); // Flush coalesced live row maintenance.
     eq(ids.get('pc-chat-empty').hidden, false, 'filter: room clear restores empty state');
     ids.get('pc-chat-tabs').listeners.keydown[0]({key: 'ArrowLeft', preventDefault() {}});
     eq(ids.get('pc-chat-all').getAttribute('aria-selected'), 'true', 'filter: keyboard switches active tab');
     eq(ids.get('pc-chat-priority').getAttribute('tabindex'), '-1', 'filter: inactive tab outside tab sequence');
     eq(feed.getAttribute('aria-labelledby'), 'pc-chat-all', 'filter: panel follows selected accessible label');
     for (let i = 0; i < 350; i++) receive('bounded' + i, i % 2 ? 'vip/1' : '');
+    app.fireTimers(16); // Flush coalesced live row maintenance.
     ok(feed.children.filter(row => row.getAttribute('data-priority') !== 'true').length <= 320, 'filter: ordinary history remains bounded');
     eq(feed.children.filter(row => row.getAttribute('data-priority') === 'true').length, 175, 'filter: all qualifying recent messages retained');
     for (let i = 0; i < 350; i++) receive('ordinaryburst' + i, '');
@@ -2161,9 +2165,40 @@ asyncSections.push(async () => {
     );
     for (const row of feed.children) row.setAttribute('data-time', String(Date.now() - 21 * 60 * 1000));
     receive('prunetrigger', '');
+    app.fireTimers(16); // Flush coalesced live row maintenance.
     eq(feed.children.filter(row => row.getAttribute('data-priority') === 'true').length, 0, 'history: qualifying rows expire after twenty minutes');
+    const frames = [];
+    app.sandbox.requestAnimationFrame = fn => {frames.push(fn); return frames.length;};
+    app.sandbox.cancelAnimationFrame = () => {};
+    app.sandbox.document.hidden = true;
+    receive('hidden-frame-fallback', 'vip/1');
+    eq(frames.length, 0, 'frames: hidden page uses timer fallback');
+    app.fireTimers(16);
+    app.sandbox.document.hidden = false;
+    click('pc-chat-all');
+    receive('frame-reading', 'vip/1');
+    eq(frames.length, 1, 'frames: live maintenance uses one frame');
+    feed.scrollTop = 0;
+    feed.listeners.scroll[0]();
+    frames.shift()();
+    eq(feed.scrollTop, 0, 'frames: scroll intent rechecked after user scrolls up');
+    eq(ids.get('pc-jump-latest').hidden, false, 'frames: unread prompt follows current intent');
+    click('pc-chat-all');
+    const height = 2000;
+    Object.defineProperty(feed, 'scrollHeight', {configurable: true, get: () => height});
+    // Simulate the queued scroll event from the previous automatic scroll after content grew.
+    feed.listeners.scroll[0]();
+    receive('frame-follow', 'vip/1');
+    frames.shift()();
+    eq(feed.scrollTop, 2000, 'frames: queued automatic scroll event preserves following');
+    receive('frame-canceled', 'vip/1');
+    eq(frames.length, 1, 'frames: flush pending before disconnect');
     click('pc-chat-priority');
     app.App().disconnect();
+    let reads = 0;
+    Object.defineProperty(feed, 'scrollHeight', {configurable: true, get: () => {reads++; return height;}});
+    frames.shift()();
+    eq(reads, 0, 'frames: canceled callback cannot maintain the next session');
     eq(ids.get('pc-chat-empty').hidden, false, 'filter: disconnect clears feed and updates empty state');
 });
 
@@ -2267,6 +2302,36 @@ asyncSections.push(async () => {
         app.fetchCalls.filter(c => c.url === '/chat/state').some(c => c.options.headers['X-SPTV-History-After'] === '3'),
         'TV history: poll carries cursor'
     );
+    app.sandbox.SPTVPhoneChat.Local.stop();
+});
+
+
+asyncSections.push(async () => {
+    let events = [], channel = 'fixture';
+    const now = Date.now();
+    const app = loadAppSandbox(s => {
+        s.__configOverrides = {clientId: 'test_client_id'};
+        s.location = {origin: 'http://192.168.1.42:8978', pathname: '/chat/', hash: '#pair=' + 'b'.repeat(64), search: ''};
+        s.__fetchRouter = (url, options) => url === '/chat/state'
+            ? jsonResponse(200, {channel, history: {now, events}}) : fullSuccessRouter(url, options);
+    });
+    await flushAsync();
+    const feed = app.ids.get('pc-messages');
+    let scrollReads = 0;
+    Object.defineProperty(feed, 'scrollHeight', {get: () => {scrollReads++; return 1000;}});
+    const event = (seq, time, id) => ({seq, time, type: 'message', message: {id, login: 'human', badges: 'vip/1', text: id, tags: {'user-id': 'u'}}});
+    events = [event(1, now - 500, 'newer'), event(2, now - 1000, 'older'), event(3, now - 500, 'equal')];
+    for (let i = 0; i < 1000; i++) events.push(event(i + 4, now + i, 'replay' + i));
+    events.push({seq: 1004, time: now + 1000, type: 'delete', id: 'replay0'});
+    app.fireTimers(2000);
+    await flushAsync();
+    eq(scrollReads, 1, 'batch: 1004 replay events read scroll height once');
+    eq(feed.children.slice(0, 3).map(row => row.getAttribute('data-id')).join(','), 'older,newer,equal', 'batch: stable out-of-order and equal timestamps');
+    eq(feed.querySelector('[data-id="replay0"]').textContent, 'message deleted', 'batch: moderation sees earlier rows immediately');
+    eq(feed.children.length, 1003, 'batch: priority rows have no ordinary-history cap');
+    channel = 'replacement'; events = [];
+    app.fireTimers(2000); await flushAsync();
+    eq(feed.children.length, 0, 'batch: channel reset clears replay rows');
     app.sandbox.SPTVPhoneChat.Local.stop();
 });
 

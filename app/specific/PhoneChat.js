@@ -154,6 +154,8 @@ function PhoneChat_Show() {
         return;
     }
 
+    if (typeof PlayerUI_SuspendPhone === 'function') PlayerUI_SuspendPhone();
+
     //Take remote input ownership: the player panel cannot act beneath the dialog
     Main_removeEventListener('keydown', Play_handleKeyDown);
     Main_addEventListener('keydown', PhoneChat_HandleKeyDown);
@@ -227,6 +229,7 @@ function PhoneChat_Hide(skipFocusRestore) {
 
     PhoneChat_PanelWasShowing = false;
     PhoneChat_OriginControl = -1;
+    if (typeof PlayerUI_ResumePhone === 'function') PlayerUI_ResumePhone(skipFocusRestore);
 }
 
 function PhoneChat_HandleKeyDown(e) {

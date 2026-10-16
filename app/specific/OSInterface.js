@@ -1179,3 +1179,13 @@ function OSInterface_AddPhoneChatHistory(channel, payload) {
         /* Older APK. */
     }
 }
+
+//Native callback scripts also call this check before the web bundle has initialized.
+//Older APKs do not generate page-owned callbacks.
+function OSInterface_IsRequestPageCurrent(page) {
+    try {
+        return !Main_IsOn_OSInterface || Android.IsRequestPageCurrent(page);
+    } catch (ignore) {
+        return true;
+    }
+}

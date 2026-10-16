@@ -25,6 +25,7 @@ var Search_keyBoardOn = false;
 //Variable initialization end
 
 function Search_init() {
+    Navigation_Render(Main_Search);
     Main_HideWarningDialog();
     Main_HideElement('label_refresh');
     Main_IconLoad('label_thumb', 'icon-return', STR_GOBACK);

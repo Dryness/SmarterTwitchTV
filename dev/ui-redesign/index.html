@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SPTV · Remote prototype</title>
+    <link rel="stylesheet" href="../../release/githubio/css/icons.css">
+    <link rel="stylesheet" href="prototype.css">
+    <script src="screen-ids.js" defer></script>
+    <script src="../../app/specific/UIFocus.js" defer></script>
+    <script src="../../app/specific/Navigation.js" defer></script>
+    <script src="prototype.js" defer></script>
+</head>
+<body>
+    <div class="fixture-tools" aria-label="Prototype scenarios">
+        <span>DESIGN FIXTURE · Synthetic content · No Twitch or player requests</span>
+        <label>State <select id="scenario"><option value="ready">Ready</option><option value="loading">Loading</option><option value="no-account">No account</option><option value="auth">Authorization needed</option><option value="empty">Nobody live</option><option value="error">Network error</option><option value="stale">Stale content</option><option value="long">Long labels</option><option value="missing">Missing image</option></select></label>
+        <label>Items <select id="count"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option selected>6</option><option>7</option><option>30</option></select></label>
+        <label>Theme <select id="theme"><option value="dark">Purple / charcoal</option><option value="light">Light</option><option value="custom">Custom example</option></select></label>
+        <label><input id="large" type="checkbox">Large text</label>
+    </div>
+    <div id="tv" class="tv" tabindex="-1">
+        <div id="browse-view">
+            <nav id="rail" class="rail" aria-label="Main navigation">
+                <div class="brand"><img src="../../release/githubio/images/icon_circle.png" alt="SPTV"><span>Smarter Purple TV</span></div>
+                <div id="destinations"></div>
+                <div class="rail-bottom" id="utilities"></div>
+            </nav>
+            <main>
+                <header><div><h1 id="heading">Following</h1><span class="account" id="account">Alex · Demo account</span></div><time>20:46</time></header>
+                <div class="browse-toolbar"><div id="tabs" role="tablist" aria-label="Following content"></div><button id="refresh" class="text-button"><i class="icon icon-refresh" aria-hidden="true"></i> Refresh</button></div>
+                <div id="grid" class="stream-grid" aria-label="Streams"></div>
+                <section id="state" class="state" aria-live="polite" hidden></section>
+                <section id="details" class="details" aria-label="Focused stream details"><div><p id="detail-category"></p><h2 id="detail-title"></h2><p id="detail-name"></p></div><button id="channel-details">Channel details <i class="icon icon-arrow-right" aria-hidden="true"></i></button></section>
+            </main>
+            <footer><span><kbd>OK</kbd> Watch</span><span><kbd>↑</kbd> Tabs</span><span><kbd>←</kbd> Navigation</span><span><kbd>Back</kbd> Return</span><span id="position">1 / 6</span></footer>
+        </div>
+        <section id="player" class="player" aria-label="Simulated playback" hidden>
+            <div class="video-fixture"><span class="live-pill">LIVE</span><div><h1 id="watch-channel"></h1><p id="watch-title"></p><p class="simulation">Simulated playback · Design fixture</p></div></div>
+            <div id="player-hint" class="player-hint">OK · Controls &nbsp; ↑ · Channels &nbsp; Back · Following</div>
+            <div id="switcher" class="switcher" aria-label="Channel switcher" hidden><h2>Following · Live now</h2><div id="switcher-cards"></div><p>OK switches channel · Back keeps watching</p></div>
+            <div id="player-bar" class="player-bar" hidden><div class="watching-label"><span id="playing-name"></span><span id="quality-label">1080p60 · Source</span></div><div id="bar-buttons"></div></div>
+            <aside id="drawer" class="drawer" aria-label="Player drawer" hidden><h2 id="drawer-title"></h2><p class="drawer-hint">↑ ↓ Choose &nbsp; ← → Adjust &nbsp; Back Return</p><div id="drawer-rows"></div></aside>
+        </section>
+        <section id="dialog" class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden><div><h2 id="dialog-title"></h2><p id="dialog-copy"></p><button id="dialog-close">Back to Chat</button></div></section>
+        <output id="notice" class="notice" aria-live="polite" hidden></output>
+    </div>
+</body>
+</html>

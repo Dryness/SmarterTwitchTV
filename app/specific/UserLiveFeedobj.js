@@ -152,6 +152,7 @@ function UserLiveFeedobj_CheckToken() {
 }
 
 function UserLiveFeedobj_loadDataPrepare(pos) {
+    Navigation_FeedGenerations[pos] = (Navigation_FeedGenerations[pos] || 0) + 1;
     UserLiveFeed_loadingData[pos] = true;
     Screens_Some_Screen_Is_Refreshing = true;
 }
@@ -159,7 +160,7 @@ function UserLiveFeedobj_loadDataPrepare(pos) {
 function UserLiveFeedobj_BaseLoad(url, callback, CheckOffset, pos) {
     if (CheckOffset) UserLiveFeedobj_CheckOffset(pos);
 
-    BaseXmlHttpGet(url, callback, UserLiveFeedobj_loadDataError, pos, null, UserLiveFeed_obj[pos].useHelix);
+    Navigation_FeedBase(url, callback, UserLiveFeedobj_loadDataError, pos, null, UserLiveFeed_obj[pos].useHelix);
 }
 
 function UserLiveFeedobj_loadDataError(pos) {
@@ -335,7 +336,7 @@ function UserLiveFeedobj_History() {
 }
 
 function UserLiveFeedobj_HistoryGetLives(ids, pos) {
-    FullxmlHttpGet(
+    Navigation_FeedFull(
         PlayClip_BaseUrl,
         Main_OAuth_User_Headers,
         UserLiveFeedobj_HistoryGetLivesEnd,
@@ -459,7 +460,7 @@ function UserLiveFeedobj_loadFeatured() {
     } else {
         var lang = Main_ContentLang !== '' && !UserLiveFeed_obj[pos].LoadAllLangForced ? ',language:\\"' + Main_ContentLang + '\\"' : '';
 
-        FullxmlHttpGet(
+        Navigation_FeedFull(
             PlayClip_BaseUrl,
             Play_base_backup_headers_Array,
             UserLiveFeedobj_loadDataFeaturedSuccess,
@@ -645,7 +646,7 @@ function UserLiveFeedobj_UserGames() {
 function UserLiveFeedobj_loadUserGames() {
     UserLiveFeedobj_GamesFeedOldUserName = AddUser_UsernameArray[0].name;
 
-    FullxmlHttpGet(
+    Navigation_FeedFull(
         PlayClip_BaseUrl,
         Play_base_backup_headers_Array,
         UserLiveFeedobj_loadDataUserGamesSuccess,
@@ -785,7 +786,7 @@ function UserLiveFeedobj_loadGames() {
 
         UserLiveFeedobj_loadDataGamesSuccessEnd(ScreenObj[key].data.slice(0, 100), ScreenObj[key].MaxOffset, pos, UserLiveFeed_itemsCount[pos]);
     } else {
-        FullxmlHttpGet(
+        Navigation_FeedFull(
             PlayClip_BaseUrl,
             Play_base_backup_headers_Array,
             UserLiveFeedobj_loadDataGamesSuccess,
@@ -1229,7 +1230,7 @@ function UserLiveFeedobj_CreatGameFeed(pos, x, id, data) {
 }
 
 function UserLiveFeedobj_loadChannelUserLive() {
-    FullxmlHttpGet(
+    Navigation_FeedFull(
         PlayClip_BaseUrl,
         Main_OAuth_User_Headers,
         UserLiveFeedobj_loadChannelUserLiveGetEnd,
@@ -1449,7 +1450,7 @@ function UserLiveFeedobj_loadUserVod() {
 }
 
 function UserLiveFeedobj_loadUserVodGet() {
-    FullxmlHttpGet(
+    Navigation_FeedFull(
         PlayClip_BaseUrl,
         Main_OAuth_User_Headers,
         UserLiveFeedobj_loadUserVodGetEnd,

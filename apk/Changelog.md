@@ -9,6 +9,14 @@ The App is divided in two part, **Apk** and **Web** you can check it version in 
 
 The app has a building update check function, so whenever there is a update a red text will show up bellow the main pages clock, also a short warning will pop on the screen let you know if is a **Apk** or **Web** update.
 
+October 16 2026 (3.0.391)
+==============
+
+* TV chat: use one delay timer per chat and retain at most twenty inactive channel caches while keeping current shared channels available.
+* TV chat: message animation now fades and slides into its final height.
+* Phone chat: batch history maintenance and scrolling while preserving moderation and twenty-minute priority history.
+* Android: bound waiting network requests and prevent stale responses or APK installer callbacks after activity destruction.
+
 October 11 2026 (3.0.390)
 ==============
 

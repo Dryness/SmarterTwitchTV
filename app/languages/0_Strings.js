@@ -844,3 +844,6 @@ var STR_NUMBER_SEPARATOR,
     STR_PHONE_CHAT_LOCAL_FAIL,
     STR_PHONE_CHAT_FOLLOWS,
     STR_PHONE_CHAT_SHORTCUT;
+
+// English defaults are loaded before every selected translation.
+var STR_UI;

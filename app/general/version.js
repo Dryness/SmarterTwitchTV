@@ -21,11 +21,28 @@
 //Spacing for release maker not trow errors from jshint
 var version = {
     VersionBase: '3.0',
-    publishVersionCode: 390, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/390/SmarterPurpleTV_3_0_390.apk',
-    WebVersion: 'October 11 2026',
-    WebTag: 749, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
+    WebVersion: 'October 16 2026',
+    WebTag: 751, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 16 2026 (Web 751)',
+            changes: [
+                'TV interface: Following home, stable navigation rail, browsing tabs and focused channel details',
+                'Player: compact controls and named drawers for chat, quality, layout, audio and playback options',
+                'Navigation: preserve channel focus during refresh and ignore stale account and preview responses'
+            ]
+        },
+        {
+            title: 'October 16 2026 (APK 391)',
+            changes: [
+                'TV chat: use one delay timer per chat and retain at most twenty inactive channel caches while keeping current shared channels available',
+                'TV chat: message animation now fades and slides into its final height',
+                'Phone chat: batch history maintenance and scrolling while preserving moderation and twenty-minute priority history',
+                'Android: bound waiting network requests and prevent stale responses or APK installer callbacks after activity destruction'
+            ]
+        },
         {
             title: 'October 11 2026 (APK 390)',
             changes: [

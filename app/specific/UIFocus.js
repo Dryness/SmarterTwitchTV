@@ -1,0 +1,98 @@
+/* Presentation focus helpers. No keyboard listener: the current input owner calls Dispatch. */
+var UIFocus_Stack = [];
+var UIFocus_SuppressedKeys = {};
+
+function UIFocus_Push(owner) {
+    if (!owner || !owner.id || typeof owner.handle !== 'function') return false;
+    // Reopening an owner closes descendants and cancels each pending operation once.
+    for (var i = 0; i < UIFocus_Stack.length; i++) {
+        if (UIFocus_Stack[i].id === owner.id) {
+            while (UIFocus_Stack.length > i) UIFocus_Pop(false);
+            break;
+        }
+    }
+    UIFocus_Stack.push(owner);
+    return true;
+}
+
+function UIFocus_Pop(restore) {
+    var owner = UIFocus_Stack.pop();
+    if (!owner) return null;
+    if (owner.cleanup) owner.cleanup();
+    if (restore !== false && owner.restore) owner.restore(owner.returnTarget);
+    return owner;
+}
+
+function UIFocus_Clear() {
+    while (UIFocus_Stack.length) UIFocus_Pop(false);
+    // Keep key-up suppression until those physical keys are released.
+}
+
+function UIFocus_Dispatch(event, isKeyUp) {
+    var key = event.keyCode,
+        owner = UIFocus_Stack[UIFocus_Stack.length - 1],
+        handled = false;
+    if (!isKeyUp && UIFocus_SuppressedKeys[key] && UIFocus_SuppressedKeys[key] !== owner) {
+        // A held key belongs to the owner that received its initial key-down.
+        handled = true;
+    } else if (isKeyUp && UIFocus_SuppressedKeys[key]) {
+        delete UIFocus_SuppressedKeys[key];
+        handled = true;
+    } else if (owner && !owner.suspended) {
+        handled = owner.handle(event, Boolean(isKeyUp)) === true;
+        if (handled && !isKeyUp) UIFocus_SuppressedKeys[key] = owner;
+    }
+    if (handled) {
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+    return handled;
+}
+
+function UIFocus_Suspend(id, suspended) {
+    for (var i = UIFocus_Stack.length - 1; i >= 0; i--) {
+        if (UIFocus_Stack[i].id === id) {
+            UIFocus_Stack[i].suspended = suspended;
+            return true;
+        }
+    }
+    return false;
+}
+
+function UIFocus_Resolve(items, identity, previousIndex) {
+    var i;
+    for (i = 0; i < items.length; i++) {
+        if (items[i].id === identity) return i;
+    }
+    if (!items.length) return -1;
+    return Math.max(0, Math.min(items.length - 1, Math.floor(Number(previousIndex) || 0)));
+}
+
+function UIFocus_GridNeighbor(index, columns, count, direction) {
+    if (!count || columns < 1) return -1;
+    index = Math.max(0, Math.min(index, count - 1));
+    if (direction === 'left') return index % columns ? index - 1 : index;
+    if (direction === 'right') return index % columns < columns - 1 && index + 1 < count ? index + 1 : index;
+    if (direction === 'up') return index >= columns ? index - columns : index;
+    if (direction === 'down') return index + columns < count ? index + columns : index;
+    return index;
+}
+
+/* Wrap the existing listener rather than registering a competing keyboard listener. */
+function UIFocus_Listener(type, handler) {
+    if ((type !== 'keydown' && type !== 'keyup') || !handler) return handler;
+    var property = type === 'keydown' ? 'uiFocusDown' : 'uiFocusUp';
+    if (!handler[property]) {
+        handler[property] = function (event) {
+            var previous = UIFocus_Stack[UIFocus_Stack.length - 1];
+            if (!UIFocus_Dispatch(event, type === 'keyup')) {
+                handler(event);
+                if (type === 'keydown' && UIFocus_Stack[UIFocus_Stack.length - 1] !== previous) {
+                    // A legacy key-down that opens an overlay still owns the held press.
+                    UIFocus_SuppressedKeys[event.keyCode] = previous || {};
+                }
+            }
+        };
+    }
+    return handler[property];
+}

@@ -49,6 +49,7 @@ var ChannelContent_allowMature;
 function ChannelContent_init() {
     Main_values.Main_CenterLablesVectorPos = 1;
     Main_values.Main_Go = Main_ChannelContent;
+    Navigation_Render(Main_ChannelContent);
 
     if (ChannelContent_ChannelValueIsset && !Main_values.Search_isSearching && Main_values.Main_selectedChannel_id) {
         ChannelContent_RestoreChannelValue();

@@ -2394,17 +2394,18 @@
             }
 
             .chat_line_animation {
-                will-change: height, max-height;
-                animation: height_animation 450ms cubic-bezier(0.4, 0, 0.2, 1) 0s;
+                animation: chat_message_animation 180ms cubic-bezier(0.4, 0, 0.2, 1) 0s;
             }
 
-            @keyframes height_animation {
+            @keyframes chat_message_animation {
                 from {
-                    max-height: 0;
+                    opacity: 0;
+                    transform: translateY(0.15em);
                 }
 
                 to {
-                    max-height: 100vh;
+                    opacity: 1;
+                    transform: translateY(0);
                 }
             }
 
@@ -2768,12 +2769,475 @@
                                     width: 20%;
                                     color: #FFF;
                                 }*/
+
+            /* Approved TV navigation: fixed geometry, scoped to migrated browsing surfaces. */
+            .navigation-shell {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 6;
+                pointer-events: none;
+                color: #f5f1fa;
+            }
+            .navigation-button {
+                box-sizing: border-box;
+                font: inherit;
+                color: inherit;
+                background: transparent;
+                border: 0;
+                border-radius: 0.3em;
+                padding: 0.55em 0.65em;
+                cursor: pointer;
+                pointer-events: auto;
+                text-align: left;
+            }
+            .navigation-button:focus {
+                outline: none;
+            }
+            .navigation-focused,
+            .navigation-button:focus-visible {
+                outline: 0.13em solid #bca0ff;
+                outline-offset: 0.1em;
+                background: #30253f;
+            }
+            .navigation-rail {
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 5.8%;
+                background: #1e1b25;
+                padding: 2.5vh 0.7vw;
+                overflow: hidden;
+                pointer-events: auto;
+            }
+            .navigation-rail.navigation-expanded {
+                width: 25%;
+                box-shadow: 0.6em 0 1.5em rgba(0, 0, 0, 0.35);
+            }
+            .navigation-brand {
+                height: 5vh;
+                margin-bottom: 5vh;
+                display: flex;
+                align-items: center;
+                white-space: nowrap;
+                font-size: 75%;
+                font-family: 'Roboto-Bold';
+            }
+            .navigation-brand img {
+                width: 3vw;
+                height: 3vw;
+                margin-right: 1.5vw;
+            }
+            .navigation-brand span {
+                display: none;
+            }
+            .navigation-expanded .navigation-brand span {
+                display: inline;
+            }
+            .navigation-rail .navigation-button {
+                display: block;
+                width: 100%;
+                height: 7.2vh;
+                white-space: nowrap;
+                margin-bottom: 0.6vh;
+            }
+            .navigation-rail i {
+                display: inline-block;
+                width: 1.8em;
+                text-align: center;
+            }
+            .navigation-rail .navigation-button span {
+                display: none;
+                margin-left: 0.65em;
+            }
+            .navigation-expanded .navigation-button span {
+                display: inline;
+            }
+            .navigation-button[aria-current='page'] {
+                color: #c6afff;
+                text-decoration: underline;
+                text-underline-offset: 0.35em;
+            }
+            .navigation-utilities {
+                display: none;
+            }
+            .navigation-expanded .navigation-utilities {
+                display: block;
+                border-top: 1px solid currentColor;
+                padding-top: 0.4vh;
+            }
+            .navigation-utilities .navigation-button {
+                height: 4.6vh;
+                font-size: 70%;
+            }
+            .navigation-header {
+                position: absolute;
+                left: 9.2%;
+                right: 5%;
+                top: 4.8%;
+            }
+            .navigation-header h1 {
+                font-size: 180%;
+                margin: 0;
+                font-family: 'Roboto-Bold';
+            }
+            .navigation-header p {
+                font-size: 75%;
+                margin-top: 0.35em;
+                opacity: 0.85;
+            }
+            .navigation-toolbar {
+                position: absolute;
+                left: 9.2%;
+                right: 5%;
+                top: 16%;
+                white-space: nowrap;
+                font-size: 90%;
+            }
+            #navigation-tabs {
+                display: inline-block;
+            }
+            #navigation-tabs .navigation-button {
+                margin-right: 0.35em;
+            }
+            #navigation-tabs [aria-selected='true'] {
+                box-shadow: 0 0.12em 0 #bca0ff;
+                border-radius: 0;
+                font-family: 'Roboto-Bold';
+            }
+            #navigation-refresh {
+                float: right;
+                font-size: 85%;
+            }
+            .navigation-details {
+                position: absolute;
+                left: 9.2%;
+                right: 5%;
+                top: 79%;
+                bottom: 8%;
+                border-top: 1px solid #494151;
+                padding-top: 1.5vh;
+            }
+            .navigation-details > div {
+                width: 75%;
+            }
+            .navigation-details h2 {
+                font-size: 110%;
+                margin: 0.3em 0;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                overflow: hidden;
+            }
+            .navigation-details p {
+                font-size: 72%;
+                margin: 0;
+                opacity: 0.85;
+            }
+            #navigation-detail-action {
+                position: absolute;
+                right: 0;
+                top: 30%;
+                font-size: 75%;
+            }
+            .navigation-footer {
+                position: absolute;
+                bottom: 3.3%;
+                left: 9.2%;
+                right: 5%;
+                font-size: 66%;
+                opacity: 0.85;
+            }
+            .navigation-status {
+                position: absolute;
+                left: 9.2%;
+                right: 5%;
+                top: 29%;
+                bottom: 24%;
+                padding: 2em;
+                pointer-events: none;
+                background: inherit;
+            }
+            .navigation-status p {
+                font-size: 115%;
+                max-width: 75%;
+                line-height: 1.5;
+            }
+            .navigation-status .navigation-button {
+                margin-top: 1em;
+            }
+            .navigation-onboarding {
+                position: absolute;
+                left: 9.2%;
+                right: 5%;
+                top: 30%;
+                bottom: 15%;
+                z-index: 7;
+                color: #f5f1fa;
+            }
+            .navigation-onboarding h2 {
+                font-size: 150%;
+            }
+            .navigation-onboarding p {
+                width: 75%;
+                line-height: 1.5;
+                font-size: 100%;
+            }
+            .navigation-onboarding .navigation-button {
+                margin-right: 1em;
+                background: #30253f;
+            }
+            .navigation-enabled #side_panel_new_holder {
+                visibility: hidden;
+            }
+            .navigation-enabled #topbar {
+                display: none;
+            }
+            .navigation-enabled #settings_holder {
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
+            .navigation-enabled #clock_holder {
+                top: 5%;
+                right: 5%;
+            }
+            .navigation-enabled #screens_holder {
+                top: 24%;
+                left: 8.7%;
+                width: 87%;
+                height: 68%;
+                overflow: hidden;
+            }
+            .navigation-live #screens_holder {
+                height: 53%;
+            }
+            .navigation-enabled #screens_holder > .screen_holder,
+            .navigation-enabled #screens_holder > .screen_holder_channel,
+            .navigation-enabled #screens_holder > .screen_holder_games,
+            .navigation-enabled #screens_holder > .screen_holder_user,
+            .navigation-enabled #screens_holder > .screen_holder_switch {
+                top: 0;
+                height: 100%;
+            }
+            .navigation-enabled .streams_div,
+            .navigation-enabled .streams_game_div {
+                margin-left: 0 !important;
+                width: 100%;
+            }
+            .navigation-enabled .animate_height_transition {
+                height: 22vw;
+                width: 100%;
+            }
+            .navigation-enabled .animate_height_transition_games,
+            .navigation-enabled .animate_height_transition_blocked_games {
+                height: 26vw;
+                width: 100%;
+            }
+            .navigation-enabled .animate_height_transition_channel,
+            .navigation-enabled .animate_height_transition_blocked_channel {
+                height: 18vw;
+                width: 100%;
+            }
+            .navigation-live .stream_thumbnail_live {
+                padding-bottom: 76%;
+            }
+            .navigation-live .stream_info_live_title,
+            .navigation-live .stream_info_live_title_single_line {
+                display: none;
+            }
+            .navigation-live .stream_thumbnail_live_text_holder {
+                height: 23%;
+            }
+            .navigation-live .stream_info_live_name {
+                font-size: 105%;
+            }
+            .navigation-live .stream_text_holder .stream_info_live {
+                font-family: 'Roboto';
+            }
+
+            /* Player rows are the original action DOM, bound to the active drawer renderer. */
+            .player-ui {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 15;
+                pointer-events: none;
+                color: #f5f1fa;
+            }
+            .player-ui-bar {
+                position: absolute;
+                left: 5%;
+                right: 5%;
+                bottom: 5%;
+                padding: 1em 1.3em;
+                border-radius: 0.4em;
+                background: #1e1b25;
+                pointer-events: auto;
+            }
+            .player-ui-caption {
+                font-size: 75%;
+                margin-bottom: 0.8em;
+                opacity: 0.85;
+            }
+            #player-ui-value {
+                float: right;
+                max-width: 60%;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+            #player-ui-buttons {
+                display: flex;
+                justify-content: space-between;
+            }
+            #player-ui-buttons .navigation-button {
+                padding: 0.5em 0.7em;
+                text-align: center;
+            }
+            .player-ui-drawer {
+                position: absolute;
+                right: 5%;
+                top: 5%;
+                bottom: 24%;
+                width: 34%;
+                padding: 1.3em;
+                background: #1e1b25;
+                border-radius: 0.4em;
+                pointer-events: auto;
+                box-shadow: -0.5em 0 1.5em rgba(0, 0, 0, 0.3);
+            }
+            .player-ui-drawer h2 {
+                font-size: 125%;
+                margin: 0;
+            }
+            #player-ui-help {
+                font-size: 63%;
+                opacity: 0.85;
+                margin: 1em 0 1.5em;
+            }
+            #player-ui-scroll {
+                position: absolute;
+                top: 6em;
+                bottom: 1.3em;
+                left: 1.1em;
+                right: 1.1em;
+                overflow: auto;
+                padding: 0.2em;
+            }
+            #player-ui-menu .navigation-button {
+                display: block;
+                width: 100%;
+                margin-bottom: 0.3em;
+            }
+            .player-ui-action {
+                box-sizing: border-box;
+                display: block;
+                width: 100%;
+                min-height: 3.4em;
+                padding: 0.65em;
+                margin-bottom: 0.4em;
+                border-radius: 0.25em;
+                cursor: pointer;
+            }
+            .player-ui-action:focus {
+                outline: none;
+            }
+            .player-ui-focused {
+                outline: 0.13em solid #bca0ff !important;
+                outline-offset: 0.04em;
+                background: #30253f;
+            }
+            .player-ui-action .controls_button {
+                display: none;
+            }
+            .player-ui-action .controls_text_title_holder {
+                opacity: 1 !important;
+                position: static;
+                transform: none;
+                width: 100%;
+                height: auto;
+            }
+            .player-ui-action .controls_button_title {
+                position: static;
+                transform: none;
+                left: auto;
+                height: auto;
+                font-size: 85%;
+                width: 100%;
+                white-space: normal;
+                line-height: 1.4;
+            }
+            .player-ui-action .controls_text_title_holder,
+            .player-ui-action .arrows_text {
+                color: inherit;
+            }
+            .player-ui-action .strokedeline {
+                text-shadow: none;
+            }
+            .player-ui-action .arrows_text {
+                font-size: 85%;
+            }
+            .player-ui-active #controls_holder,
+            .player-ui-active #pause_next_div {
+                display: none;
+            }
+            .player-ui-active #progress_pause_holder {
+                bottom: 23%;
+            }
         </style>
     </head>
 
     <body>
         <div id="body_container" class="screen_size" style="position: relative">
             <div id="scene1" class="screen_size" style="background-color: #0b0a0e; opacity: 1; will-change: opacity; z-index: 2">
+                <!-- Stable browsing shell; screen IDs and virtualized grid nodes remain authoritative. -->
+                <div id="navigation-shell" class="navigation-shell hide">
+                    <nav id="navigation-rail" class="navigation-rail" aria-label="Navigation">
+                        <div class="navigation-brand">
+                            <img src="../release/githubio/images/icon_circle.png" alt="SPTV" /><span>Smarter Purple TV</span>
+                        </div>
+                        <div id="navigation-destinations"></div>
+                        <div class="navigation-utilities">
+                            <button id="navigation-about" class="navigation-button" type="button"></button>
+                            <button id="navigation-help" class="navigation-button" type="button"></button>
+                            <button id="navigation-updates" class="navigation-button" type="button"></button>
+                        </div>
+                    </nav>
+                    <header class="navigation-header">
+                        <h1 id="navigation-heading"></h1>
+                        <p id="navigation-account"></p>
+                    </header>
+                    <div class="navigation-toolbar">
+                        <div id="navigation-tabs" role="tablist"></div>
+                        <button id="navigation-refresh" type="button" class="navigation-button"></button>
+                    </div>
+                    <section id="navigation-details" class="navigation-details">
+                        <div>
+                            <p id="navigation-detail-category"></p>
+                            <h2 id="navigation-detail-title"></h2>
+                            <p id="navigation-detail-name"></p>
+                        </div>
+                        <button id="navigation-detail-action" type="button" class="navigation-button"></button>
+                    </section>
+                    <section id="navigation-status" class="navigation-status hide" aria-live="polite">
+                        <p id="navigation-status-copy"></p>
+                        <button id="navigation-retry" type="button" class="navigation-button"></button>
+                    </section>
+                    <footer id="navigation-footer" class="navigation-footer"></footer>
+                </div>
+                <section id="navigation-onboarding" class="navigation-onboarding hide">
+                    <h2 id="navigation-welcome-title"></h2>
+                    <p id="navigation-welcome-copy"></p>
+                    <button id="navigation-recovery-0" class="navigation-button" type="button"></button
+                    ><button id="navigation-recovery-1" class="navigation-button" type="button"></button>
+                </section>
+
                 <div id="dialog_loading" class="screens dialogs hide" style="z-index: 98; margin-top: 50vh; overflow: visible">
                     <div class="loading">
                         <div></div>
@@ -3507,6 +3971,20 @@
                 class="screen_size"
                 style="opacity: 0; pointer-events: none; will-change: opacity; background-repeat: no-repeat; background-size: 100%; z-index: 1"
             >
+                <div id="player-ui" class="player-ui hide">
+                    <div id="player-ui-bar" class="player-ui-bar">
+                        <div class="player-ui-caption"><span id="player-ui-name"></span><span id="player-ui-value"></span></div>
+                        <div id="player-ui-buttons"></div>
+                    </div>
+                    <aside id="player-ui-drawer" class="player-ui-drawer">
+                        <h2 id="player-ui-title"></h2>
+                        <p id="player-ui-help"></p>
+                        <div id="player-ui-scroll">
+                            <div id="player-ui-menu"></div>
+                            <div id="player-ui-actions"></div>
+                        </div>
+                    </aside>
+                </div>
                 <div id="scene2_click" class="screen_size hide" style="width: 55%; height: 59%; left: 16%; z-index: 9999">
                     <div id="player_embed_clicks" class="hide">
                         <div
@@ -4049,7 +4527,7 @@
                         <div id="chat_send_button10" class="button_chat"></div>
                         <!-- 7TV streamer-->
                         <div id="chat_send_button11" class="button_chat"></div>
-                        <input id="chat_send_input" class="chat_input_class" onfocus="this.value = this.value;" type="text" placeholder="" />
+                        <input id="chat_send_input" class="chat_input_class" onfocus="this.value = this.value" type="text" placeholder="" />
                         <!-- In Chat expected result: -->
                         <div id="chat_result" class="chat_result"></div>
                         <div class="chat_result_holder">
@@ -4520,6 +4998,9 @@
         <script src="specific/UserLiveFeedobj.js" defer></script>
         <script src="specific/Screens.js" defer></script>
         <script src="specific/Sidepannel.js" defer></script>
+        <script src="specific/UIFocus.js" defer></script>
+        <script src="specific/Navigation.js" defer></script>
+        <script src="specific/PlayerUI.js" defer></script>
         <script src="general/resize.js" defer></script>
         <script src="specific/ScreensObj.js" defer></script>
         <script src="specific/BrowserTest.js" defer></script>

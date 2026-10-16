@@ -51,6 +51,63 @@ var cheers = {};
 var ChatLive_sharedProfileImg = {};
 var ChatLive_sharedChannelBadgeLoaded = [];
 
+// One union index; active slots and their current shared participants are pinned.
+var ChatLive_CacheInactiveLimit = 20;
+var ChatLive_CacheRecent = [];
+var ChatLive_CachePins = [{}, {}];
+
+function ChatLive_CacheTrim() {
+    var inactive = [],
+        i,
+        channel,
+        provider,
+        providers = ['bttv', 'ffz', 'seven_tv', 'ChannelEmotes', 'BadgesChannel', 'cheers'];
+    for (i = 0; i < ChatLive_CacheRecent.length; i++) {
+        channel = ChatLive_CacheRecent[i];
+        if (!ChatLive_CachePins[0][channel] && !ChatLive_CachePins[1][channel]) inactive.push(channel);
+    }
+    while (inactive.length > ChatLive_CacheInactiveLimit) {
+        channel = inactive.shift();
+        ChatLive_CacheRecent.splice(ChatLive_CacheRecent.indexOf(channel), 1);
+        for (provider = 0; provider < providers.length; provider++) delete extraEmotesDone[providers[provider]][channel];
+        delete cheers[channel];
+        delete ChatLive_sharedProfileImg[channel];
+    }
+}
+
+function ChatLive_CacheTouch(channel) {
+    if (!channel) return;
+    channel = String(channel);
+    var index = ChatLive_CacheRecent.indexOf(channel);
+    if (index !== -1) ChatLive_CacheRecent.splice(index, 1);
+    ChatLive_CacheRecent.push(channel);
+    ChatLive_CacheTrim();
+}
+
+function ChatLive_CacheRelease(chat_number) {
+    ChatLive_sharedChannelBadgeLoaded[chat_number] = {};
+    extraEmotes[chat_number] = {};
+    ChatLive_selectedChannel_id[chat_number] = null;
+    ChatLive_CachePins[chat_number] = {};
+    ChatLive_CacheTrim();
+}
+
+function ChatLive_CacheSetPins(chat_number, participants) {
+    var pins = {},
+        i,
+        channel,
+        loaded = ChatLive_sharedChannelBadgeLoaded[chat_number];
+    if (ChatLive_selectedChannel_id[chat_number]) pins[ChatLive_selectedChannel_id[chat_number]] = true;
+    for (i = 0; i < Math.min(participants.length, 100); i++) pins[participants[i].broadcaster_id] = true;
+    ChatLive_CachePins[chat_number] = pins;
+    if (loaded) {
+        for (channel in loaded) {
+            if (!pins[channel]) delete loaded[channel];
+        }
+    }
+    ChatLive_CacheTrim();
+}
+
 var ChatLive_selectedChannel_id = [];
 var ChatLive_isShared = [];
 var ChatLive_SharedShowedWarning = [];
@@ -197,11 +254,14 @@ var ChatLive_ShowBadgesVIP;
 var ChatLive_Highlight_Verified;
 
 function ChatLive_SetOptions(chat_number, Channel_id, selectedChannel) {
+    ChatLive_DelayClear(chat_number);
     extraEmotes[chat_number] = {};
 
     Chat_loadBadgesGlobal();
 
     ChatLive_selectedChannel_id[chat_number] = Channel_id;
+    ChatLive_CacheSetPins(chat_number, []);
+    ChatLive_CacheTouch(Channel_id);
     ChatLive_selectedChannel[chat_number] = selectedChannel;
     if (ChatLive_selectedChannel[chat_number]) ChatLive_selectedChannel[chat_number] = ChatLive_selectedChannel[chat_number].toLowerCase();
 
@@ -241,7 +301,7 @@ function ChatLive_SetOptions(chat_number, Channel_id, selectedChannel) {
         ChatLive_User_Regex_Replace = new RegExp('@' + AddUser_UsernameArray[0].name, 'gi');
     }
 
-    Chat_Id[chat_number] = new Date().getTime();
+    Chat_Id[chat_number] = ++ChatLive_Generation;
 
     ChatLive_sharedChannelBadgeLoaded[chat_number] = {};
 
@@ -286,6 +346,8 @@ function ChatLive_checkSharedSuccess(responseText, chat_number, id) {
             len = Math.min(participants.length, 100),
             channelsIds = '';
 
+        ChatLive_CacheSetPins(chat_number, participants);
+
         for (i; i < len; i++) {
             channelsIds += channelsIds ? '&id=' : 'id=';
             channelsIds += participants[i].broadcaster_id;
@@ -308,6 +370,7 @@ function ChatLive_checkSharedSuccess(responseText, chat_number, id) {
         }
     } else {
         ChatLive_isShared[chat_number] = false;
+        ChatLive_CacheSetPins(chat_number, []);
 
         if (Settings_value.show_chatters.defaultValue) {
             ChatLive_loadChattersCheckTypeRun(chat_number, Chat_Id[chat_number]);
@@ -336,9 +399,14 @@ function ChatLive_updateBannerSuccess(responseText, chat_number, id) {
             return a.display_name < b.display_name ? -1 : a.display_name > b.display_name ? 1 : 0;
         });
 
+        for (i = 0; i < len; i++) {
+            if (!ChatLive_CachePins[chat_number][response.data[i].id]) continue;
+            ChatLive_sharedProfileImg[response.data[i].id] = response.data[i].profile_image_url;
+            ChatLive_CacheTouch(response.data[i].id);
+        }
         if (!ChatLive_SharedShowedWarning[chat_number] && ChatLive_isShared[chat_number]) {
-            for (i; i < len; i++) {
-                ChatLive_sharedProfileImg[response.data[i].id] = response.data[i].profile_image_url;
+            for (i = 0; i < len; i++) {
+                if (!ChatLive_CachePins[chat_number][response.data[i].id]) continue;
                 chatWarning +=
                     STR_BR +
                     '<span class="tag" style=" background-image: url(' +
@@ -419,9 +487,9 @@ function ChatLive_checkSubSuccess(responseText, chat_number, id) {
 }
 
 function ChatLive_loadChannelEmotes(chat_number, id) {
+    if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
     if (!extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]]) {
-        extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]] = {};
-
         var theUrl = Main_helix_api + 'chat/emotes?broadcaster_id=' + ChatLive_selectedChannel_id[chat_number];
 
         BaseXmlHttpGet(theUrl, ChatLive_loadChannelEmotesSuccess, noop_fun, chat_number, id, true);
@@ -431,7 +499,12 @@ function ChatLive_loadChannelEmotes(chat_number, id) {
 }
 
 function ChatLive_loadChannelEmotesSuccess(responseText, chat_number, chat_id) {
-    ChatLive_loadTwitchEmotesSuccess(responseText, chat_number, chat_id, extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]]);
+    if (chat_id !== Chat_Id[chat_number]) return;
+    var data = JSON.parse(responseText), loaded = {};
+    if (!data || !Array.isArray(data.data)) return;
+    ChatLive_loadTwitchEmotesSuccess(responseText, chat_number, chat_id, loaded);
+    extraEmotesDone.ChannelEmotes[ChatLive_selectedChannel_id[chat_number]] = loaded;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 }
 
 function ChatLive_checkSubFail(chat_number, id) {
@@ -444,6 +517,7 @@ function ChatLive_loadBadgesChannel(chat_number, id, input_channelId) {
     if (id !== Chat_Id[chat_number]) return;
 
     var channelId = input_channelId ? input_channelId : ChatLive_selectedChannel_id[chat_number];
+    ChatLive_CacheTouch(channelId);
 
     if (!extraEmotesDone.BadgesChannel[channelId]) {
         var theUrl = Main_helix_api + 'chat/badges?broadcaster_id=' + channelId;
@@ -458,6 +532,8 @@ function ChatLive_loadBadgesChannel(chat_number, id, input_channelId) {
 function ChatLive_loadBadgesChannelSuccess(obj, id, chat_number, channelId) {
     if (id !== Chat_Id[chat_number]) return;
 
+    if (!ChatLive_CachePins[chat_number][channelId]) return;
+    ChatLive_CacheTouch(channelId);
     extraEmotesDone.BadgesChannel[channelId] = Chat_loadBadgesTransform(obj, channelId, true, chat_number);
     ChatLive_sharedChannelBadgeLoaded[chat_number][channelId] = true;
 
@@ -615,25 +691,26 @@ function ChatLive_loadTwitchEmotesSuccess(responseText, chat_number, chat_id, ex
 
             emoticon.code = emoteReplace[emoticon.name] || emoticon.name;
 
-            if (userEmote[AddUser_UsernameArray[0].id].hasOwnProperty(emoticon.code)) return;
-
             replaceDark = emoticon.theme_mode.includes('dark');
             srcset = ChatLive_Twitch_srcset(emoticon.images, replaceDark);
 
             url = emoteURLFromObj(emoticon.images, replaceDark);
             id = emoticon.code + emoticon.id; //combine code and id to make t uniq
 
-            extraEmotes[chat_number][emoticon.code] = {
+            extraEmotesDone_obj[emoticon.code] = {
                 code: emoticon.code,
                 id: id,
-                chat_div: emoteTemplate(url, srcset),
                 '4x': url,
                 srcset: srcset
             };
 
-            extraEmotesDone_obj[emoticon.code] = {
+            // Channel/global cache ownership is independent of the account picker deduplication.
+            if (userEmote[AddUser_UsernameArray[0].id].hasOwnProperty(emoticon.code)) return;
+
+            extraEmotes[chat_number][emoticon.code] = {
                 code: emoticon.code,
                 id: id,
+                chat_div: emoteTemplate(url, srcset),
                 '4x': url,
                 srcset: srcset
             };
@@ -667,6 +744,7 @@ function ChatLive_Twitch_srcset(obj, replaceDark) {
 
 function ChatLive_loadEmotesChannelBTTV(chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
     if (!extraEmotesDone.bttv[ChatLive_selectedChannel_id[chat_number]]) {
         BaseXmlHttpGet(
@@ -683,8 +761,11 @@ function ChatLive_loadEmotesChannelBTTV(chat_number, id) {
 
 function ChatLive_loadEmotesChannelBTTVSuccess(data, chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
-    ChatLive_loadEmotesbttv(JSON.parse(data), chat_number, false);
+    data = JSON.parse(data);
+    if (!data || !Array.isArray(data.channelEmotes) || !Array.isArray(data.sharedEmotes)) return;
+    ChatLive_loadEmotesbttv(data, chat_number, false);
 }
 
 function ChatLive_loadEmotesbttv(data, chat_number) {
@@ -694,13 +775,14 @@ function ChatLive_loadEmotesbttv(data, chat_number) {
         ChatLive_loadEmotesbttvChannel(data.channelEmotes, chat_number);
         ChatLive_loadEmotesbttvChannel(data.sharedEmotes, chat_number);
 
-        var len = data.bots.length,
+        var len = data.bots ? data.bots.length : 0,
             i = 0;
 
         for (i; i < len; i++) {
             KnowBots[data.bots[i]] = 1;
         }
     } catch (e) {
+        delete extraEmotesDone.bttv[ChatLive_selectedChannel_id[chat_number]];
         Main_Log('ChatLive_loadEmotesbttv ' + e);
     }
 }
@@ -751,6 +833,7 @@ function ChatLive_bttv_srcset(id) {
 
 function ChatLive_loadCheersChannel(chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
     if (!extraEmotesDone.cheers[ChatLive_selectedChannel_id[chat_number]]) {
         var theUrl = Main_helix_api + 'bits/cheermotes?broadcaster_id=' + ChatLive_selectedChannel_id[chat_number];
@@ -761,6 +844,7 @@ function ChatLive_loadCheersChannel(chat_number, id) {
 
 function ChatLive_loadCheersChannelSuccess(responseText, chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
     cheers[ChatLive_selectedChannel_id[chat_number]] = {};
     var data = JSON.parse(responseText);
 
@@ -798,6 +882,7 @@ function ChatLive_updateExtraEmotes(obj, chat_number) {
 
 function ChatLive_loadEmotesChannelFFZ(chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
     if (!extraEmotesDone.ffz[ChatLive_selectedChannel_id[chat_number]]) {
         BaseXmlHttpGet(
@@ -814,8 +899,11 @@ function ChatLive_loadEmotesChannelFFZ(chat_number, id) {
 
 function ChatLive_loadEmotesChannelFFZSuccess(data, chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
-    ChatLive_loadEmotesffz(JSON.parse(data), chat_number, false);
+    data = JSON.parse(data);
+    if (!data || !data.sets) return;
+    ChatLive_loadEmotesffz(data, chat_number, false);
 }
 
 function ChatLive_loadEmotesffz(data, chat_number, isGlobal) {
@@ -872,6 +960,7 @@ function ChatLive_loadEmotesffz(data, chat_number, isGlobal) {
             }
         });
     } catch (e) {
+        if (!isGlobal) delete extraEmotesDone.ffz[ChatLive_selectedChannel_id[chat_number]];
         Main_Log('ChatLive_loadEmotesffz ' + e);
     }
 }
@@ -892,6 +981,7 @@ function ChatLive_ffz_srcset(obj) {
 
 function ChatLive_loadEmotesChannelSeven_tv(chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
     if (!extraEmotesDone.seven_tv[ChatLive_selectedChannel_id[chat_number]]) {
         BaseXmlHttpGet(
@@ -908,8 +998,11 @@ function ChatLive_loadEmotesChannelSeven_tv(chat_number, id) {
 
 function ChatLive_loadEmotesChannelSeven_tvSuccess(data, chat_number, id) {
     if (id !== Chat_Id[chat_number]) return;
+    ChatLive_CacheTouch(ChatLive_selectedChannel_id[chat_number]);
 
-    ChatLive_loadEmotesseven_tv(JSON.parse(data), chat_number, false);
+    data = JSON.parse(data);
+    if (!data || !data.id) return;
+    ChatLive_loadEmotesseven_tv(data, chat_number, false);
 }
 
 function ChatLive_loadEmotesseven_tv(data, chat_number, isGlobal) {
@@ -991,6 +1084,7 @@ function ChatLive_loadEmotesseven_tv(data, chat_number, isGlobal) {
             }
         });
     } catch (e) {
+        if (!isGlobal) delete extraEmotesDone.seven_tv[ChatLive_selectedChannel_id[chat_number]];
         Main_Log('ChatLive_loadEmotesseven_tvChannel ' + e);
     }
 }
@@ -1877,13 +1971,71 @@ function ChatLive_LineAddCheckDelay(chat_number, messageObj) {
     else ChatLive_LineAddDelay(chat_number, Chat_Id[chat_number], messageObj);
 }
 
+var ChatLive_Delayed = [];
+var ChatLive_Generation = 0;
+
+function ChatLive_DelayClear(chat_number) {
+    var state = ChatLive_Delayed[chat_number];
+    if (state) Main_clearTimeout(state.timer);
+    ChatLive_Delayed[chat_number] = null;
+}
+
+function ChatLive_DelayBefore(a, b) {
+    return a.due < b.due || (a.due === b.due && a.sequence < b.sequence);
+}
+
+function ChatLive_DelayArm(chat_number, state) {
+    if (!state.queue.length || state.timer !== null) return;
+    state.deadline = state.queue[0].due;
+    state.timer = Main_setTimeout(function () {
+        if (ChatLive_Delayed[chat_number] !== state) return;
+        state.timer = null;
+        while (state.queue.length && state.queue[0].due <= Date.now()) {
+            var entry = state.queue[0],
+                last = state.queue.pop(),
+                index = 0,
+                child;
+            if (state.queue.length) {
+                state.queue[0] = last;
+                while ((child = index * 2 + 1) < state.queue.length) {
+                    if (child + 1 < state.queue.length && ChatLive_DelayBefore(state.queue[child + 1], state.queue[child])) child++;
+                    if (!ChatLive_DelayBefore(state.queue[child], last)) break;
+                    state.queue[index] = state.queue[child];
+                    index = child;
+                }
+                state.queue[index] = last;
+            }
+            if (entry.generation === Chat_Id[chat_number]) ChatLive_LineAdd(entry.message);
+            if (ChatLive_Delayed[chat_number] !== state) return;
+        }
+        ChatLive_DelayArm(chat_number, state);
+    }, Math.max(0, state.deadline - Date.now()));
+}
+
 function ChatLive_LineAddDelay(chat_number, id, messageObj) {
-    Main_setTimeout(
-        function () {
-            if (id === Chat_Id[chat_number]) ChatLive_LineAdd(messageObj);
-        },
-        Play_ChatDelayPosition === 1 ? ChatLive_Latency[chat_number] : Play_ChatDelayPosition
-    );
+    var delay = Number(Play_ChatDelayPosition === 1 ? ChatLive_Latency[chat_number] : Play_ChatDelayPosition),
+        state = ChatLive_Delayed[chat_number],
+        index,
+        parent;
+    if (!state) {
+        state = {queue: [], timer: null, sequence: 0, deadline: 0};
+        ChatLive_Delayed[chat_number] = state;
+    }
+    var entry = {generation: id, message: messageObj, due: Date.now() + (isFinite(delay) && delay > 0 ? delay : 0), sequence: state.sequence++};
+    index = state.queue.length;
+    state.queue.push(entry);
+    while (index > 0) {
+        parent = Math.floor((index - 1) / 2);
+        if (!ChatLive_DelayBefore(entry, state.queue[parent])) break;
+        state.queue[index] = state.queue[parent];
+        index = parent;
+    }
+    state.queue[index] = entry;
+    if (state.timer !== null && entry.due < state.deadline) {
+        Main_clearTimeout(state.timer);
+        state.timer = null;
+    }
+    ChatLive_DelayArm(chat_number, state);
 }
 
 function ChatLive_GetBadges(tags, chat_number) {
@@ -2149,6 +2301,7 @@ function ChatLive_SetLatency(chat_number, latency) {
 }
 
 function ChatLive_ClearIds(chat_number) {
+    ChatLive_DelayClear(chat_number);
     ChatLive_CheckClear(chat_number);
     Main_clearTimeout(ChatLive_socketSendCheckID);
     Main_clearTimeout(ChatLive_loadBadgesChannelId);
@@ -2163,6 +2316,7 @@ function ChatLive_Clear(chat_number) {
     ChatLive_ClearIds(chat_number);
 
     Chat_Id[chat_number] = 0;
+    ChatLive_CacheRelease(chat_number);
     ChatLive_LineAddCounter[chat_number] = 0;
     ChatLive_Messages[chat_number] = [];
 
