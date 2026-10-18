@@ -275,6 +275,11 @@ var Settings_value = {
         values: ['no', 'yes'],
         defaultValue: 1
     },
+    remote_controls: {
+        // Browsing press policy. Missing value (old backups) keeps Legacy semantics.
+        values: ['legacy', 'direct'],
+        defaultValue: 0
+    },
     vod_dialog: {
         values: ['last', 'ask', 'start'],
         defaultValue: 1
@@ -976,6 +981,13 @@ function Settings_SetSettings() {
 
     //Individual settings
     div += Settings_Content('start_user_screen', array_no_yes, STR_START_AT_USER, STR_START_AT_USER_SUMMARY);
+
+    div += Settings_Content(
+        'remote_controls',
+        [STR_REMOTE_CONTROLS_LEGACY, STR_REMOTE_CONTROLS_DIRECT],
+        STR_REMOTE_CONTROLS,
+        STR_REMOTE_CONTROLS_SUMMARY
+    );
 
     // Player settings title
     div += Settings_DivTitle('play', STR_SETTINGS_PLAYER);
@@ -2075,6 +2087,10 @@ function Settings_handleKeyDown(event) {
                 Settings_RemoveInputFocus();
                 Settings_cursorY--;
                 Settings_inputFocus(Settings_cursorY);
+            } else {
+                // Up from the first ordinary row reaches Navigation; Down returns to the saved setting.
+                Settings_RemoveInputFocus();
+                Navigation_Open(Settings_handleKeyDown, 'rail');
             }
             break;
         case KEY_DOWN:

@@ -43,6 +43,7 @@ function Navigation_SetAccount(account) {
     Navigation_State.generation++;
     Navigation_State.origins = [];
     Navigation_State.bookmarks = [];
+    Search_SessionEnd(); // stale account data must not survive a switch
     return true;
 }
 
@@ -146,7 +147,9 @@ function Navigation_Tabs(destination) {
     if (destination === 'following') return [STR_UI.liveNow, STR_VIDEOS, STR_CHANNELS, STR_UI.categories];
     if (destination === 'browse') return [STR_LIVE, STR_FEATURED, STR_UI.categories, STR_VIDEOS, STR_CLIPS];
     if (destination === 'library') return [STR_LIVE, STR_VIDEOS, STR_CLIPS];
-    if (destination === 'search') return [STR_SEARCH, STR_LIVE, STR_CHANNELS, STR_UI.categories, STR_VIDEOS];
+    if (destination === 'search')
+        // With results in the session the form tab is Edit search, keeping the visible path to correct a query.
+        return [Search_Session.active && Search_Session.submitted ? STR_EDIT_SEARCH : STR_SEARCH, STR_LIVE, STR_CHANNELS, STR_UI.categories, STR_VIDEOS];
     if (destination === 'account') return [STR_UI.switchAccount, STR_USER_ADD, STR_USER_MY_CHANNEL, STR_BLOCKED];
     return [];
 }
@@ -178,9 +181,7 @@ function Navigation_Button(parent, id, label, callback, icon) {
                         ? 'rail'
                         : id.indexOf('navigation-recovery-') === 0
                           ? 'recovery'
-                          : id === 'navigation-detail-action'
-                            ? 'details'
-                            : 'tabs';
+                          : 'tabs';
                 Navigation_Open(null, region);
             }
             Navigation_ElementFocus(id);
@@ -189,6 +190,18 @@ function Navigation_Button(parent, id, label, callback, icon) {
     }
     parent.appendChild(button);
     return button;
+}
+
+/* Contextual footer hint, resolved from the active screen, editing state and card subtarget.
+ * Updated on screen/region/subtarget changes, never per rendered frame. */
+function Navigation_UpdateHint(screen) {
+    var hint;
+    if (screen === Main_Search) hint = STR_UI.searchHelp;
+    else if (Settings_isVisible()) hint = STR_UI.settingsNavHelp;
+    else if (ScreenObj[screen] && ScreenObj[screen].posSub === Screens_SubActions) hint = STR_UI.actionsHelp;
+    else if (Screens_DirectInputMode()) hint = STR_UI.browseHelpDirect;
+    else hint = STR_UI.browseHelp;
+    Main_textContent('navigation-footer', hint);
 }
 
 function Navigation_Render(screen) {
@@ -241,11 +254,9 @@ function Navigation_Render(screen) {
         button.setAttribute('aria-selected', String(i === Navigation_State.tab));
     }
     Main_textContent('navigation-refresh', STR_REFRESH);
-    Main_textContent('navigation-detail-action', STR_CHANNEL_CONT);
-    Main_textContent('navigation-footer', STR_UI.browseHelp);
+    Navigation_UpdateHint(screen);
     Main_getElementById('navigation-refresh').onclick = Navigation_Refresh;
     Navigation_BindStaticKeys();
-    Main_getElementById('navigation-detail-action').onclick = Navigation_OpenDetails;
     Main_AddClass('scene1', 'navigation-enabled');
     var obj = ScreenObj[screen],
         live = Boolean(obj && obj.screenType === 0 && !obj.isHistory && !Settings_isVisible());
@@ -264,6 +275,7 @@ function Navigation_Render(screen) {
     Main_textContent('navigation-about', STR_ABOUT);
     Main_textContent('navigation-help', STR_CONTROLS);
     Main_textContent('navigation-updates', STR_UPDATE_CHANGELOG);
+    Navigation_SetUpdateBadge(Boolean(Main_HasUpdate));
     Main_getElementById('navigation-about').onclick = Navigation_Activate.bind(null, 7);
     Main_getElementById('navigation-help').onclick = Navigation_Activate.bind(null, 8);
     Main_getElementById('navigation-updates').onclick = Navigation_Activate.bind(null, 9);
@@ -314,7 +326,6 @@ function Navigation_Focus() {
             Navigation_Position < Navigation_Tabs(Navigation_State.destination).length
                 ? 'navigation-tab-' + Navigation_Position
                 : 'navigation-refresh';
-    else if (Navigation_Region === 'details') id = 'navigation-detail-action';
     else id = 'navigation-recovery-' + Navigation_Position;
     var target = Main_getElementById(id);
     if (target) {
@@ -341,8 +352,13 @@ function Navigation_Open(callback, region) {
         cleanup: function () {
             Navigation_Region = '';
             Main_RemoveClass('navigation-rail', 'navigation-expanded');
-            var focused = Main_getElementById('navigation-shell').querySelector('.navigation-focused');
-            if (focused) focused.classList.remove('navigation-focused');
+            // Both the shell and the onboarding section can hold a focus treatment.
+            var focused = document.querySelectorAll('#navigation-shell .navigation-focused, #navigation-onboarding .navigation-focused'),
+                i;
+            for (i = 0; i < focused.length; i++) focused[i].classList.remove('navigation-focused');
+            // The shell took DOM focus in Navigation_Focus; release it so the restored content owner can take input.
+            UIFocus_DomRelease(Main_getElementById('navigation-shell'));
+            UIFocus_DomRelease(Main_getElementById('navigation-onboarding'));
             Main_removeEventListener('keydown', Navigation_HandleListener);
         }
     });
@@ -359,7 +375,9 @@ function Navigation_Close(restore) {
     if (restore && Navigation_Callback) {
         Main_addEventListener('keydown', Navigation_Callback);
         var obj = ScreenObj[Main_values.Main_Go];
-        if (obj && obj.addFocus && obj.itemsCount && !Navigation_Onboarding) Screens_addFocus(true, Main_values.Main_Go);
+        // Settings and the search form keep their own focus treatment; the grid behind must not take it.
+        if (obj && obj.addFocus && obj.itemsCount && !Navigation_Onboarding && !Settings_isVisible() && Main_values.Main_Go !== Main_Search)
+            Screens_addFocus(true, Main_values.Main_Go);
         if (obj && obj.emptyContent && Main_values.Main_Go === Main_UserLive && !Navigation_Onboarding)
             Main_getElementById('navigation-retry').focus();
     }
@@ -376,14 +394,16 @@ function Navigation_Handle(event, up) {
             Navigation_Position = 0;
             Main_AddClass('navigation-rail', 'navigation-expanded');
             Navigation_Focus();
-        } else Navigation_Close(true);
+        } else {
+            Navigation_Close(true);
+            return true; // Back must not fall through to Navigation_Focus and mark the hidden recovery buttons.
+        }
     } else if (code === KEY_ENTER || code === KEY_PLAY || code === KEY_PLAYPAUSE || code === KEY_KEYBOARD_SPACE) {
         if (Navigation_Region === 'rail') Navigation_Activate(Navigation_Position);
         else if (Navigation_Region === 'tabs') {
             if (Navigation_Position === tabs.length) Navigation_Refresh();
             else Navigation_ActivateTab(Navigation_Position);
-        } else if (Navigation_Region === 'details') Navigation_OpenDetails();
-        else if (!Navigation_Position) Navigation_Go(Main_addUser);
+        } else if (!Navigation_Position) Navigation_Go(Main_addUser);
         else Navigation_Go(Main_Live);
     } else if (code === KEY_6 || code === KEY_PAUSE) {
         Navigation_Activate(5);
@@ -434,9 +454,6 @@ function Navigation_Handle(event, up) {
                 return true;
             }
         }
-    } else if (Navigation_Region === 'details' && code === KEY_UP) {
-        Navigation_Close(true);
-        return true;
     } else if (Navigation_Region === 'recovery') {
         if (code === KEY_LEFT || code === KEY_RIGHT) Navigation_Position = code === KEY_LEFT ? 0 : 1;
         else if (code === KEY_UP) {
@@ -523,12 +540,16 @@ function Navigation_Go(screen) {
     Navigation_ExitCurrent();
     Main_values.Main_Before = previous;
     if (screen === Main_Search) {
-        Main_values.Main_BeforeSearch = previous;
+        Search_SessionEnter(previous);
         Main_values.Main_Go = Main_Search;
         Search_init();
         return;
     }
-    if (Navigation_Route(screen).destination !== 'search') Main_values.Search_isSearching = false;
+    var route = Navigation_Route(screen);
+    if (route && route.destination !== 'search') {
+        Main_values.Search_isSearching = false;
+        Search_SessionEnd(); // leaving the search destination abandons the session
+    }
     Main_values.Main_Go = screen;
     if (screen === Main_addUser) AddUser_init();
     else if (screen === Main_Users) Users_init();
@@ -546,7 +567,10 @@ function Navigation_UtilityReturn(event) {
 
 function Navigation_Refresh() {
     Navigation_Close(true);
-    if (ScreenObj[Main_values.Main_Go] && ScreenObj[Main_values.Main_Go].start_fun) Main_ReloadScreen();
+    var obj = ScreenObj[Main_values.Main_Go];
+    // Suppress duplicate in-flight activation: an isRefreshing screen ignores further retries.
+    if (obj && obj.isRefreshing) return;
+    if (obj && obj.start_fun) Main_ReloadScreen();
 }
 
 function Navigation_ShowOnboarding(destination) {
@@ -636,15 +660,6 @@ function Navigation_UpdateDetails(screen) {
     Main_textContent('navigation-detail-name', data && !data.image ? data[1] + ' · ' + data[4] + ' ' + STR_VIEWERS : '');
 }
 
-function Navigation_OpenDetails() {
-    var key = Main_values.Main_Go;
-    Navigation_Close(true);
-    if (ScreenObj[key] && Screens_ObjNotNull(key) && !Screens_GetObj(key).image) {
-        Screens_values_Play_data = Screens_GetObj(key);
-        Screens_OpenChannel(key);
-    }
-}
-
 function Navigation_ScreenContext(screen) {
     var obj = ScreenObj[screen],
         route = Navigation_Route(screen);
@@ -665,13 +680,21 @@ function Navigation_ElementFocus(id) {
     } else if (id === 'navigation-refresh') {
         Navigation_Region = 'tabs';
         Navigation_Position = Navigation_Tabs(Navigation_State.destination).length;
-    } else if (id === 'navigation-detail-action') Navigation_Region = 'details';
+    }
+}
+
+/* Passive update availability: a badge on the rail's Updates entry. The update dialog opens
+ * only from an explicit press of that entry, never as an automatic popup. */
+function Navigation_SetUpdateBadge(available) {
+    var button = Main_getElementById('navigation-updates');
+    if (!button) return;
+    if (available) Main_AddClassWithEle(button, 'navigation-update-available');
+    else Main_RemoveClassWithEle(button, 'navigation-update-available');
 }
 
 function Navigation_BindStaticKeys() {
     var ids = [
         'navigation-refresh',
-        'navigation-detail-action',
         'navigation-recovery-0',
         'navigation-recovery-1',
         'navigation-about',
@@ -689,13 +712,7 @@ function Navigation_StaticKey(id, event) {
     if (!Navigation_Region)
         Navigation_Open(
             null,
-            id.indexOf('navigation-recovery-') === 0
-                ? 'recovery'
-                : id === 'navigation-detail-action'
-                  ? 'details'
-                  : id === 'navigation-refresh'
-                    ? 'tabs'
-                    : 'rail'
+            id.indexOf('navigation-recovery-') === 0 ? 'recovery' : id === 'navigation-refresh' ? 'tabs' : 'rail'
         );
     Navigation_ElementFocus(id);
     if (id === 'navigation-about') Navigation_Position = 7;
@@ -715,21 +732,57 @@ function Navigation_LoadState(screen, state) {
         'navigation-status-copy',
         state === 'loading' ? STR_UI.loading : state === 'auth' ? STR_UI.authNeeded : state === 'empty' ? STR_UI.nobodyLive : STR_UI.error
     );
-    Main_textContent('navigation-retry', STR_UI.retry);
-    Main_getElementById('navigation-retry').onclick = Navigation_Refresh;
-    Main_getElementById('navigation-retry').style.display = state === 'loading' ? 'none' : '';
-    Main_getElementById('navigation-retry').onkeydown = function (event) {
+    // Message, primary action and secondary action are selected together: the shared Retry
+    // callback never sits behind a Reconnect label, and refresh never claims to fix a login.
+    var primaryLabel = '',
+        primaryAction = null,
+        secondaryLabel = '',
+        secondaryAction = null;
+    if (state === 'auth') {
+        primaryLabel = STR_UI.reconnect;
+        primaryAction = Navigation_Reconnect;
+        secondaryLabel = STR_UI.browse;
+        secondaryAction = Navigation_Go.bind(null, Main_Live);
+    } else if (state === 'empty') {
+        primaryLabel = STR_UI.browse;
+        primaryAction = Navigation_Go.bind(null, Main_Live);
+        secondaryLabel = STR_REFRESH;
+        secondaryAction = Navigation_Refresh;
+    } else if (state === 'error') {
+        primaryLabel = STR_UI.retry;
+        primaryAction = Navigation_Refresh;
+        secondaryLabel = STR_UI.browse;
+        secondaryAction = Navigation_Go.bind(null, Main_Live);
+    }
+    Navigation_BindStatusButton(Main_getElementById('navigation-retry'), primaryLabel, primaryAction);
+    Navigation_BindStatusButton(Main_getElementById('navigation-alt'), secondaryLabel, secondaryAction);
+    Main_ShowElementWithEle(panel);
+}
+
+function Navigation_BindStatusButton(button, label, action) {
+    if (!button) return;
+    button.textContent = label;
+    button.style.display = label ? '' : 'none';
+    button.onclick = action;
+    button.onkeydown = function (event) {
+        if (event.repeat) return; // a held OK must not re-arm the same recovery action
         if (event.keyCode === KEY_ENTER) {
             event.preventDefault();
             event.stopImmediatePropagation();
-            Navigation_Refresh();
+            if (action) action();
         } else if (event.keyCode === KEY_UP || event.keyCode === KEY_LEFT) {
             event.preventDefault();
             event.stopImmediatePropagation();
             Navigation_Open(null, event.keyCode === KEY_UP ? 'tabs' : 'rail');
         }
     };
-    Main_ShowElementWithEle(panel);
+}
+
+/* Reconnection goes through the existing device-code account flow and its add/update account
+ * semantics; no second OAuth implementation. */
+function Navigation_Reconnect() {
+    Navigation_Close(false);
+    Navigation_Go(Main_addUser);
 }
 
 /* Existing feed transports still fetch; these tickets only reject obsolete presentation results. */

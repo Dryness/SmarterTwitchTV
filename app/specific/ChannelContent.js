@@ -62,7 +62,9 @@ function ChannelContent_init() {
     Main_cleanTopLabel();
     Main_CounterDialogRst();
     Main_innerHTML('label_last_refresh', '');
-    if (Main_isScene1DocVisible()) Main_addEventListener('keydown', ChannelContent_handleKeyDown);
+    // Register unconditionally: a conditional registration loses the handler whenever init
+    // races a scene transition; the handler refuses input it does not own.
+    Main_addEventListener('keydown', ChannelContent_handleKeyDown);
     AddCode_PlayRequest = false;
 
     Main_innerHTML('top_lable', Main_values.Main_selectedChannelDisplayname);
@@ -557,6 +559,8 @@ function ChannelContent_handleKeyBakc() {
 }
 
 function ChannelContent_handleKeyDown(event) {
+    // Input this screen does not own: playback, the followed feed or the side panel menus.
+    if (!Main_isScene1DocVisible() || Sidepannel_isShowingUserLive() || Sidepannel_isShowingMenus()) return;
     if (Main_FirstLoad || Main_CantClick()) return;
 
     Main_keyClickDelayStart();

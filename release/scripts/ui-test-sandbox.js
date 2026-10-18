@@ -18,9 +18,9 @@ module.exports = function loadUIFoundation() {
         const definitions = [];
         ast.walk(
             new UglifyJS.TreeWalker(function (node) {
-                if (node instanceof UglifyJS.AST_Defun && /^(Navigation_|UIFocus_)/.test(node.name.name)) definitions.push(node.print_to_string());
+                if (node instanceof UglifyJS.AST_Defun && /^(Navigation_|UIFocus_|Search_)/.test(node.name.name)) definitions.push(node.print_to_string());
                 if (node instanceof UglifyJS.AST_Var) {
-                    const matches = node.definitions.filter(def => /^(Navigation_|UIFocus_)/.test(def.name.name));
+                    const matches = node.definitions.filter(def => /^(Navigation_|UIFocus_|Search_)/.test(def.name.name));
                     if (matches.length) definitions.push(new UglifyJS.AST_Var({definitions: matches}).print_to_string());
                 }
             })
@@ -31,6 +31,7 @@ module.exports = function loadUIFoundation() {
         // Evaluation is safe before Main or the other helper loads. No listeners/storage/DOM work.
         vm.runInContext(fs.readFileSync('app/specific/Navigation.js', 'utf8'), sandbox);
         vm.runInContext(fs.readFileSync('app/specific/UIFocus.js', 'utf8'), sandbox);
+        vm.runInContext(fs.readFileSync('app/specific/Search.js', 'utf8'), sandbox);
         vm.runInContext(ids, sandbox);
     }
     return sandbox;

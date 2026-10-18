@@ -415,6 +415,51 @@
                 color: #ffffff;
             }
 
+            /* Card bodies anchor their absolutely positioned Actions target. */
+            .stream_thumbnail_live,
+            .stream_thumbnail_game,
+            .stream_thumbnail_channel,
+            .stream_thumbnail_channel_vod {
+                position: relative;
+            }
+
+            .stream_actions_btn {
+                position: absolute;
+                right: 0.5em;
+                bottom: 0.5em;
+                z-index: 3;
+                box-sizing: border-box;
+                min-width: 2.4em;
+                padding: 0.25em 0.55em;
+                border: 0.08em solid #4a3d63;
+                border-radius: 0.3em;
+                background: rgba(20, 16, 28, 0.85);
+                color: #b9aede;
+                font: inherit;
+                font-size: 85%;
+                font-family: 'Roboto-Bold';
+                letter-spacing: 0.08em;
+                cursor: pointer;
+                pointer-events: auto;
+            }
+
+            .stream_actions_btn:focus {
+                outline: none;
+            }
+
+            /* The selected card makes its Actions affordance unmistakable at TV distance. */
+            .stream_thumbnail_focused .stream_actions_btn {
+                border-color: #bca0ff;
+                color: #e6dcff;
+                background: rgba(48, 37, 63, 0.95);
+            }
+
+            .stream_actions_btn.stream_actions_focused {
+                border-color: #bca0ff;
+                color: #ffffff;
+                background: #6c4ce0;
+            }
+
             .stream_thumbnail_feed_game,
             .stream_thumbnail_live_game {
                 width: 100%;
@@ -1256,6 +1301,17 @@
 
             .down {
                 border-top: 0.8em solid white;
+            }
+
+            /* Player drawers choose rows with Up/Down and adjust with Left/Right:
+             * reorient the inherited value arrows for that presentation only. */
+            #player-ui-actions .up {
+                transform: rotate(-90deg);
+                margin-bottom: 5%;
+            }
+
+            #player-ui-actions .down {
+                transform: rotate(90deg);
             }
 
             .scene_channel_panel {
@@ -2792,6 +2848,21 @@
                 cursor: pointer;
                 pointer-events: auto;
                 text-align: left;
+                position: relative; /* anchors the update badge */
+            }
+            /* Passive update signal on the rail's Updates entry. */
+            .navigation-update-available::after {
+                content: '';
+                position: absolute;
+                top: 0.55em;
+                right: 0.55em;
+                width: 0.5em;
+                height: 0.5em;
+                border-radius: 50%;
+                background: #ff5252;
+            }
+            .navigation-update-available > span {
+                color: #ff8f8f;
             }
             .navigation-button:focus {
                 outline: none;
@@ -2815,6 +2886,7 @@
             }
             .navigation-rail.navigation-expanded {
                 width: 25%;
+                background: #1e1b25; /* explicit in both states: the rail is never transparent */
                 box-shadow: 0.6em 0 1.5em rgba(0, 0, 0, 0.35);
             }
             .navigation-brand {
@@ -2935,12 +3007,6 @@
                 font-size: 72%;
                 margin: 0;
                 opacity: 0.85;
-            }
-            #navigation-detail-action {
-                position: absolute;
-                right: 0;
-                top: 30%;
-                font-size: 75%;
             }
             .navigation-footer {
                 position: absolute;
@@ -3223,11 +3289,11 @@
                             <h2 id="navigation-detail-title"></h2>
                             <p id="navigation-detail-name"></p>
                         </div>
-                        <button id="navigation-detail-action" type="button" class="navigation-button"></button>
                     </section>
                     <section id="navigation-status" class="navigation-status hide" aria-live="polite">
                         <p id="navigation-status-copy"></p>
-                        <button id="navigation-retry" type="button" class="navigation-button"></button>
+                        <button id="navigation-retry" type="button" class="navigation-button"></button
+                        ><button id="navigation-alt" type="button" class="navigation-button"></button>
                     </section>
                     <footer id="navigation-footer" class="navigation-footer"></footer>
                 </div>

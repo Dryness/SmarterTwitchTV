@@ -294,9 +294,10 @@ function Screens_init(key, preventRefresh) {
     Main_HideElement('navigation-status');
     Navigation_Render(key);
 
-    if (Main_isScene1DocVisible() && !Sidepannel_isShowingUserLive() && !Sidepannel_isShowingMenus()) {
-        Main_addEventListener('keydown', ScreenObj[key].key_fun);
-    }
+    /* Register unconditionally: a conditional registration loses the handler whenever init
+     * races a scene or sidepanel transition, leaving the screen without any keys. The
+     * handler itself refuses input it does not own. */
+    Main_addEventListener('keydown', ScreenObj[key].key_fun);
 
     Main_ShowElementWithEle(ScreenObj[key].ScrollDoc);
 
@@ -474,7 +475,9 @@ function Screens_HttpResultStatus(resultObj, key, requestId) {
     // Native dispatch round-trips a named callback and checkResult, not a JavaScript closure.
     var request = ScreenObj[key].navigationRequest;
     if (!request || request.id !== Number(requestId) || request.account !== Navigation_Account()) return;
-    if (resultObj.status === 401 || resultObj.status === 403) ScreenObj[key].navigationLoadState = 'auth';
+    // A 401/403 on an account-scoped screen means the login needs reconnecting; on a public
+    // screen it is a denial (rate limit or otherwise), not evidence of an expired token.
+    if ((resultObj.status === 401 || resultObj.status === 403) && (ScreenObj[key].IsUser || ScreenObj[key].isHistory)) ScreenObj[key].navigationLoadState = 'auth';
     else if (resultObj.status !== 200) ScreenObj[key].navigationLoadState = 'error';
     if (resultObj.status === 200) {
         Screens_concatenate(JSON.parse(resultObj.responseText), key);
@@ -673,6 +676,99 @@ function Screens_createRow(key) {
     return div;
 }
 
+function Screens_AriaEscape(text) {
+    return String(text === undefined || text === null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+}
+
+/* Card presentation subtarget: the body carries the primary action, its trailing Actions
+ * button opens the same options menu the old hidden holds exposed. */
+var Screens_SubBody = 0;
+var Screens_SubActions = 1;
+var Screens_ActionsClass = 'stream_actions_focused';
+
+function Screens_ActionsId(key, id) {
+    return ScreenObj[key].ids[0] + id + '_actions';
+}
+
+function Screens_HasActionsTarget(key, id) {
+    // Real items only: placeholders, banners and empty cells never gain a dead button.
+    var data = ScreenObj[key].DataObj[id];
+    return Boolean(data && !data.image && Main_getElementById(Screens_ActionsId(key, id)));
+}
+
+function Screens_ActionsButtonHtml(idArray, id, label) {
+    return (
+        '<button id="' +
+        idArray[0] +
+        id +
+        '_actions" type="button" class="stream_actions_btn" tabindex="-1" aria-label="' +
+        STR_ACTIONS +
+        ' ' +
+        Screens_AriaEscape(label) +
+        '">' +
+        STR_ACTIONS_SHORT +
+        '</button>'
+    );
+}
+
+/* Apply the focus treatment for the current subtarget. Changing subtarget on the same card
+ * must not restart the preview or refetch metadata, so this never reloads data. */
+function Screens_ApplySubFocus(key, id) {
+    var obj = ScreenObj[key];
+    obj.focusPos = id;
+    if (obj.posSub === Screens_SubActions && Screens_HasActionsTarget(key, id)) {
+        var button = Main_getElementById(Screens_ActionsId(key, id));
+        Main_AddClassWithEle(button, Screens_ActionsClass);
+        if (Screens_CardMayOwnDomFocus(key)) UIFocus_DomFocus(button);
+    } else {
+        obj.posSub = Screens_SubBody;
+        Main_AddClass(obj.ids[0] + id, Main_classThumb);
+        Screens_SyncCardFocus(key, id);
+    }
+    Navigation_UpdateDetails(key);
+    if (key === Main_values.Main_Go) Navigation_UpdateHint(key);
+}
+
+/* Switch the current card's subtarget without changing the selected item: no preview restart,
+ * no metadata refetch and no data reload, exactly one visible focus treatment at a time. */
+function Screens_FocusSub(key, sub) {
+    var obj = ScreenObj[key];
+    obj.posSub = sub;
+    if (obj.posY < 0 || !obj.itemsCount) return;
+    var id = obj.posY + '_' + obj.posX,
+        button = Main_getElementById(Screens_ActionsId(key, id));
+    if (button) Main_RemoveClassWithEle(button, Screens_ActionsClass);
+    Main_RemoveClass(obj.ids[0] + id, Main_classThumb);
+    Screens_ApplySubFocus(key, id);
+}
+
+/* The focused item can change or leave while its options menu is open; fall back to its body. */
+function Screens_ValidateSubFocus(key) {
+    var obj = ScreenObj[key],
+        id;
+    if (!obj || obj.posY < 0 || !obj.itemsCount) return;
+    id = obj.posY + '_' + obj.posX;
+    if (obj.posSub === Screens_SubActions && !Screens_HasActionsTarget(key, id)) Screens_ApplySubFocus(key, id);
+}
+
+/* DOM focus follows the visible focus treatment, but only when this grid owns input:
+ * the body, one of its own cards, or nothing meaningful may hand it over. */
+function Screens_CardMayOwnDomFocus(key) {
+    if (key !== Main_values.Main_Go || Settings_isVisible()) return false;
+    var active = document.activeElement;
+    if (!active || !active.tagName || active === document.body) return true;
+    var id = String(active.id || '');
+    return id.indexOf(ScreenObj[key].ids[0]) === 0;
+}
+
+function Screens_SyncCardFocus(key, id) {
+    if (!Screens_CardMayOwnDomFocus(key)) return;
+    UIFocus_DomFocus(Main_getElementById(ScreenObj[key].ids[0] + id));
+}
+
 function Screens_createCellChannel(id, idArray, valuesArray, key) {
     ScreenObj[key].DataObj[id] = valuesArray;
 
@@ -685,7 +781,11 @@ function Screens_createCellChannel(id, idArray, valuesArray, key) {
         '"><div id="' +
         idArray[0] +
         id +
-        '" class="stream_thumbnail_channel" ><div class="stream_thumbnail_channel_img"><img id="' +
+        '" class="stream_thumbnail_channel" tabindex="-1" aria-label="' +
+        Screens_AriaEscape(valuesArray[3]) +
+        '">' +
+        Screens_ActionsButtonHtml(idArray, id, valuesArray[3]) +
+        '<div class="stream_thumbnail_channel_img"><img id="' +
         idArray[1] +
         id +
         '" alt="" class="stream_img_channels" src="' +
@@ -723,7 +823,11 @@ function Screens_createCellGame(id, idArray, valuesArray, key) {
         '"><div id="' +
         idArray[0] +
         id +
-        '" class="stream_thumbnail_game"><div class="stream_thumbnail_live_game"><img id="' +
+        '" class="stream_thumbnail_game" tabindex="-1" aria-label="' +
+        Screens_AriaEscape(valuesArray[1]) +
+        '">' +
+        Screens_ActionsButtonHtml(idArray, id, valuesArray[1]) +
+        '<div class="stream_thumbnail_live_game"><img id="' +
         idArray[1] +
         id +
         '" class="stream_img" alt="" src="' +
@@ -754,7 +858,11 @@ function Screens_createCellClip(id, idArray, valuesArray, key, Extra_when, Extra
         '"><div id="' +
         idArray[0] +
         id +
-        '" class="stream_thumbnail_live"><div class="stream_thumbnail_live_img"><img id="' +
+        '" class="stream_thumbnail_live" tabindex="-1" aria-label="' +
+        Screens_AriaEscape(valuesArray[4]) +
+        '">' +
+        Screens_ActionsButtonHtml(idArray, id, valuesArray[4]) +
+        '<div class="stream_thumbnail_live_img"><img id="' +
         idArray[1] +
         id +
         '" class="stream_img" alt="" src="' +
@@ -822,7 +930,11 @@ function Screens_createCellVod(id, idArray, valuesArray, key, Extra_when, Extra_
         '"><div id="' +
         idArray[0] +
         id +
-        '" class="stream_thumbnail_live"><div id="' +
+        '" class="stream_thumbnail_live" tabindex="-1" aria-label="' +
+        Screens_AriaEscape(valuesArray[1]) +
+        '">' +
+        Screens_ActionsButtonHtml(idArray, id, valuesArray[1]) +
+        '<div id="' +
         idArray[5] +
         id +
         '" class="stream_thumbnail_live_img" ' +
@@ -904,7 +1016,11 @@ function Screens_createCellLive(id, idArray, valuesArray, key, Extra_when, Extra
         '"><div id="' +
         idArray[0] +
         id +
-        '" class="stream_thumbnail_live"><div class="stream_thumbnail_live_img"><img id="' +
+        '" class="stream_thumbnail_live" tabindex="-1" aria-label="' +
+        Screens_AriaEscape(valuesArray[1]) +
+        '">' +
+        Screens_ActionsButtonHtml(idArray, id, valuesArray[1]) +
+        '<div class="stream_thumbnail_live_img"><img id="' +
         idArray[1] +
         id +
         '" class="stream_img" alt="" src="' +
@@ -1742,6 +1858,7 @@ function Screens_addrowChannelDown(y, key) {
 }
 
 function Screens_addrow(forceScroll, y, key, forceAfterDelete) {
+    Screens_SetWindowOffset(y, key);
     if (ScreenObj[key].currY < y) {
         // down
         Screens_addrowDown(y, key);
@@ -1789,6 +1906,31 @@ function Screens_addrow(forceScroll, y, key, forceAfterDelete) {
     Screens_addrowEnd(forceScroll, key);
 }
 
+/* In the shell layout the bottom band reserves the lower part of the screen: only the
+ * window's top row is fully visible. Keep the container one row up once browsing has
+ * started so the focused row rests in that fully visible slot. */
+function Screens_SetWindowOffset(y, key) {
+    if (!ScreenObj[key].ScrollDoc) return;
+    ScreenObj[key].ScrollDoc.style.transform = y > 0 ? 'translateY(-' + ScreenObj[key].offsettop + 'em)' : '';
+}
+
+/* End of the loaded rows: no row below to shift in, but the focused row must still take
+ * the fully visible slot instead of resting under the bottom band. */
+function Screens_addrowEndWindow(y, key) {
+    var i;
+    for (i = -1; i <= 0; i++) {
+        if (ScreenObj[key].Cells[y + i]) {
+            ScreenObj[key].Cells[y + i].style.transition = 'none';
+            ScreenObj[key].Cells[y + i].style.transform = 'translateY(' + (i + 1) * ScreenObj[key].offsettop + 'em)';
+            if (ScreenObj[key].Cells[y + i].parentNode !== ScreenObj[key].tableDoc) ScreenObj[key].tableDoc.appendChild(ScreenObj[key].Cells[y + i]);
+        }
+    }
+    Main_RemoveElement(ScreenObj[key].Cells[y - 2]);
+    Main_RemoveElement(ScreenObj[key].Cells[y + 1]);
+    Main_RemoveElement(ScreenObj[key].Cells[y + 2]);
+    Screens_LoadPreview(key);
+}
+
 function Screens_addrowDown(y, key) {
     if (y > 1 && ScreenObj[key].Cells[y + 1]) {
         if (Screens_ChangeFocusAnimationFinished && Screens_SettingDoAnimations && !Screens_ChangeFocusAnimationFast) {
@@ -1825,6 +1967,9 @@ function Screens_addrowDown(y, key) {
         Main_setTimeout(function () {
             Screens_addrowDown(y, key);
         }, 10);
+    } else if (y > 1) {
+        // End of the loaded rows: the focused row still takes the fully visible slot.
+        Screens_addrowEndWindow(y, key);
     } else {
         Main_setTimeout(
             function () {
@@ -1841,9 +1986,7 @@ function Screens_addrowEnd(forceScroll, key) {
     var id = ScreenObj[key].posY + '_' + ScreenObj[key].posX,
         data;
 
-    Main_AddClass(ScreenObj[key].ids[0] + id, Main_classThumb);
-    ScreenObj[key].focusPos = id;
-    Navigation_UpdateDetails(key);
+    Screens_ApplySubFocus(key, id);
 
     if (ScreenObj[key].screenType === 1 || ScreenObj[key].screenType === 2) {
         if (Screens_ObjNotNull(key)) {
@@ -2051,6 +2194,7 @@ function Screens_addFocusFollow(key) {
 
     Main_AddClass(ScreenObj[key].ids[0] + '-1_' + ScreenObj[key].posX, 'stream_switch_focused');
     ScreenObj[key].focusPos = -1;
+    Screens_SyncCardFocus(key, '-1_' + ScreenObj[key].posX);
 }
 
 function Screens_removeFocusFollow(key) {
@@ -2170,7 +2314,9 @@ function Screens_handleKeyUp(key, e) {
         if (!Screens_clear) {
             if (!ScreenObj[key].posX) Screens_OpenSidePanel(false, key);
             else {
-                Screens_KeyLeftRight(-1, ScreenObj[key].ColumnsCount - 1, key);
+                // Left from a card body enters the previous card's Actions target.
+                ScreenObj[key].posSub = Screens_SubActions;
+                Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
                 Main_addEventListener('keydown', ScreenObj[key].key_fun);
             }
         }
@@ -2226,14 +2372,43 @@ function Screens_KeyUpDownClick(key, y) {
     }
 }
 
+/* Browsing remote controls preference: one press policy per mode. Legacy (the migration
+ * default) acts on release and keeps the hold shortcuts; Direct acts on key-down. */
+function Screens_DirectInputMode() {
+    return Settings_Obj_default('remote_controls') === 1;
+}
+
 function Screens_handleKeyDown(key, event) {
+    // Input this grid does not own: playback, the followed feed or the side panel menus.
+    if (!Main_isScene1DocVisible() || Sidepannel_isShowingUserLive() || Sidepannel_isShowingMenus()) return;
+    // Direct mode never inherits a pending Legacy hold timer.
+    if (Screens_DirectInputMode()) Main_clearTimeout(Screens_KeyEnterID);
     if (ScreenObj[key].loadingData && (event.keyCode === KEY_UP || event.keyCode === KEY_LEFT)) {
         Navigation_Open(ScreenObj[key].key_fun, event.keyCode === KEY_UP ? 'tabs' : 'rail');
         return;
     }
+    // The Actions target can disappear with refreshed data; resume as the body instead of holding a dead target.
+    if (
+        ScreenObj[key].posSub === Screens_SubActions &&
+        ScreenObj[key].posY > -1 &&
+        !Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
+    )
+        ScreenObj[key].posSub = Screens_SubBody;
     if (event.keyCode === KEY_UP && (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) && !Main_CantClick()) {
         Screens_RemoveAllFocus(key);
         Navigation_Open(ScreenObj[key].key_fun, 'tabs');
+        return;
+    }
+    if (
+        event.keyCode === KEY_RIGHT &&
+        ScreenObj[key].posSub !== Screens_SubActions &&
+        ScreenObj[key].posY > -1 &&
+        !Main_CantClick() &&
+        Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
+    ) {
+        // Body Right enters this card's Actions target; one-press watching stays on OK.
+        Main_keyClickDelayStart();
+        Screens_FocusSub(key, Screens_SubActions);
         return;
     }
     if (
@@ -2242,21 +2417,47 @@ function Screens_handleKeyDown(key, event) {
             (ScreenObj[key].dataEnded && !ScreenObj[key].DataObj[ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1)]))
     )
         return;
-    if (
-        event.keyCode === KEY_DOWN &&
-        ScreenObj[key].screenType === 0 &&
-        !ScreenObj[key].isHistory &&
-        ScreenObj[key].dataEnded &&
-        !ScreenObj[key].DataObj[ScreenObj[key].posY + 1 + '_' + ScreenObj[key].posX]
-    ) {
-        Screens_RemoveAllFocus(key);
-        Navigation_Open(ScreenObj[key].key_fun, 'details');
-        return;
-    }
     //Main_Log('Screens_handleKeyDown ' + event.keyCode + ' key ' + key);
     if (Main_CantClick()) return;
 
     Main_keyClickDelayStart();
+
+    if (ScreenObj[key].posSub === Screens_SubActions && ScreenObj[key].posY > -1 && Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)) {
+        if (event.keyCode === KEY_LEFT) {
+            Screens_FocusSub(key, Screens_SubBody);
+            return;
+        }
+        if (
+            event.keyCode === KEY_ENTER ||
+            event.keyCode === KEY_PLAY ||
+            event.keyCode === KEY_PLAYPAUSE ||
+            event.keyCode === KEY_KEYBOARD_SPACE ||
+            event.keyCode === KEY_MEDIA_PREVIOUS
+        ) {
+            // OK opens this item's options once; it never inherits the body's hold-to-refresh timer.
+            UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
+            Screens_ThumbOptionStart(key, false);
+            return;
+        }
+        if (event.keyCode === KEY_KEYBOARD_BACKSPACE || event.keyCode === KEY_RETURN) {
+            Screens_FocusSub(key, Screens_SubBody);
+            return;
+        }
+        if (event.keyCode === KEY_RIGHT) {
+            // Next card body stays in this row; movement never wraps to another content row.
+            var nextId = ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1);
+            if (
+                ScreenObj[key].posX < ScreenObj[key].ColumnsCount - 1 &&
+                ScreenObj[key].DataObj[nextId] &&
+                !ScreenObj[key].DataObj[nextId].image
+            ) {
+                ScreenObj[key].posSub = Screens_SubBody;
+                Screens_ChangeFocus(0, ScreenObj[key].posX + 1, key);
+            }
+            return;
+        }
+        // Up/Down keep the subtarget column through the ordinary vertical handlers below.
+    }
 
     switch (event.keyCode) {
         case KEY_MEDIA_REWIND:
@@ -2314,6 +2515,17 @@ function Screens_handleKeyDown(key, event) {
             ScreenObj[key].key_exit();
             break;
         case KEY_LEFT:
+            if (Screens_DirectInputMode()) {
+                // Direct Left moves immediately; the hold-to-open-options shortcut is a Legacy affordance.
+                if (!ScreenObj[key].posX) {
+                    Screens_RemoveAllFocus(key);
+                    Navigation_Open(ScreenObj[key].key_fun, 'rail');
+                } else {
+                    ScreenObj[key].posSub = Screens_SubActions;
+                    Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
+                }
+                break;
+            }
             Screens_ThumbOptionCanKeyLeft = false;
             Screens_handleKeyUpIsClear = false;
             Screens_clear = false;
@@ -2347,6 +2559,13 @@ function Screens_handleKeyDown(key, event) {
             ScreenObj[key].key_play();
             break;
         case KEY_ENTER:
+            if (Screens_DirectInputMode()) {
+                // Direct OK activates once on key-down; repeats and the release stay suppressed
+                // until the physical key is released (the persistent key-up listener clears it).
+                UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
+                ScreenObj[key].key_play();
+                break;
+            }
             Main_removeEventListener('keydown', ScreenObj[key].key_fun);
             Main_addEventListener('keyup', ScreenObj[key].key_up);
             Screens_clear = false;
@@ -3380,6 +3599,7 @@ function Screens_ThumbOptionDialogHide(Update, key) {
     Main_removeEventListener('keydown', ScreenObj[key].key_thumb);
     Main_addEventListener('keydown', ScreenObj[key].key_fun);
     Main_HideElementWithEle(Screens_dialog_thumb_div);
+    Screens_ValidateSubFocus(key);
 
     if (Update) {
         if (Screens_ThumbOptionPosY === -1) {

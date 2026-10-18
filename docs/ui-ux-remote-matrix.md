@@ -4,6 +4,13 @@ October 16, 2026. Production handlers now integrate the approved shell and playe
 UIFocus. Existing per-mode actions remain authoritative. Device checks remain pending. See the
 validation document for exact source/generated fixture and browser evidence.
 
+**Web 752 update:** the stale DOM-focus handoff, card Actions targets, retained search sessions,
+contextual hints, state-matched recovery and the optional Direct browsing mode are implemented and
+browser-verified; see [the implementation results](tv-remote-ux-implementation-results.md) for the
+new evidence table and the remaining device-only rows. Browsing grids additionally carry the card
+subtarget (`body`/`actions`): Right enters the card's Actions button, a further Right moves to the
+next card body in the same row (no row wrap), and Back from Actions returns to its body.
+
 | Context | Existing owner | Existing behavior / sensitive inputs | Target behavior | Verification |
 | --- | --- | --- | --- | --- |
 | Browsing grids | `Screens_handleKeyDown/Up` | Enter release activates; held Enter refreshes; Left release moves/opens side panel; held Left opens thumbnail options; Page Up/Down route shortcuts | Tabs/rail consume only their input; preserve content actions and held options | Real Browse grid/tabs/rail checked; native holds pending |

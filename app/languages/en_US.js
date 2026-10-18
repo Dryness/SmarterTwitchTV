@@ -32,6 +32,10 @@ function en_USLang() {
         welcomeTitle: 'Your channels, together',
         welcomeCopy: 'Add an account to see who you follow, or browse live channels without one.',
         browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold ← · Options    Back · Return',
+        browseHelpDirect: 'OK · Watch    ↑ ↓ · Rows    ← → · Cards and Actions    Back · Return',
+        actionsHelp: 'OK · Options    ← · Card    ↑ ↓ · Browse    Back · Card / Return',
+        searchHelp: 'OK · Edit search / type    ← → · Choose type    ↑ ↓ · Form / results    Back · Return',
+        settingsNavHelp: 'OK · Select    ← → · Adjust    ↑ · Navigation    Back · Return',
         playerHelp: '↑ ↓ · Choose    ← → · Adjust    OK · Apply    Back · Return',
         chat: 'Chat',
         layout: 'Layout',
@@ -52,6 +56,7 @@ function en_USLang() {
         retry: 'Try again',
         nobodyLive: 'Nobody is live right now. Refresh or browse live channels.',
         authNeeded: 'Reconnect your account to load followed channels.',
+        reconnect: 'Reconnect account',
         error: 'Could not load channels. Check your connection and try again.'
     };
     // This is a false/true var change if day comes first in your language eg (27/12/2010) day 27 month 12 year 2010
@@ -1011,6 +1016,14 @@ function en_USLang() {
         'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
     STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';
     STR_PHONE_CHAT_SHORTCUT = 'Phone chat QR: press 6 during a live stream to show or hide it.';
+    STR_ACTIONS = 'Actions';
+    STR_ACTIONS_SHORT = '···';
+    STR_EDIT_SEARCH = 'Edit search';
+    STR_REMOTE_CONTROLS = 'Browsing remote controls';
+    STR_REMOTE_CONTROLS_SUMMARY =
+        'Legacy keeps the hold shortcuts: hold Left opens options and hold OK refreshes. Direct moves on each press and watches on an immediate OK; open options with the card Actions button.';
+    STR_REMOTE_CONTROLS_LEGACY = 'Legacy';
+    STR_REMOTE_CONTROLS_DIRECT = 'Direct (immediate)';
 
     STR_BACKUP_ENABLE = 'Backup enable';
     STR_BACKUP_ENABLE_SUMMARY = 'If set to YES the app will keep a backup of all user info ' + STR_BACKUP_USER_INFO;

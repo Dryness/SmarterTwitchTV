@@ -24,8 +24,20 @@ var version = {
     publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
     WebVersion: 'October 16 2026',
-    WebTag: 751, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 752, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 16 2026 (Web 752)',
+            changes: [
+                'Remote: the highlighted control, DOM focus and key recipient now agree after closing the rail, tabs, menus and the player controls',
+                'Remote: every channel, video, clip and category card has a visible Actions button opening its options; watching stays a single OK press',
+                'Search: queries and result types are kept when going Back from results, so correcting a search only edits the changed characters',
+                'Recovery: auth, empty and error states offer the action that matches the cause, with a secondary browse option',
+                'Settings: optional Direct browsing controls move on each press and watch on an immediate OK; Legacy hold shortcuts stay the default',
+                'Hints: footers describe the focused target and player drawers show Left/Right value arrows',
+                'Updates: the update dialog never opens by itself; the rail Updates entry shows a badge when an update is available'
+            ]
+        },
         {
             title: 'October 16 2026 (Web 751)',
             changes: [

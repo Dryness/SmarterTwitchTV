@@ -191,11 +191,12 @@ function ScreensObj_StartAllVars() {
                     this.screen === Main_SearchVod) &&
                 !goSidepanel
             ) {
-                if (Main_values.Main_Go === Main_values.Main_BeforeSearch) Main_values.Main_Go = Main_Live;
-                else Main_values.Main_Go = Main_values.Main_BeforeSearch;
+                // Back from results reopens the populated form (Edit search) with the session intact;
+                // Back from the form then returns to the original caller.
                 Main_values.Search_isSearching = false;
-                Screens_BasicExit(Main_values.Main_Go, this.screen);
-                Main_SwitchScreen();
+                Screens_exit(this.screen);
+                Main_values.Main_Go = Main_Search;
+                Search_init();
             } else if ((this.screen === Main_AGameClip || this.screen === Main_AGameVod) && !goSidepanel) {
                 Screens_BasicExit(Main_aGame, this.screen);
                 Main_SwitchScreen();
@@ -2843,7 +2844,9 @@ function ScreensObj_addSwitches(StringsArray, key, padding) {
             ScreenObj[key].ids[0] +
             '-1_' +
             i +
-            '" class="stream_thumbnail_channel_vod" ><div id="' +
+            '" class="stream_thumbnail_channel_vod" tabindex="-1" aria-label="' +
+            Screens_AriaEscape(StringsArray[i]) +
+            '" ><div id="' +
             ScreenObj[key].ids[2] +
             '-1_' +
             i +

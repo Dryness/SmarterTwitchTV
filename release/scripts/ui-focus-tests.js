@@ -90,4 +90,41 @@ s.UIFocus_Dispatch(event(13), false);
 check(opened === 1, 'fresh Enter works after opening key released');
 s.UIFocus_Dispatch(event(13), true);
 s.UIFocus_Clear();
+
+/* DOM focus handoff helpers over a minimal document stub: transfer, skip and release rules. */
+s.document = {activeElement: null, body: {tagName: 'BODY'}};
+function fakeElement(name, inside) {
+    return {
+        id: name,
+        inside: inside,
+        focuses: 0,
+        lastOptions: undefined,
+        blurs: 0,
+        blur: function () {
+            this.blurs++;
+            s.document.activeElement = null;
+        },
+        focus: function (options) {
+            this.focuses++;
+            this.lastOptions = options;
+            s.document.activeElement = this;
+        }
+    };
+}
+const shell = {contains: element => Boolean(element && element.inside)};
+const card = fakeElement('card', false);
+const railButton = fakeElement('rail-button', true);
+const modalInput = fakeElement('modal-input', false);
+check(s.UIFocus_DomFocus(card) && card.focuses === 1, 'restored owner takes DOM focus');
+check(card.lastOptions && card.lastOptions.preventScroll === true, 'focus requests scroll preservation');
+check(!s.UIFocus_DomFocus(card) && card.focuses === 1, 'already focused element is not re-focused');
+check(!s.UIFocus_DomFocus(null), 'missing element rejected');
+s.document.activeElement = railButton;
+check(s.UIFocus_DomRelease(shell) && railButton.blurs === 1, 'departing owner releases its DOM focus');
+check(s.document.activeElement === null, 'release leaves DOM focus empty for the next owner');
+s.document.activeElement = modalInput;
+check(!s.UIFocus_DomRelease(shell) && modalInput.blurs === 0, 'another owner keeps its DOM focus');
+s.document.activeElement = s.document.body;
+check(!s.UIFocus_DomRelease(shell), 'body focus needs no release');
+s.UIFocus_Clear();
 console.log(checks + ' production focus checks passed');

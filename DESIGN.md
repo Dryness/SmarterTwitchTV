@@ -43,6 +43,14 @@ pending. Limit title lines with ellipsis and retain full identity in accessible 
 Left/Right into another grid row. On refresh resolve identity before numerical position. Delay timers,
 network responses, and preview completion must not delay focus feedback.
 
+Card interaction (Web 752): each real card has a primary body and a trailing Actions button in its
+metadata corner. The body keeps the single-press primary action; the Actions button opens the item's
+options menu and never inherits the body's hold timers. Spatial order per row is body, Actions, next
+body; vertical moves keep the subtarget column; row ends clamp. The selected element, visible focus
+treatment, DOM focus and input owner must agree after every handoff: the departing owner releases
+DOM focus, the restored owner takes it, and Back never activates the newly exposed target. Footer
+hints describe the focused target's actual controls and may wrap to two lines instead of shrinking.
+
 Use no required CSS variables in production: older TV WebViews and the existing theme generator are
 constraints. The isolated browser fixture may use modern layout features; they must be replaced or
 verified against supported TV engines before adopting its CSS into `app/index.html`.

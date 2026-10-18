@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<!-- Real-DOM remote regression fixture. Not referenced by app/index.html or the build. -->
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>SPTV remote regression</title>
+        <style>
+            body {
+                margin: 0;
+                font: 14px/1.4 Roboto, sans-serif;
+                color: #ddd;
+                background: #0b0a0e;
+            }
+            .hide {
+                display: none !important;
+            }
+            #scene1 {
+                position: relative;
+                min-height: 60vh;
+            }
+            .navigation-shell {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+            }
+            .navigation-rail {
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 6%;
+                background: #1e1b25;
+                overflow: hidden;
+                pointer-events: auto;
+            }
+            .navigation-rail.navigation-expanded {
+                width: 25%;
+            }
+            .navigation-button {
+                display: block;
+                font: inherit;
+                color: inherit;
+                background: transparent;
+                border: 0;
+                padding: 0.55em 0.65em;
+                cursor: pointer;
+                text-align: left;
+            }
+            .navigation-focused {
+                outline: 0.13em solid #bca0ff;
+                background: #30253f;
+            }
+            #harness-grid {
+                margin-left: 28%;
+                padding: 1em;
+                display: grid;
+                grid-template-columns: repeat(3, 10em);
+                gap: 1em;
+            }
+            #harness-grid .stream_cell {
+                height: 6em;
+            }
+            #harness-grid .stream_thumbnail_live {
+                height: 100%;
+                border: 0.1em solid transparent;
+                background: #17141d;
+            }
+            .stream_thumbnail_focused {
+                border-color: #bca0ff !important;
+            }
+            #navigation-status {
+                margin-left: 28%;
+                padding: 1em;
+            }
+            #harness-results {
+                margin: 2em;
+                font-family: monospace;
+                white-space: pre-wrap;
+            }
+            .harness-fail {
+                color: #ff7b72;
+            }
+            .harness-pass {
+                color: #7ee787;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="body_container">
+            <div id="scene1">
+                <!-- Same shell ids and hierarchy as app/index.html; production Navigation.js queries these. -->
+                <div id="navigation-shell" class="navigation-shell hide">
+                    <nav id="navigation-rail" class="navigation-rail" aria-label="Navigation">
+                        <div class="navigation-brand"><span>Smarter Purple TV harness</span></div>
+                        <div id="navigation-destinations"></div>
+                        <div class="navigation-utilities">
+                            <button id="navigation-about" class="navigation-button" type="button"></button>
+                            <button id="navigation-help" class="navigation-button" type="button"></button>
+                            <button id="navigation-updates" class="navigation-button" type="button"></button>
+                        </div>
+                    </nav>
+                    <header class="navigation-header">
+                        <h1 id="navigation-heading"></h1>
+                        <p id="navigation-account"></p>
+                    </header>
+                    <div class="navigation-toolbar">
+                        <div id="navigation-tabs" role="tablist"></div>
+                        <button id="navigation-refresh" type="button" class="navigation-button"></button>
+                    </div>
+                    <section id="navigation-details" class="navigation-details">
+                        <div>
+                            <p id="navigation-detail-category"></p>
+                            <h2 id="navigation-detail-title"></h2>
+                            <p id="navigation-detail-name"></p>
+                        </div>
+                        <button id="navigation-detail-action" type="button" class="navigation-button"></button>
+                    </section>
+                    <section id="navigation-status" class="navigation-status hide" aria-live="polite">
+                        <p id="navigation-status-copy"></p>
+                        <button id="navigation-retry" type="button" class="navigation-button"></button>
+                    </section>
+                    <footer id="navigation-footer" class="navigation-footer"></footer>
+                </div>
+                <section id="navigation-onboarding" class="navigation-onboarding hide">
+                    <h2 id="navigation-welcome-title"></h2>
+                    <p id="navigation-welcome-copy"></p>
+                    <button id="navigation-recovery-0" class="navigation-button" type="button"></button
+                    ><button id="navigation-recovery-1" class="navigation-button" type="button"></button>
+                </section>
+
+                <div id="harness-grid"></div>
+            </div>
+        </div>
+        <div id="harness-results"></div>
+
+        <!-- Production sources, unmodified. -->
+        <script src="../../app/general/TVKeyValue.js"></script>
+        <script src="../../app/specific/UIFocus.js"></script>
+        <script src="../../app/specific/Navigation.js"></script>
+        <!-- Environment stubs, the fixed content-side handoff contract and the checks. -->
+        <script src="harness.js"></script>
+    </body>
+</html>

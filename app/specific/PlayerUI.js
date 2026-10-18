@@ -117,6 +117,8 @@ function PlayerUI_Show(mode) {
             Main_HideElement('player-ui');
             Main_RemoveClass('scene2', 'player-ui-active');
             Main_removeEventListener('keydown', PlayerUI_Listener);
+            // Release the DOM focus the focused control kept; playback keeps its own handlers.
+            UIFocus_DomRelease(Main_getElementById('player-ui'));
         }
     });
     Main_addEventListener('keydown', PlayerUI_Listener);

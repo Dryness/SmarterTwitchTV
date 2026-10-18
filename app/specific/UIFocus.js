@@ -2,6 +2,27 @@
 var UIFocus_Stack = [];
 var UIFocus_SuppressedKeys = {};
 
+/* Transfer DOM focus to the restored owner. preventScroll keeps the virtualizer's transform offsets. */
+function UIFocus_DomFocus(element) {
+    if (!element || !element.focus || document.activeElement === element) return false;
+    try {
+        element.focus({preventScroll: true}); // Old WebViews ignore the option and still focus.
+    } catch (e) {
+        element.focus();
+    }
+    return document.activeElement === element;
+}
+
+/* Release DOM focus only when the departing container still holds it; never blur another owner's control. */
+function UIFocus_DomRelease(container) {
+    var active = document.activeElement;
+    if (container && active && active !== document.body && container.contains(active)) {
+        active.blur();
+        return true;
+    }
+    return false;
+}
+
 function UIFocus_Push(owner) {
     if (!owner || !owner.id || typeof owner.handle !== 'function') return false;
     // Reopening an owner closes descendants and cancels each pending operation once.

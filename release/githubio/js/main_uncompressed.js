@@ -853,7 +853,14 @@
         STR_PHONE_CHAT_FAIL,
         STR_PHONE_CHAT_LOCAL_FAIL,
         STR_PHONE_CHAT_FOLLOWS,
-        STR_PHONE_CHAT_SHORTCUT;
+        STR_PHONE_CHAT_SHORTCUT,
+        STR_ACTIONS,
+        STR_ACTIONS_SHORT,
+        STR_EDIT_SEARCH,
+        STR_REMOTE_CONTROLS,
+        STR_REMOTE_CONTROLS_SUMMARY,
+        STR_REMOTE_CONTROLS_LEGACY,
+        STR_REMOTE_CONTROLS_DIRECT;
 
     // English defaults are loaded before every selected translation.
     var STR_UI;
@@ -1430,6 +1437,10 @@
             welcomeTitle: 'Your channels, together',
             welcomeCopy: 'Add an account to see who you follow, or browse live channels without one.',
             browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold ← · Options    Back · Return',
+            browseHelpDirect: 'OK · Watch    ↑ ↓ · Rows    ← → · Cards and Actions    Back · Return',
+            actionsHelp: 'OK · Options    ← · Card    ↑ ↓ · Browse    Back · Card / Return',
+            searchHelp: 'OK · Edit search / type    ← → · Choose type    ↑ ↓ · Form / results    Back · Return',
+            settingsNavHelp: 'OK · Select    ← → · Adjust    ↑ · Navigation    Back · Return',
             playerHelp: '↑ ↓ · Choose    ← → · Adjust    OK · Apply    Back · Return',
             chat: 'Chat',
             layout: 'Layout',
@@ -1450,6 +1461,7 @@
             retry: 'Try again',
             nobodyLive: 'Nobody is live right now. Refresh or browse live channels.',
             authNeeded: 'Reconnect your account to load followed channels.',
+            reconnect: 'Reconnect account',
             error: 'Could not load channels. Check your connection and try again.'
         };
         // This is a false/true var change if day comes first in your language eg (27/12/2010) day 27 month 12 year 2010
@@ -2416,6 +2428,14 @@
             'Local phone chat requires APK 386 or newer and a Wi-Fi or Ethernet connection. Update the TV app or check its network connection.';
         STR_PHONE_CHAT_FOLLOWS = 'Your phone follows stream changes automatically. Keep SPTV open on the TV.';
         STR_PHONE_CHAT_SHORTCUT = 'Phone chat QR: press 6 during a live stream to show or hide it.';
+        STR_ACTIONS = 'Actions';
+        STR_ACTIONS_SHORT = '···';
+        STR_EDIT_SEARCH = 'Edit search';
+        STR_REMOTE_CONTROLS = 'Browsing remote controls';
+        STR_REMOTE_CONTROLS_SUMMARY =
+            'Legacy keeps the hold shortcuts: hold Left opens options and hold OK refreshes. Direct moves on each press and watches on an immediate OK; open options with the card Actions button.';
+        STR_REMOTE_CONTROLS_LEGACY = 'Legacy';
+        STR_REMOTE_CONTROLS_DIRECT = 'Direct (immediate)';
 
         STR_BACKUP_ENABLE = 'Backup enable';
         STR_BACKUP_ENABLE_SUMMARY = 'If set to YES the app will keep a backup of all user info ' + STR_BACKUP_USER_INFO;
@@ -8320,8 +8340,20 @@
         publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
         WebVersion: 'October 16 2026',
-        WebTag: 751, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebTag: 752, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 16 2026 (Web 752)',
+                changes: [
+                    'Remote: the highlighted control, DOM focus and key recipient now agree after closing the rail, tabs, menus and the player controls',
+                    'Remote: every channel, video, clip and category card has a visible Actions button opening its options; watching stays a single OK press',
+                    'Search: queries and result types are kept when going Back from results, so correcting a search only edits the changed characters',
+                    'Recovery: auth, empty and error states offer the action that matches the cause, with a secondary browse option',
+                    'Settings: optional Direct browsing controls move on each press and watch on an immediate OK; Legacy hold shortcuts stay the default',
+                    'Hints: footers describe the focused target and player drawers show Left/Right value arrows',
+                    'Updates: the update dialog never opens by itself; the rail Updates entry shows a badge when an update is available'
+                ]
+            },
             {
                 title: 'October 16 2026 (Web 751)',
                 changes: [
@@ -12124,7 +12156,9 @@
         Main_cleanTopLabel();
         Main_CounterDialogRst();
         Main_innerHTML('label_last_refresh', '');
-        if (Main_isScene1DocVisible()) Main_addEventListener('keydown', ChannelContent_handleKeyDown);
+        // Register unconditionally: a conditional registration loses the handler whenever init
+        // races a scene transition; the handler refuses input it does not own.
+        Main_addEventListener('keydown', ChannelContent_handleKeyDown);
         AddCode_PlayRequest = false;
 
         Main_innerHTML('top_lable', Main_values.Main_selectedChannelDisplayname);
@@ -12622,6 +12656,8 @@
     }
 
     function ChannelContent_handleKeyDown(event) {
+        // Input this screen does not own: playback, the followed feed or the side panel menus.
+        if (!Main_isScene1DocVisible() || Sidepannel_isShowingUserLive() || Sidepannel_isShowingMenus()) return;
         if (Main_FirstLoad || Main_CantClick()) return;
 
         Main_keyClickDelayStart();
@@ -18255,17 +18291,9 @@
         Main_SaveValues(true);
     }
 
-    //var used to allow to search in a search result,
-    //without looping over and over when using back
-    var OpenSearchBefore;
-
     function Main_OpenSearch() {
-        if (!Main_values.Search_isSearching) {
-            Main_values.Main_BeforeSearch = Main_values.Main_Go;
-            OpenSearchBefore = null;
-        } else {
-            OpenSearchBefore = Main_values.Main_Go;
-        }
+        // One session entry rule: re-entry while a session is active means Edit search.
+        Search_SessionEnter(Main_values.Main_Go);
 
         Main_ExitCurrent(Main_values.Main_Go);
         Main_values.Main_Go = Main_Search;
@@ -18427,6 +18455,7 @@
         } else {
             Main_HasUpdate = false;
             Main_IsWebupdate = false;
+            Navigation_SetUpdateBadge(false);
             Main_innerHTML('label_update', '');
             if (Main_isUpdateDialogVisible()) {
                 Main_UpdateDialogTitle();
@@ -18437,7 +18466,7 @@
         Main_UpdateDialogSetTitle();
     }
 
-    function Main_WarnUpdate(web, skipShowUpdateDialog) {
+    function Main_WarnUpdate(web) {
         Main_innerHTML(
             'label_update',
             '<div style="vertical-align: middle; display: inline-block;"><i class="icon-' +
@@ -18449,10 +18478,12 @@
                 '</div>'
         );
 
+        // Update availability is passive: a badge on the rail's Updates entry. The dialog itself
+        // only ever opens from an explicit press; it is never popped up automatically.
+        Navigation_SetUpdateBadge(true);
+
         if (Main_isUpdateDialogVisible()) {
             Main_UpdateDialogTitle();
-        } else if (!Settings_value.update_show.defaultValue && !skipShowUpdateDialog) {
-            Main_showUpdateDialog();
         } else if (!Main_update_show_toast && Settings_value.update_show.defaultValue === 1) {
             var updateString = (web ? STR_WEB_UPDATE_AVAILABLE : STR_UPDATE_AVAILABLE) + STR_UPDATE_CHECK_SIDE;
 
@@ -19103,6 +19134,7 @@
 
         Main_RemoveClass(idArray[1] + id, 'opacity_zero');
         Main_RemoveClass(idArray[0] + id, Main_classThumb);
+        Main_RemoveClass(idArray[0] + id + '_actions', Screens_ActionsClass);
     }
 
     // stylesheet[i].cssRules or stylesheet[i].rules is blocked in chrome
@@ -20511,6 +20543,56 @@
         Main_body.removeEventListener(type, UIFocus_Listener(type, fun));
     }
 
+    /* One persistent wrapped key-up listener: held-key suppression is released by the physical
+     * key release instead of depending on a transient hold flow that happens to listen for it. */
+    function Main_KeyUpFocusRelease() {}
+    Main_addEventListener('keyup', Main_KeyUpFocusRelease);
+
+    /* True when an ordinary content screen should own the keys: scene1 visible and no overlay,
+     * dialog, side panel or editor has taken input. */
+    function Main_GridOwnsInput() {
+        return (
+            Main_isScene1DocVisible() &&
+            !Navigation_Region &&
+            !UIFocus_Stack.length &&
+            !Sidepannel_isShowingUserLive() &&
+            !Sidepannel_isShowingMenus() &&
+            !Main_isControlsDialogVisible() &&
+            !Main_isAboutDialogVisible() &&
+            !Main_isElementShowing('dialog_thumb_opt') &&
+            !Main_isElementShowing('yes_no_dialog') &&
+            !Main_isElementShowing('search_scroll') &&
+            !Main_isElementShowing('add_user_scroll') &&
+            !Settings_isVisible()
+        );
+    }
+
+    /* A hold press that loses its key-up (the window blurred or was hidden mid-press) must not
+     * leave the current screen without its key handler or with a permanently suppressed key.
+     * Restore a clean ownership state; re-registering an already registered handler is a no-op. */
+    function Main_KeyOwnershipReset() {
+        var key;
+        for (key in UIFocus_SuppressedKeys) delete UIFocus_SuppressedKeys[key];
+        Main_clearTimeout(Screens_KeyEnterID);
+        Main_clearTimeout(ChannelContent_KeyEnterID);
+        if (Main_values.Main_Go === Main_ChannelContent) {
+            if (Main_GridOwnsInput()) {
+                Main_removeEventListener('keyup', ChannelContent_handleKeyUp);
+                Main_addEventListener('keydown', ChannelContent_handleKeyDown);
+            }
+            return;
+        }
+        var obj = ScreenObj[Main_values.Main_Go];
+        if (obj && obj.key_up && obj.key_fun && Main_GridOwnsInput()) {
+            Main_removeEventListener('keyup', obj.key_up); // disarm the hold release without activating it
+            Main_addEventListener('keydown', obj.key_fun);
+        }
+    }
+    window.addEventListener('blur', Main_KeyOwnershipReset);
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) Main_KeyOwnershipReset();
+    });
+
     function Main_setTimeout(fun, timeout, id) {
         Main_clearTimeout(id);
         if (timeout && timeout > 0) return window.setTimeout(fun, timeout);
@@ -21055,6 +21137,7 @@
         Navigation_State.generation++;
         Navigation_State.origins = [];
         Navigation_State.bookmarks = [];
+        Search_SessionEnd(); // stale account data must not survive a switch
         return true;
     }
 
@@ -21158,7 +21241,15 @@
         if (destination === 'following') return [STR_UI.liveNow, STR_VIDEOS, STR_CHANNELS, STR_UI.categories];
         if (destination === 'browse') return [STR_LIVE, STR_FEATURED, STR_UI.categories, STR_VIDEOS, STR_CLIPS];
         if (destination === 'library') return [STR_LIVE, STR_VIDEOS, STR_CLIPS];
-        if (destination === 'search') return [STR_SEARCH, STR_LIVE, STR_CHANNELS, STR_UI.categories, STR_VIDEOS];
+        if (destination === 'search')
+            // With results in the session the form tab is Edit search, keeping the visible path to correct a query.
+            return [
+                Search_Session.active && Search_Session.submitted ? STR_EDIT_SEARCH : STR_SEARCH,
+                STR_LIVE,
+                STR_CHANNELS,
+                STR_UI.categories,
+                STR_VIDEOS
+            ];
         if (destination === 'account') return [STR_UI.switchAccount, STR_USER_ADD, STR_USER_MY_CHANNEL, STR_BLOCKED];
         return [];
     }
@@ -21190,9 +21281,7 @@
                             ? 'rail'
                             : id.indexOf('navigation-recovery-') === 0
                               ? 'recovery'
-                              : id === 'navigation-detail-action'
-                                ? 'details'
-                                : 'tabs';
+                              : 'tabs';
                     Navigation_Open(null, region);
                 }
                 Navigation_ElementFocus(id);
@@ -21201,6 +21290,18 @@
         }
         parent.appendChild(button);
         return button;
+    }
+
+    /* Contextual footer hint, resolved from the active screen, editing state and card subtarget.
+     * Updated on screen/region/subtarget changes, never per rendered frame. */
+    function Navigation_UpdateHint(screen) {
+        var hint;
+        if (screen === Main_Search) hint = STR_UI.searchHelp;
+        else if (Settings_isVisible()) hint = STR_UI.settingsNavHelp;
+        else if (ScreenObj[screen] && ScreenObj[screen].posSub === Screens_SubActions) hint = STR_UI.actionsHelp;
+        else if (Screens_DirectInputMode()) hint = STR_UI.browseHelpDirect;
+        else hint = STR_UI.browseHelp;
+        Main_textContent('navigation-footer', hint);
     }
 
     function Navigation_Render(screen) {
@@ -21258,11 +21359,9 @@
             button.setAttribute('aria-selected', String(i === Navigation_State.tab));
         }
         Main_textContent('navigation-refresh', STR_REFRESH);
-        Main_textContent('navigation-detail-action', STR_CHANNEL_CONT);
-        Main_textContent('navigation-footer', STR_UI.browseHelp);
+        Navigation_UpdateHint(screen);
         Main_getElementById('navigation-refresh').onclick = Navigation_Refresh;
         Navigation_BindStaticKeys();
-        Main_getElementById('navigation-detail-action').onclick = Navigation_OpenDetails;
         Main_AddClass('scene1', 'navigation-enabled');
         var obj = ScreenObj[screen],
             live = Boolean(obj && obj.screenType === 0 && !obj.isHistory && !Settings_isVisible());
@@ -21281,6 +21380,7 @@
         Main_textContent('navigation-about', STR_ABOUT);
         Main_textContent('navigation-help', STR_CONTROLS);
         Main_textContent('navigation-updates', STR_UPDATE_CHANGELOG);
+        Navigation_SetUpdateBadge(Boolean(Main_HasUpdate));
         Main_getElementById('navigation-about').onclick = Navigation_Activate.bind(null, 7);
         Main_getElementById('navigation-help').onclick = Navigation_Activate.bind(null, 8);
         Main_getElementById('navigation-updates').onclick = Navigation_Activate.bind(null, 9);
@@ -21331,7 +21431,6 @@
                 Navigation_Position < Navigation_Tabs(Navigation_State.destination).length
                     ? 'navigation-tab-' + Navigation_Position
                     : 'navigation-refresh';
-        else if (Navigation_Region === 'details') id = 'navigation-detail-action';
         else id = 'navigation-recovery-' + Navigation_Position;
         var target = Main_getElementById(id);
         if (target) {
@@ -21358,8 +21457,13 @@
             cleanup: function () {
                 Navigation_Region = '';
                 Main_RemoveClass('navigation-rail', 'navigation-expanded');
-                var focused = Main_getElementById('navigation-shell').querySelector('.navigation-focused');
-                if (focused) focused.classList.remove('navigation-focused');
+                // Both the shell and the onboarding section can hold a focus treatment.
+                var focused = document.querySelectorAll('#navigation-shell .navigation-focused, #navigation-onboarding .navigation-focused'),
+                    i;
+                for (i = 0; i < focused.length; i++) focused[i].classList.remove('navigation-focused');
+                // The shell took DOM focus in Navigation_Focus; release it so the restored content owner can take input.
+                UIFocus_DomRelease(Main_getElementById('navigation-shell'));
+                UIFocus_DomRelease(Main_getElementById('navigation-onboarding'));
                 Main_removeEventListener('keydown', Navigation_HandleListener);
             }
         });
@@ -21376,7 +21480,9 @@
         if (restore && Navigation_Callback) {
             Main_addEventListener('keydown', Navigation_Callback);
             var obj = ScreenObj[Main_values.Main_Go];
-            if (obj && obj.addFocus && obj.itemsCount && !Navigation_Onboarding) Screens_addFocus(true, Main_values.Main_Go);
+            // Settings and the search form keep their own focus treatment; the grid behind must not take it.
+            if (obj && obj.addFocus && obj.itemsCount && !Navigation_Onboarding && !Settings_isVisible() && Main_values.Main_Go !== Main_Search)
+                Screens_addFocus(true, Main_values.Main_Go);
             if (obj && obj.emptyContent && Main_values.Main_Go === Main_UserLive && !Navigation_Onboarding)
                 Main_getElementById('navigation-retry').focus();
         }
@@ -21393,14 +21499,16 @@
                 Navigation_Position = 0;
                 Main_AddClass('navigation-rail', 'navigation-expanded');
                 Navigation_Focus();
-            } else Navigation_Close(true);
+            } else {
+                Navigation_Close(true);
+                return true; // Back must not fall through to Navigation_Focus and mark the hidden recovery buttons.
+            }
         } else if (code === KEY_ENTER || code === KEY_PLAY || code === KEY_PLAYPAUSE || code === KEY_KEYBOARD_SPACE) {
             if (Navigation_Region === 'rail') Navigation_Activate(Navigation_Position);
             else if (Navigation_Region === 'tabs') {
                 if (Navigation_Position === tabs.length) Navigation_Refresh();
                 else Navigation_ActivateTab(Navigation_Position);
-            } else if (Navigation_Region === 'details') Navigation_OpenDetails();
-            else if (!Navigation_Position) Navigation_Go(Main_addUser);
+            } else if (!Navigation_Position) Navigation_Go(Main_addUser);
             else Navigation_Go(Main_Live);
         } else if (code === KEY_6 || code === KEY_PAUSE) {
             Navigation_Activate(5);
@@ -21451,9 +21559,6 @@
                     return true;
                 }
             }
-        } else if (Navigation_Region === 'details' && code === KEY_UP) {
-            Navigation_Close(true);
-            return true;
         } else if (Navigation_Region === 'recovery') {
             if (code === KEY_LEFT || code === KEY_RIGHT) Navigation_Position = code === KEY_LEFT ? 0 : 1;
             else if (code === KEY_UP) {
@@ -21540,12 +21645,16 @@
         Navigation_ExitCurrent();
         Main_values.Main_Before = previous;
         if (screen === Main_Search) {
-            Main_values.Main_BeforeSearch = previous;
+            Search_SessionEnter(previous);
             Main_values.Main_Go = Main_Search;
             Search_init();
             return;
         }
-        if (Navigation_Route(screen).destination !== 'search') Main_values.Search_isSearching = false;
+        var route = Navigation_Route(screen);
+        if (route && route.destination !== 'search') {
+            Main_values.Search_isSearching = false;
+            Search_SessionEnd(); // leaving the search destination abandons the session
+        }
         Main_values.Main_Go = screen;
         if (screen === Main_addUser) AddUser_init();
         else if (screen === Main_Users) Users_init();
@@ -21563,7 +21672,10 @@
 
     function Navigation_Refresh() {
         Navigation_Close(true);
-        if (ScreenObj[Main_values.Main_Go] && ScreenObj[Main_values.Main_Go].start_fun) Main_ReloadScreen();
+        var obj = ScreenObj[Main_values.Main_Go];
+        // Suppress duplicate in-flight activation: an isRefreshing screen ignores further retries.
+        if (obj && obj.isRefreshing) return;
+        if (obj && obj.start_fun) Main_ReloadScreen();
     }
 
     function Navigation_ShowOnboarding(destination) {
@@ -21653,15 +21765,6 @@
         Main_textContent('navigation-detail-name', data && !data.image ? data[1] + ' · ' + data[4] + ' ' + STR_VIEWERS : '');
     }
 
-    function Navigation_OpenDetails() {
-        var key = Main_values.Main_Go;
-        Navigation_Close(true);
-        if (ScreenObj[key] && Screens_ObjNotNull(key) && !Screens_GetObj(key).image) {
-            Screens_values_Play_data = Screens_GetObj(key);
-            Screens_OpenChannel(key);
-        }
-    }
-
     function Navigation_ScreenContext(screen) {
         var obj = ScreenObj[screen],
             route = Navigation_Route(screen);
@@ -21686,13 +21789,21 @@
         } else if (id === 'navigation-refresh') {
             Navigation_Region = 'tabs';
             Navigation_Position = Navigation_Tabs(Navigation_State.destination).length;
-        } else if (id === 'navigation-detail-action') Navigation_Region = 'details';
+        }
+    }
+
+    /* Passive update availability: a badge on the rail's Updates entry. The update dialog opens
+     * only from an explicit press of that entry, never as an automatic popup. */
+    function Navigation_SetUpdateBadge(available) {
+        var button = Main_getElementById('navigation-updates');
+        if (!button) return;
+        if (available) Main_AddClassWithEle(button, 'navigation-update-available');
+        else Main_RemoveClassWithEle(button, 'navigation-update-available');
     }
 
     function Navigation_BindStaticKeys() {
         var ids = [
             'navigation-refresh',
-            'navigation-detail-action',
             'navigation-recovery-0',
             'navigation-recovery-1',
             'navigation-about',
@@ -21708,16 +21819,7 @@
 
     function Navigation_StaticKey(id, event) {
         if (!Navigation_Region)
-            Navigation_Open(
-                null,
-                id.indexOf('navigation-recovery-') === 0
-                    ? 'recovery'
-                    : id === 'navigation-detail-action'
-                      ? 'details'
-                      : id === 'navigation-refresh'
-                        ? 'tabs'
-                        : 'rail'
-            );
+            Navigation_Open(null, id.indexOf('navigation-recovery-') === 0 ? 'recovery' : id === 'navigation-refresh' ? 'tabs' : 'rail');
         Navigation_ElementFocus(id);
         if (id === 'navigation-about') Navigation_Position = 7;
         else if (id === 'navigation-help') Navigation_Position = 8;
@@ -21736,21 +21838,57 @@
             'navigation-status-copy',
             state === 'loading' ? STR_UI.loading : state === 'auth' ? STR_UI.authNeeded : state === 'empty' ? STR_UI.nobodyLive : STR_UI.error
         );
-        Main_textContent('navigation-retry', STR_UI.retry);
-        Main_getElementById('navigation-retry').onclick = Navigation_Refresh;
-        Main_getElementById('navigation-retry').style.display = state === 'loading' ? 'none' : '';
-        Main_getElementById('navigation-retry').onkeydown = function (event) {
+        // Message, primary action and secondary action are selected together: the shared Retry
+        // callback never sits behind a Reconnect label, and refresh never claims to fix a login.
+        var primaryLabel = '',
+            primaryAction = null,
+            secondaryLabel = '',
+            secondaryAction = null;
+        if (state === 'auth') {
+            primaryLabel = STR_UI.reconnect;
+            primaryAction = Navigation_Reconnect;
+            secondaryLabel = STR_UI.browse;
+            secondaryAction = Navigation_Go.bind(null, Main_Live);
+        } else if (state === 'empty') {
+            primaryLabel = STR_UI.browse;
+            primaryAction = Navigation_Go.bind(null, Main_Live);
+            secondaryLabel = STR_REFRESH;
+            secondaryAction = Navigation_Refresh;
+        } else if (state === 'error') {
+            primaryLabel = STR_UI.retry;
+            primaryAction = Navigation_Refresh;
+            secondaryLabel = STR_UI.browse;
+            secondaryAction = Navigation_Go.bind(null, Main_Live);
+        }
+        Navigation_BindStatusButton(Main_getElementById('navigation-retry'), primaryLabel, primaryAction);
+        Navigation_BindStatusButton(Main_getElementById('navigation-alt'), secondaryLabel, secondaryAction);
+        Main_ShowElementWithEle(panel);
+    }
+
+    function Navigation_BindStatusButton(button, label, action) {
+        if (!button) return;
+        button.textContent = label;
+        button.style.display = label ? '' : 'none';
+        button.onclick = action;
+        button.onkeydown = function (event) {
+            if (event.repeat) return; // a held OK must not re-arm the same recovery action
             if (event.keyCode === KEY_ENTER) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                Navigation_Refresh();
+                if (action) action();
             } else if (event.keyCode === KEY_UP || event.keyCode === KEY_LEFT) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 Navigation_Open(null, event.keyCode === KEY_UP ? 'tabs' : 'rail');
             }
         };
-        Main_ShowElementWithEle(panel);
+    }
+
+    /* Reconnection goes through the existing device-code account flow and its add/update account
+     * semantics; no second OAuth implementation. */
+    function Navigation_Reconnect() {
+        Navigation_Close(false);
+        Navigation_Go(Main_addUser);
     }
 
     /* Existing feed transports still fetch; these tickets only reject obsolete presentation results. */
@@ -35833,6 +35971,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 Main_HideElement('player-ui');
                 Main_RemoveClass('scene2', 'player-ui-active');
                 Main_removeEventListener('keydown', PlayerUI_Listener);
+                // Release the DOM focus the focused control kept; playback keeps its own handlers.
+                UIFocus_DomRelease(Main_getElementById('player-ui'));
             }
         });
         Main_addEventListener('keydown', PlayerUI_Listener);
@@ -36454,9 +36594,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_HideElement('navigation-status');
         Navigation_Render(key);
 
-        if (Main_isScene1DocVisible() && !Sidepannel_isShowingUserLive() && !Sidepannel_isShowingMenus()) {
-            Main_addEventListener('keydown', ScreenObj[key].key_fun);
-        }
+        /* Register unconditionally: a conditional registration loses the handler whenever init
+         * races a scene or sidepanel transition, leaving the screen without any keys. The
+         * handler itself refuses input it does not own. */
+        Main_addEventListener('keydown', ScreenObj[key].key_fun);
 
         Main_ShowElementWithEle(ScreenObj[key].ScrollDoc);
 
@@ -36634,7 +36775,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         // Native dispatch round-trips a named callback and checkResult, not a JavaScript closure.
         var request = ScreenObj[key].navigationRequest;
         if (!request || request.id !== Number(requestId) || request.account !== Navigation_Account()) return;
-        if (resultObj.status === 401 || resultObj.status === 403) ScreenObj[key].navigationLoadState = 'auth';
+        // A 401/403 on an account-scoped screen means the login needs reconnecting; on a public
+        // screen it is a denial (rate limit or otherwise), not evidence of an expired token.
+        if ((resultObj.status === 401 || resultObj.status === 403) && (ScreenObj[key].IsUser || ScreenObj[key].isHistory))
+            ScreenObj[key].navigationLoadState = 'auth';
         else if (resultObj.status !== 200) ScreenObj[key].navigationLoadState = 'error';
         if (resultObj.status === 200) {
             Screens_concatenate(JSON.parse(resultObj.responseText), key);
@@ -36838,6 +36982,99 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         return div;
     }
 
+    function Screens_AriaEscape(text) {
+        return String(text === undefined || text === null ? '' : text)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;');
+    }
+
+    /* Card presentation subtarget: the body carries the primary action, its trailing Actions
+     * button opens the same options menu the old hidden holds exposed. */
+    var Screens_SubBody = 0;
+    var Screens_SubActions = 1;
+    var Screens_ActionsClass = 'stream_actions_focused';
+
+    function Screens_ActionsId(key, id) {
+        return ScreenObj[key].ids[0] + id + '_actions';
+    }
+
+    function Screens_HasActionsTarget(key, id) {
+        // Real items only: placeholders, banners and empty cells never gain a dead button.
+        var data = ScreenObj[key].DataObj[id];
+        return Boolean(data && !data.image && Main_getElementById(Screens_ActionsId(key, id)));
+    }
+
+    function Screens_ActionsButtonHtml(idArray, id, label) {
+        return (
+            '<button id="' +
+            idArray[0] +
+            id +
+            '_actions" type="button" class="stream_actions_btn" tabindex="-1" aria-label="' +
+            STR_ACTIONS +
+            ' ' +
+            Screens_AriaEscape(label) +
+            '">' +
+            STR_ACTIONS_SHORT +
+            '</button>'
+        );
+    }
+
+    /* Apply the focus treatment for the current subtarget. Changing subtarget on the same card
+     * must not restart the preview or refetch metadata, so this never reloads data. */
+    function Screens_ApplySubFocus(key, id) {
+        var obj = ScreenObj[key];
+        obj.focusPos = id;
+        if (obj.posSub === Screens_SubActions && Screens_HasActionsTarget(key, id)) {
+            var button = Main_getElementById(Screens_ActionsId(key, id));
+            Main_AddClassWithEle(button, Screens_ActionsClass);
+            if (Screens_CardMayOwnDomFocus(key)) UIFocus_DomFocus(button);
+        } else {
+            obj.posSub = Screens_SubBody;
+            Main_AddClass(obj.ids[0] + id, Main_classThumb);
+            Screens_SyncCardFocus(key, id);
+        }
+        Navigation_UpdateDetails(key);
+        if (key === Main_values.Main_Go) Navigation_UpdateHint(key);
+    }
+
+    /* Switch the current card's subtarget without changing the selected item: no preview restart,
+     * no metadata refetch and no data reload, exactly one visible focus treatment at a time. */
+    function Screens_FocusSub(key, sub) {
+        var obj = ScreenObj[key];
+        obj.posSub = sub;
+        if (obj.posY < 0 || !obj.itemsCount) return;
+        var id = obj.posY + '_' + obj.posX,
+            button = Main_getElementById(Screens_ActionsId(key, id));
+        if (button) Main_RemoveClassWithEle(button, Screens_ActionsClass);
+        Main_RemoveClass(obj.ids[0] + id, Main_classThumb);
+        Screens_ApplySubFocus(key, id);
+    }
+
+    /* The focused item can change or leave while its options menu is open; fall back to its body. */
+    function Screens_ValidateSubFocus(key) {
+        var obj = ScreenObj[key],
+            id;
+        if (!obj || obj.posY < 0 || !obj.itemsCount) return;
+        id = obj.posY + '_' + obj.posX;
+        if (obj.posSub === Screens_SubActions && !Screens_HasActionsTarget(key, id)) Screens_ApplySubFocus(key, id);
+    }
+
+    /* DOM focus follows the visible focus treatment, but only when this grid owns input:
+     * the body, one of its own cards, or nothing meaningful may hand it over. */
+    function Screens_CardMayOwnDomFocus(key) {
+        if (key !== Main_values.Main_Go || Settings_isVisible()) return false;
+        var active = document.activeElement;
+        if (!active || !active.tagName || active === document.body) return true;
+        var id = String(active.id || '');
+        return id.indexOf(ScreenObj[key].ids[0]) === 0;
+    }
+
+    function Screens_SyncCardFocus(key, id) {
+        if (!Screens_CardMayOwnDomFocus(key)) return;
+        UIFocus_DomFocus(Main_getElementById(ScreenObj[key].ids[0] + id));
+    }
+
     function Screens_createCellChannel(id, idArray, valuesArray, key) {
         ScreenObj[key].DataObj[id] = valuesArray;
 
@@ -36850,7 +37087,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             '"><div id="' +
             idArray[0] +
             id +
-            '" class="stream_thumbnail_channel" ><div class="stream_thumbnail_channel_img"><img id="' +
+            '" class="stream_thumbnail_channel" tabindex="-1" aria-label="' +
+            Screens_AriaEscape(valuesArray[3]) +
+            '">' +
+            Screens_ActionsButtonHtml(idArray, id, valuesArray[3]) +
+            '<div class="stream_thumbnail_channel_img"><img id="' +
             idArray[1] +
             id +
             '" alt="" class="stream_img_channels" src="' +
@@ -36888,7 +37129,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             '"><div id="' +
             idArray[0] +
             id +
-            '" class="stream_thumbnail_game"><div class="stream_thumbnail_live_game"><img id="' +
+            '" class="stream_thumbnail_game" tabindex="-1" aria-label="' +
+            Screens_AriaEscape(valuesArray[1]) +
+            '">' +
+            Screens_ActionsButtonHtml(idArray, id, valuesArray[1]) +
+            '<div class="stream_thumbnail_live_game"><img id="' +
             idArray[1] +
             id +
             '" class="stream_img" alt="" src="' +
@@ -36919,7 +37164,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             '"><div id="' +
             idArray[0] +
             id +
-            '" class="stream_thumbnail_live"><div class="stream_thumbnail_live_img"><img id="' +
+            '" class="stream_thumbnail_live" tabindex="-1" aria-label="' +
+            Screens_AriaEscape(valuesArray[4]) +
+            '">' +
+            Screens_ActionsButtonHtml(idArray, id, valuesArray[4]) +
+            '<div class="stream_thumbnail_live_img"><img id="' +
             idArray[1] +
             id +
             '" class="stream_img" alt="" src="' +
@@ -36987,7 +37236,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             '"><div id="' +
             idArray[0] +
             id +
-            '" class="stream_thumbnail_live"><div id="' +
+            '" class="stream_thumbnail_live" tabindex="-1" aria-label="' +
+            Screens_AriaEscape(valuesArray[1]) +
+            '">' +
+            Screens_ActionsButtonHtml(idArray, id, valuesArray[1]) +
+            '<div id="' +
             idArray[5] +
             id +
             '" class="stream_thumbnail_live_img" ' +
@@ -37071,7 +37324,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             '"><div id="' +
             idArray[0] +
             id +
-            '" class="stream_thumbnail_live"><div class="stream_thumbnail_live_img"><img id="' +
+            '" class="stream_thumbnail_live" tabindex="-1" aria-label="' +
+            Screens_AriaEscape(valuesArray[1]) +
+            '">' +
+            Screens_ActionsButtonHtml(idArray, id, valuesArray[1]) +
+            '<div class="stream_thumbnail_live_img"><img id="' +
             idArray[1] +
             id +
             '" class="stream_img" alt="" src="' +
@@ -37913,6 +38170,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Screens_addrow(forceScroll, y, key, forceAfterDelete) {
+        Screens_SetWindowOffset(y, key);
         if (ScreenObj[key].currY < y) {
             // down
             Screens_addrowDown(y, key);
@@ -37960,6 +38218,32 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Screens_addrowEnd(forceScroll, key);
     }
 
+    /* In the shell layout the bottom band reserves the lower part of the screen: only the
+     * window's top row is fully visible. Keep the container one row up once browsing has
+     * started so the focused row rests in that fully visible slot. */
+    function Screens_SetWindowOffset(y, key) {
+        if (!ScreenObj[key].ScrollDoc) return;
+        ScreenObj[key].ScrollDoc.style.transform = y > 0 ? 'translateY(-' + ScreenObj[key].offsettop + 'em)' : '';
+    }
+
+    /* End of the loaded rows: no row below to shift in, but the focused row must still take
+     * the fully visible slot instead of resting under the bottom band. */
+    function Screens_addrowEndWindow(y, key) {
+        var i;
+        for (i = -1; i <= 0; i++) {
+            if (ScreenObj[key].Cells[y + i]) {
+                ScreenObj[key].Cells[y + i].style.transition = 'none';
+                ScreenObj[key].Cells[y + i].style.transform = 'translateY(' + (i + 1) * ScreenObj[key].offsettop + 'em)';
+                if (ScreenObj[key].Cells[y + i].parentNode !== ScreenObj[key].tableDoc)
+                    ScreenObj[key].tableDoc.appendChild(ScreenObj[key].Cells[y + i]);
+            }
+        }
+        Main_RemoveElement(ScreenObj[key].Cells[y - 2]);
+        Main_RemoveElement(ScreenObj[key].Cells[y + 1]);
+        Main_RemoveElement(ScreenObj[key].Cells[y + 2]);
+        Screens_LoadPreview(key);
+    }
+
     function Screens_addrowDown(y, key) {
         if (y > 1 && ScreenObj[key].Cells[y + 1]) {
             if (Screens_ChangeFocusAnimationFinished && Screens_SettingDoAnimations && !Screens_ChangeFocusAnimationFast) {
@@ -37996,6 +38280,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             Main_setTimeout(function () {
                 Screens_addrowDown(y, key);
             }, 10);
+        } else if (y > 1) {
+            // End of the loaded rows: the focused row still takes the fully visible slot.
+            Screens_addrowEndWindow(y, key);
         } else {
             Main_setTimeout(
                 function () {
@@ -38012,9 +38299,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         var id = ScreenObj[key].posY + '_' + ScreenObj[key].posX,
             data;
 
-        Main_AddClass(ScreenObj[key].ids[0] + id, Main_classThumb);
-        ScreenObj[key].focusPos = id;
-        Navigation_UpdateDetails(key);
+        Screens_ApplySubFocus(key, id);
 
         if (ScreenObj[key].screenType === 1 || ScreenObj[key].screenType === 2) {
             if (Screens_ObjNotNull(key)) {
@@ -38223,6 +38508,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         Main_AddClass(ScreenObj[key].ids[0] + '-1_' + ScreenObj[key].posX, 'stream_switch_focused');
         ScreenObj[key].focusPos = -1;
+        Screens_SyncCardFocus(key, '-1_' + ScreenObj[key].posX);
     }
 
     function Screens_removeFocusFollow(key) {
@@ -38342,7 +38628,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             if (!Screens_clear) {
                 if (!ScreenObj[key].posX) Screens_OpenSidePanel(false, key);
                 else {
-                    Screens_KeyLeftRight(-1, ScreenObj[key].ColumnsCount - 1, key);
+                    // Left from a card body enters the previous card's Actions target.
+                    ScreenObj[key].posSub = Screens_SubActions;
+                    Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
                     Main_addEventListener('keydown', ScreenObj[key].key_fun);
                 }
             }
@@ -38398,14 +38686,43 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
     }
 
+    /* Browsing remote controls preference: one press policy per mode. Legacy (the migration
+     * default) acts on release and keeps the hold shortcuts; Direct acts on key-down. */
+    function Screens_DirectInputMode() {
+        return Settings_Obj_default('remote_controls') === 1;
+    }
+
     function Screens_handleKeyDown(key, event) {
+        // Input this grid does not own: playback, the followed feed or the side panel menus.
+        if (!Main_isScene1DocVisible() || Sidepannel_isShowingUserLive() || Sidepannel_isShowingMenus()) return;
+        // Direct mode never inherits a pending Legacy hold timer.
+        if (Screens_DirectInputMode()) Main_clearTimeout(Screens_KeyEnterID);
         if (ScreenObj[key].loadingData && (event.keyCode === KEY_UP || event.keyCode === KEY_LEFT)) {
             Navigation_Open(ScreenObj[key].key_fun, event.keyCode === KEY_UP ? 'tabs' : 'rail');
             return;
         }
+        // The Actions target can disappear with refreshed data; resume as the body instead of holding a dead target.
+        if (
+            ScreenObj[key].posSub === Screens_SubActions &&
+            ScreenObj[key].posY > -1 &&
+            !Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
+        )
+            ScreenObj[key].posSub = Screens_SubBody;
         if (event.keyCode === KEY_UP && (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) && !Main_CantClick()) {
             Screens_RemoveAllFocus(key);
             Navigation_Open(ScreenObj[key].key_fun, 'tabs');
+            return;
+        }
+        if (
+            event.keyCode === KEY_RIGHT &&
+            ScreenObj[key].posSub !== Screens_SubActions &&
+            ScreenObj[key].posY > -1 &&
+            !Main_CantClick() &&
+            Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
+        ) {
+            // Body Right enters this card's Actions target; one-press watching stays on OK.
+            Main_keyClickDelayStart();
+            Screens_FocusSub(key, Screens_SubActions);
             return;
         }
         if (
@@ -38414,21 +38731,51 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 (ScreenObj[key].dataEnded && !ScreenObj[key].DataObj[ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1)]))
         )
             return;
-        if (
-            event.keyCode === KEY_DOWN &&
-            ScreenObj[key].screenType === 0 &&
-            !ScreenObj[key].isHistory &&
-            ScreenObj[key].dataEnded &&
-            !ScreenObj[key].DataObj[ScreenObj[key].posY + 1 + '_' + ScreenObj[key].posX]
-        ) {
-            Screens_RemoveAllFocus(key);
-            Navigation_Open(ScreenObj[key].key_fun, 'details');
-            return;
-        }
         //Main_Log('Screens_handleKeyDown ' + event.keyCode + ' key ' + key);
         if (Main_CantClick()) return;
 
         Main_keyClickDelayStart();
+
+        if (
+            ScreenObj[key].posSub === Screens_SubActions &&
+            ScreenObj[key].posY > -1 &&
+            Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
+        ) {
+            if (event.keyCode === KEY_LEFT) {
+                Screens_FocusSub(key, Screens_SubBody);
+                return;
+            }
+            if (
+                event.keyCode === KEY_ENTER ||
+                event.keyCode === KEY_PLAY ||
+                event.keyCode === KEY_PLAYPAUSE ||
+                event.keyCode === KEY_KEYBOARD_SPACE ||
+                event.keyCode === KEY_MEDIA_PREVIOUS
+            ) {
+                // OK opens this item's options once; it never inherits the body's hold-to-refresh timer.
+                UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
+                Screens_ThumbOptionStart(key, false);
+                return;
+            }
+            if (event.keyCode === KEY_KEYBOARD_BACKSPACE || event.keyCode === KEY_RETURN) {
+                Screens_FocusSub(key, Screens_SubBody);
+                return;
+            }
+            if (event.keyCode === KEY_RIGHT) {
+                // Next card body stays in this row; movement never wraps to another content row.
+                var nextId = ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1);
+                if (
+                    ScreenObj[key].posX < ScreenObj[key].ColumnsCount - 1 &&
+                    ScreenObj[key].DataObj[nextId] &&
+                    !ScreenObj[key].DataObj[nextId].image
+                ) {
+                    ScreenObj[key].posSub = Screens_SubBody;
+                    Screens_ChangeFocus(0, ScreenObj[key].posX + 1, key);
+                }
+                return;
+            }
+            // Up/Down keep the subtarget column through the ordinary vertical handlers below.
+        }
 
         switch (event.keyCode) {
             case KEY_MEDIA_REWIND:
@@ -38486,6 +38833,17 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 ScreenObj[key].key_exit();
                 break;
             case KEY_LEFT:
+                if (Screens_DirectInputMode()) {
+                    // Direct Left moves immediately; the hold-to-open-options shortcut is a Legacy affordance.
+                    if (!ScreenObj[key].posX) {
+                        Screens_RemoveAllFocus(key);
+                        Navigation_Open(ScreenObj[key].key_fun, 'rail');
+                    } else {
+                        ScreenObj[key].posSub = Screens_SubActions;
+                        Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
+                    }
+                    break;
+                }
                 Screens_ThumbOptionCanKeyLeft = false;
                 Screens_handleKeyUpIsClear = false;
                 Screens_clear = false;
@@ -38519,6 +38877,13 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 ScreenObj[key].key_play();
                 break;
             case KEY_ENTER:
+                if (Screens_DirectInputMode()) {
+                    // Direct OK activates once on key-down; repeats and the release stay suppressed
+                    // until the physical key is released (the persistent key-up listener clears it).
+                    UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
+                    ScreenObj[key].key_play();
+                    break;
+                }
                 Main_removeEventListener('keydown', ScreenObj[key].key_fun);
                 Main_addEventListener('keyup', ScreenObj[key].key_up);
                 Screens_clear = false;
@@ -39555,6 +39920,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_removeEventListener('keydown', ScreenObj[key].key_thumb);
         Main_addEventListener('keydown', ScreenObj[key].key_fun);
         Main_HideElementWithEle(Screens_dialog_thumb_div);
+        Screens_ValidateSubFocus(key);
 
         if (Update) {
             if (Screens_ThumbOptionPosY === -1) {
@@ -40723,11 +41089,12 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                         this.screen === Main_SearchVod) &&
                     !goSidepanel
                 ) {
-                    if (Main_values.Main_Go === Main_values.Main_BeforeSearch) Main_values.Main_Go = Main_Live;
-                    else Main_values.Main_Go = Main_values.Main_BeforeSearch;
+                    // Back from results reopens the populated form (Edit search) with the session intact;
+                    // Back from the form then returns to the original caller.
                     Main_values.Search_isSearching = false;
-                    Screens_BasicExit(Main_values.Main_Go, this.screen);
-                    Main_SwitchScreen();
+                    Screens_exit(this.screen);
+                    Main_values.Main_Go = Main_Search;
+                    Search_init();
                 } else if ((this.screen === Main_AGameClip || this.screen === Main_AGameVod) && !goSidepanel) {
                     Screens_BasicExit(Main_aGame, this.screen);
                     Main_SwitchScreen();
@@ -43395,7 +43762,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 ScreenObj[key].ids[0] +
                 '-1_' +
                 i +
-                '" class="stream_thumbnail_channel_vod" ><div id="' +
+                '" class="stream_thumbnail_channel_vod" tabindex="-1" aria-label="' +
+                Screens_AriaEscape(StringsArray[i]) +
+                '" ><div id="' +
                 ScreenObj[key].ids[2] +
                 '-1_' +
                 i +
@@ -44084,7 +44453,30 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     var Search_cursorY = 0;
     var Search_cursorX = 0;
     var Search_keyBoardOn = false;
+    /* One bounded in-memory search session: entry origin, draft, submitted query and result type.
+     * The draft never mutates live result requests; loaders keep reading Main_values.Search_data. */
+    var Search_Session = {active: false, origin: 0, draft: '', submitted: '', type: 0};
     //Variable initialization end
+
+    /* Single session entry rule for every way Search can open (rail, tabs, playback, Main_OpenSearch).
+     * Reopening while a session is active means Edit search: the true origin is never overwritten
+     * with the current results screen. */
+    function Search_SessionEnter(originScreen) {
+        if (!Search_Session.active) {
+            Search_Session.active = true;
+            Search_Session.origin = originScreen;
+            Search_Session.draft = '';
+            Search_Session.submitted = '';
+            Search_Session.type = 0;
+        }
+        Main_values.Main_BeforeSearch = Search_Session.origin;
+        Main_values.Search_isSearching = false;
+    }
+
+    /* Leaving to any non-search destination abandons the session; account switches clear it too. */
+    function Search_SessionEnd() {
+        Search_Session.active = false;
+    }
 
     function Search_init() {
         Navigation_Render(Main_Search);
@@ -44092,11 +44484,19 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_HideElement('label_refresh');
         Main_IconLoad('label_thumb', 'icon-return', STR_GOBACK);
         Main_innerHTML('label_last_refresh', '');
+        Main_CounterDialogRst();
         Main_SearchInput = Main_getElementById('search_input');
         Main_SearchInput.placeholder = STR_PLACEHOLDER_SEARCH;
+        // Edit search restores the session's draft and result type; a new session starts empty.
+        if (Search_Session.active) {
+            Main_SearchInput.value = Search_Session.draft;
+            Search_cursorX = Search_Session.type;
+        } else {
+            Main_SearchInput.value = '';
+            Search_cursorX = 0;
+        }
         Main_ShowElement('search_scroll');
         Search_cursorY = 0;
-        Search_cursorX = 0;
         Search_refreshInputFocusTools();
         Search_inputFocus();
     }
@@ -44106,18 +44506,24 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_removeEventListener('keydown', Search_handleKeyDown);
         Search_refreshInputFocusTools();
 
-        Main_values.Main_Go = OpenSearchBefore ? OpenSearchBefore : Main_values.Main_BeforeSearch;
-        OpenSearchBefore = null;
+        Main_values.Main_Go = Search_Session.active && Search_Session.origin ? Search_Session.origin : Main_values.Main_BeforeSearch;
 
         Main_IconLoad('label_thumb', 'icon-options', STR_THUMB_OPTIONS_TOP);
         Main_ShowElement('label_refresh');
-        Main_SearchInput.value = '';
         Main_HideElement('search_scroll');
+    }
+
+    function Search_BackCancel() {
+        // Back from the form terminates the session at its original caller.
+        Search_exit();
+        Search_SessionEnd();
+        Main_SwitchScreen();
     }
 
     function Search_loadData() {
         Search_exit();
         Main_ready(function () {
+            // Explicit result-type mapping: form button order differs from the shell's result-tab order.
             if (!Search_cursorX) {
                 Screens_init(Main_SearchChannels);
             } else if (Search_cursorX === 1) {
@@ -44153,15 +44559,18 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 if (Main_isControlsDialogVisible()) Main_HideControlsDialog();
                 else if (Main_isAboutDialogVisible()) Main_HideAboutDialog();
                 else {
-                    Search_exit();
-                    Main_SwitchScreen();
+                    Search_BackCancel();
                 }
                 break;
             case KEY_LEFT:
                 if (Search_cursorY === 1) {
-                    Search_cursorX--;
-                    if (Search_cursorX < 0) Search_cursorX = 3;
-                    Search_refreshInputFocusTools();
+                    if (!Search_cursorX) {
+                        // Left from the first type choice reaches Navigation instead of wrapping to the last choice.
+                        Navigation_Open(Search_handleKeyDown, 'rail');
+                    } else {
+                        Search_cursorX--;
+                        Search_refreshInputFocusTools();
+                    }
                 }
                 break;
             case KEY_RIGHT:
@@ -44205,8 +44614,18 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             Search_inputFocus();
         } else {
             if (Main_SearchInput.value !== '' && Main_SearchInput.value !== null) {
+                if (Main_SearchInput.value.replace(/\s/g, '') === '') {
+                    Main_showWarningDialog(STR_SEARCH_EMPTY);
+                    Main_setTimeout(function () {
+                        Main_HideWarningDialog();
+                    }, 1000);
+                    return;
+                }
+                // The submitted query only reaches loaders after validation; the draft stays editable.
+                Search_Session.draft = Main_SearchInput.value;
+                Search_Session.submitted = Main_SearchInput.value;
+                Search_Session.type = Search_cursorX;
                 Main_values.Search_data = Main_SearchInput.value;
-                Main_SearchInput.value = '';
                 Search_loadData();
             } else {
                 Main_showWarningDialog(STR_SEARCH_EMPTY);
@@ -44253,7 +44672,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
     function Search_removeEventListener() {
         if (Main_SearchInput !== null) {
+            // cloneNode does not carry a dirty typed value: preserve the draft across the clone.
+            Search_Session.draft = Main_SearchInput.value;
             var elClone = Main_SearchInput.cloneNode(true);
+            elClone.value = Search_Session.draft;
             Main_SearchInput.parentNode.replaceChild(elClone, Main_SearchInput);
             Main_SearchInput = Main_getElementById('search_input');
         }
@@ -44264,9 +44686,12 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             case KEY_RETURN:
                 if (Main_isAboutDialogVisible()) Main_HideAboutDialog();
                 else if (Main_isControlsDialogVisible()) Main_HideControlsDialog();
-                else {
-                    Search_exit();
-                    Main_SwitchScreen();
+                else if (Search_keyBoardOn) {
+                    // Android Back first dismisses the keyboard and returns to form navigation;
+                    // a text-editing Backspace never exits Search.
+                    Search_KeyboardDismiss();
+                } else {
+                    Search_BackCancel();
                 }
                 break;
             case KEY_KEYBOARD_DONE:
@@ -44560,6 +44985,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         start_user_screen: {
             values: ['no', 'yes'],
             defaultValue: 1
+        },
+        remote_controls: {
+            // Browsing press policy. Missing value (old backups) keeps Legacy semantics.
+            values: ['legacy', 'direct'],
+            defaultValue: 0
         },
         vod_dialog: {
             values: ['last', 'ask', 'start'],
@@ -45262,6 +45692,13 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         //Individual settings
         div += Settings_Content('start_user_screen', array_no_yes, STR_START_AT_USER, STR_START_AT_USER_SUMMARY);
+
+        div += Settings_Content(
+            'remote_controls',
+            [STR_REMOTE_CONTROLS_LEGACY, STR_REMOTE_CONTROLS_DIRECT],
+            STR_REMOTE_CONTROLS,
+            STR_REMOTE_CONTROLS_SUMMARY
+        );
 
         // Player settings title
         div += Settings_DivTitle('play', STR_SETTINGS_PLAYER);
@@ -46366,6 +46803,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     Settings_RemoveInputFocus();
                     Settings_cursorY--;
                     Settings_inputFocus(Settings_cursorY);
+                } else {
+                    // Up from the first ordinary row reaches Navigation; Down returns to the saved setting.
+                    Settings_RemoveInputFocus();
+                    Navigation_Open(Settings_handleKeyDown, 'rail');
                 }
                 break;
             case KEY_DOWN:
@@ -48627,6 +49068,20 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             ' !important;background:' +
             focusSurface +
             ';}' +
+            '.stream_actions_btn{border-color:' +
+            border +
+            ';color:' +
+            TextColor +
+            ';}' +
+            '.stream_actions_btn.stream_actions_focused{border-color:' +
+            focusColor +
+            ' !important;background:' +
+            focusSurface +
+            ' !important;color:' +
+            TextColor +
+            ' !important;box-shadow:' +
+            focusShadow +
+            ' !important;}' +
             '#navigation-shell .navigation-button[aria-current="page"]{color:' +
             focusColor +
             ';}' +
@@ -49970,6 +50425,27 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     /* Presentation focus helpers. No keyboard listener: the current input owner calls Dispatch. */
     var UIFocus_Stack = [];
     var UIFocus_SuppressedKeys = {};
+
+    /* Transfer DOM focus to the restored owner. preventScroll keeps the virtualizer's transform offsets. */
+    function UIFocus_DomFocus(element) {
+        if (!element || !element.focus || document.activeElement === element) return false;
+        try {
+            element.focus({preventScroll: true}); // Old WebViews ignore the option and still focus.
+        } catch (e) {
+            element.focus();
+        }
+        return document.activeElement === element;
+    }
+
+    /* Release DOM focus only when the departing container still holds it; never blur another owner's control. */
+    function UIFocus_DomRelease(container) {
+        var active = document.activeElement;
+        if (container && active && active !== document.body && container.contains(active)) {
+            active.blur();
+            return true;
+        }
+        return false;
+    }
 
     function UIFocus_Push(owner) {
         if (!owner || !owner.id || typeof owner.handle !== 'function') return false;

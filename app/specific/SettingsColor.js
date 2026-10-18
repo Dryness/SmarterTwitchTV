@@ -466,6 +466,20 @@ function SettingsColor_SetAnimationStyle(pos) {
         ' !important;background:' +
         focusSurface +
         ';}' +
+        '.stream_actions_btn{border-color:' +
+        border +
+        ';color:' +
+        TextColor +
+        ';}' +
+        '.stream_actions_btn.stream_actions_focused{border-color:' +
+        focusColor +
+        ' !important;background:' +
+        focusSurface +
+        ' !important;color:' +
+        TextColor +
+        ' !important;box-shadow:' +
+        focusShadow +
+        ' !important;}' +
         '#navigation-shell .navigation-button[aria-current="page"]{color:' +
         focusColor +
         ';}' +

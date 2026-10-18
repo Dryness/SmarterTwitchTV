@@ -33,6 +33,7 @@ const s = {
     Main_innerHTML: (id, value) => calls.push([id, value]),
     Main_UpdateDialogTitle: () => calls.push('title'),
     Main_UpdateDialogSetTitle: () => calls.push('button'),
+    Navigation_SetUpdateBadge: available => calls.push(['badge', available]),
     Main_WarnUpdate: web => calls.push(['warn', web]),
     Main_clearTimeout: id => timers.delete(id),
     Main_setTimeout: (fn, delay) => {
@@ -61,6 +62,7 @@ check(
     calls.some(c => Array.isArray(c) && c[0] === 'label_update' && c[1] === ''),
     'current version clears update label'
 );
+check(calls.some(c => Array.isArray(c) && c[0] === 'badge' && c[1] === false), 'current version clears the rail badge');
 check(s.Main_Ischecking === false, 'successful check releases check state');
 result(390, 749);
 check(s.Main_HasUpdate && !s.Main_IsWebupdate, 'APK update takes precedence over web update');

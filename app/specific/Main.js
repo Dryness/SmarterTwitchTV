@@ -1005,17 +1005,9 @@ function Main_SwitchScreen(removekey, preventRefresh) {
     Main_SaveValues(true);
 }
 
-//var used to allow to search in a search result,
-//without looping over and over when using back
-var OpenSearchBefore;
-
 function Main_OpenSearch() {
-    if (!Main_values.Search_isSearching) {
-        Main_values.Main_BeforeSearch = Main_values.Main_Go;
-        OpenSearchBefore = null;
-    } else {
-        OpenSearchBefore = Main_values.Main_Go;
-    }
+    // One session entry rule: re-entry while a session is active means Edit search.
+    Search_SessionEnter(Main_values.Main_Go);
 
     Main_ExitCurrent(Main_values.Main_Go);
     Main_values.Main_Go = Main_Search;
@@ -1177,6 +1169,7 @@ function Main_CheckUpdateResult(responseText) {
     } else {
         Main_HasUpdate = false;
         Main_IsWebupdate = false;
+        Navigation_SetUpdateBadge(false);
         Main_innerHTML('label_update', '');
         if (Main_isUpdateDialogVisible()) {
             Main_UpdateDialogTitle();
@@ -1187,7 +1180,7 @@ function Main_CheckUpdateResult(responseText) {
     Main_UpdateDialogSetTitle();
 }
 
-function Main_WarnUpdate(web, skipShowUpdateDialog) {
+function Main_WarnUpdate(web) {
     Main_innerHTML(
         'label_update',
         '<div style="vertical-align: middle; display: inline-block;"><i class="icon-' +
@@ -1199,10 +1192,12 @@ function Main_WarnUpdate(web, skipShowUpdateDialog) {
             '</div>'
     );
 
+    // Update availability is passive: a badge on the rail's Updates entry. The dialog itself
+    // only ever opens from an explicit press; it is never popped up automatically.
+    Navigation_SetUpdateBadge(true);
+
     if (Main_isUpdateDialogVisible()) {
         Main_UpdateDialogTitle();
-    } else if (!Settings_value.update_show.defaultValue && !skipShowUpdateDialog) {
-        Main_showUpdateDialog();
     } else if (!Main_update_show_toast && Settings_value.update_show.defaultValue === 1) {
         var updateString = (web ? STR_WEB_UPDATE_AVAILABLE : STR_UPDATE_AVAILABLE) + STR_UPDATE_CHECK_SIDE;
 
@@ -1853,6 +1848,7 @@ function Main_removeFocus(id, idArray) {
 
     Main_RemoveClass(idArray[1] + id, 'opacity_zero');
     Main_RemoveClass(idArray[0] + id, Main_classThumb);
+    Main_RemoveClass(idArray[0] + id + '_actions', Screens_ActionsClass);
 }
 
 // stylesheet[i].cssRules or stylesheet[i].rules is blocked in chrome
@@ -3249,6 +3245,56 @@ function Main_addEventListener(type, fun) {
 function Main_removeEventListener(type, fun) {
     Main_body.removeEventListener(type, UIFocus_Listener(type, fun));
 }
+
+/* One persistent wrapped key-up listener: held-key suppression is released by the physical
+ * key release instead of depending on a transient hold flow that happens to listen for it. */
+function Main_KeyUpFocusRelease() {}
+Main_addEventListener('keyup', Main_KeyUpFocusRelease);
+
+/* True when an ordinary content screen should own the keys: scene1 visible and no overlay,
+ * dialog, side panel or editor has taken input. */
+function Main_GridOwnsInput() {
+    return (
+        Main_isScene1DocVisible() &&
+        !Navigation_Region &&
+        !UIFocus_Stack.length &&
+        !Sidepannel_isShowingUserLive() &&
+        !Sidepannel_isShowingMenus() &&
+        !Main_isControlsDialogVisible() &&
+        !Main_isAboutDialogVisible() &&
+        !Main_isElementShowing('dialog_thumb_opt') &&
+        !Main_isElementShowing('yes_no_dialog') &&
+        !Main_isElementShowing('search_scroll') &&
+        !Main_isElementShowing('add_user_scroll') &&
+        !Settings_isVisible()
+    );
+}
+
+/* A hold press that loses its key-up (the window blurred or was hidden mid-press) must not
+ * leave the current screen without its key handler or with a permanently suppressed key.
+ * Restore a clean ownership state; re-registering an already registered handler is a no-op. */
+function Main_KeyOwnershipReset() {
+    var key;
+    for (key in UIFocus_SuppressedKeys) delete UIFocus_SuppressedKeys[key];
+    Main_clearTimeout(Screens_KeyEnterID);
+    Main_clearTimeout(ChannelContent_KeyEnterID);
+    if (Main_values.Main_Go === Main_ChannelContent) {
+        if (Main_GridOwnsInput()) {
+            Main_removeEventListener('keyup', ChannelContent_handleKeyUp);
+            Main_addEventListener('keydown', ChannelContent_handleKeyDown);
+        }
+        return;
+    }
+    var obj = ScreenObj[Main_values.Main_Go];
+    if (obj && obj.key_up && obj.key_fun && Main_GridOwnsInput()) {
+        Main_removeEventListener('keyup', obj.key_up); // disarm the hold release without activating it
+        Main_addEventListener('keydown', obj.key_fun);
+    }
+}
+window.addEventListener('blur', Main_KeyOwnershipReset);
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) Main_KeyOwnershipReset();
+});
 
 function Main_setTimeout(fun, timeout, id) {
     Main_clearTimeout(id);
