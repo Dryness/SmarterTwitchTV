@@ -24,8 +24,15 @@ var version = {
     publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
     WebVersion: 'October 19 2026',
-    WebTag: 753, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 754, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 19 2026 (Web 754)',
+            changes: [
+                'Browsing: going back up a grid keeps the focused card on screen, including near the end of a list and on short lists such as followed live channels',
+                'Browsing: OK opens the focused stream as soon as it is pressed; holding it no longer refreshes the screen (use Refresh or key 2)'
+            ]
+        },
         {
             title: 'October 19 2026 (Web 753)',
             changes: [

@@ -1893,12 +1893,9 @@ function Screens_addrow(forceScroll, y, key, forceAfterDelete) {
                 );
             }
         } else {
-            Main_setTimeout(
-                function () {
-                    Screens_LoadPreview(key);
-                },
-                y ? 0 : Screens_ScrollAnimationTimeout
-            );
+            // No row two below to shift out (the end of the list, or a short list): the window
+            // shift above does not apply, so rebuild the window around the focused row.
+            Screens_addrowWindow(y, key);
         }
     } else Screens_LoadPreview(key);
 
@@ -1914,20 +1911,28 @@ function Screens_SetWindowOffset(y, key) {
     ScreenObj[key].ScrollDoc.style.transform = y > 0 ? 'translateY(-' + ScreenObj[key].offsettop + 'em)' : '';
 }
 
-/* End of the loaded rows: no row below to shift in, but the focused row must still take
- * the fully visible slot instead of resting under the bottom band. */
-function Screens_addrowEndWindow(y, key) {
-    var i;
-    for (i = -1; i <= 0; i++) {
-        if (ScreenObj[key].Cells[y + i]) {
-            ScreenObj[key].Cells[y + i].style.transition = 'none';
-            ScreenObj[key].Cells[y + i].style.transform = 'translateY(' + (i + 1) * ScreenObj[key].offsettop + 'em)';
-            if (ScreenObj[key].Cells[y + i].parentNode !== ScreenObj[key].tableDoc) ScreenObj[key].tableDoc.appendChild(ScreenObj[key].Cells[y + i]);
+/* Lay the row window out directly around the focused row, without the incremental shift:
+ * rows first..first+2 sit in slots 0..2, where first is the row above the focused one (or row 0),
+ * matching Screens_SetWindowOffset so the focused row rests in the fully visible top slot.
+ * Used where the incremental shift has no row to bring in or push out (end of the list, short
+ * lists). Every other attached row is detached. */
+function Screens_addrowWindow(y, key) {
+    var cells = ScreenObj[key].Cells,
+        table = ScreenObj[key].tableDoc,
+        first = Math.max(y - 1, 0),
+        len = cells.length,
+        i;
+    for (i = 0; i < len; i++) {
+        if ((i < first || i > first + 2) && cells[i] && cells[i].parentNode === table) Main_RemoveElement(cells[i]);
+    }
+    for (i = 0; i < 3; i++) {
+        if (cells[first + i]) {
+            cells[first + i].style.transition = 'none';
+            cells[first + i].style.transform = 'translateY(' + i * ScreenObj[key].offsettop + 'em)';
+            // Appending in order keeps the DOM order of the window (a switches row stays first).
+            table.appendChild(cells[first + i]);
         }
     }
-    Main_RemoveElement(ScreenObj[key].Cells[y - 2]);
-    Main_RemoveElement(ScreenObj[key].Cells[y + 1]);
-    Main_RemoveElement(ScreenObj[key].Cells[y + 2]);
     Screens_LoadPreview(key);
 }
 
@@ -1969,7 +1974,7 @@ function Screens_addrowDown(y, key) {
         }, 10);
     } else if (y > 1) {
         // End of the loaded rows: the focused row still takes the fully visible slot.
-        Screens_addrowEndWindow(y, key);
+        Screens_addrowWindow(y, key);
     } else {
         Main_setTimeout(
             function () {
@@ -2559,17 +2564,12 @@ function Screens_handleKeyDown(key, event) {
             ScreenObj[key].key_play();
             break;
         case KEY_ENTER:
-            if (Screens_DirectInputMode()) {
-                // Direct OK activates once on key-down; repeats and the release stay suppressed
-                // until the physical key is released (the persistent key-up listener clears it).
-                UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
-                ScreenObj[key].key_play();
-                break;
-            }
-            Main_removeEventListener('keydown', ScreenObj[key].key_fun);
-            Main_addEventListener('keyup', ScreenObj[key].key_up);
-            Screens_clear = false;
-            Screens_KeyEnterID = Main_setTimeout(Main_ReloadScreen, Screens_KeyUptimeout, Screens_KeyEnterID);
+            // OK watches (or opens the focused Actions target) once, on key-down, in both remote
+            // modes: a slow press must not turn into the old hold-to-refresh. Repeats and the release
+            // stay suppressed until the physical key is released (the persistent key-up listener
+            // clears it). Refresh stays on the Refresh button and key 2.
+            UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
+            ScreenObj[key].key_play();
             break;
         case KEY_MEDIA_NEXT:
         case KEY_NUMPAD_2:

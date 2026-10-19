@@ -2442,7 +2442,7 @@
         STR_EDIT_SEARCH = 'Edit search';
         STR_REMOTE_CONTROLS = 'Browsing remote controls';
         STR_REMOTE_CONTROLS_SUMMARY =
-            'Legacy keeps the hold shortcuts: hold Left opens options and hold OK refreshes. Direct moves on each press and watches on an immediate OK; open options with the card Actions button.';
+            'OK always watches immediately. Legacy keeps the hold shortcut: hold Left opens options. Direct moves on each press; open options with the card Actions button.';
         STR_REMOTE_CONTROLS_LEGACY = 'Legacy';
         STR_REMOTE_CONTROLS_DIRECT = 'Direct (immediate)';
 
@@ -8349,8 +8349,15 @@
         publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
         WebVersion: 'October 19 2026',
-        WebTag: 753, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebTag: 754, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 19 2026 (Web 754)',
+                changes: [
+                    'Browsing: going back up a grid keeps the focused card on screen, including near the end of a list and on short lists such as followed live channels',
+                    'Browsing: OK opens the focused stream as soon as it is pressed; holding it no longer refreshes the screen (use Refresh or key 2)'
+                ]
+            },
             {
                 title: 'October 19 2026 (Web 753)',
                 changes: [
@@ -38383,12 +38390,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     );
                 }
             } else {
-                Main_setTimeout(
-                    function () {
-                        Screens_LoadPreview(key);
-                    },
-                    y ? 0 : Screens_ScrollAnimationTimeout
-                );
+                // No row two below to shift out (the end of the list, or a short list): the window
+                // shift above does not apply, so rebuild the window around the focused row.
+                Screens_addrowWindow(y, key);
             }
         } else Screens_LoadPreview(key);
 
@@ -38404,21 +38408,28 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         ScreenObj[key].ScrollDoc.style.transform = y > 0 ? 'translateY(-' + ScreenObj[key].offsettop + 'em)' : '';
     }
 
-    /* End of the loaded rows: no row below to shift in, but the focused row must still take
-     * the fully visible slot instead of resting under the bottom band. */
-    function Screens_addrowEndWindow(y, key) {
-        var i;
-        for (i = -1; i <= 0; i++) {
-            if (ScreenObj[key].Cells[y + i]) {
-                ScreenObj[key].Cells[y + i].style.transition = 'none';
-                ScreenObj[key].Cells[y + i].style.transform = 'translateY(' + (i + 1) * ScreenObj[key].offsettop + 'em)';
-                if (ScreenObj[key].Cells[y + i].parentNode !== ScreenObj[key].tableDoc)
-                    ScreenObj[key].tableDoc.appendChild(ScreenObj[key].Cells[y + i]);
+    /* Lay the row window out directly around the focused row, without the incremental shift:
+     * rows first..first+2 sit in slots 0..2, where first is the row above the focused one (or row 0),
+     * matching Screens_SetWindowOffset so the focused row rests in the fully visible top slot.
+     * Used where the incremental shift has no row to bring in or push out (end of the list, short
+     * lists). Every other attached row is detached. */
+    function Screens_addrowWindow(y, key) {
+        var cells = ScreenObj[key].Cells,
+            table = ScreenObj[key].tableDoc,
+            first = Math.max(y - 1, 0),
+            len = cells.length,
+            i;
+        for (i = 0; i < len; i++) {
+            if ((i < first || i > first + 2) && cells[i] && cells[i].parentNode === table) Main_RemoveElement(cells[i]);
+        }
+        for (i = 0; i < 3; i++) {
+            if (cells[first + i]) {
+                cells[first + i].style.transition = 'none';
+                cells[first + i].style.transform = 'translateY(' + i * ScreenObj[key].offsettop + 'em)';
+                // Appending in order keeps the DOM order of the window (a switches row stays first).
+                table.appendChild(cells[first + i]);
             }
         }
-        Main_RemoveElement(ScreenObj[key].Cells[y - 2]);
-        Main_RemoveElement(ScreenObj[key].Cells[y + 1]);
-        Main_RemoveElement(ScreenObj[key].Cells[y + 2]);
         Screens_LoadPreview(key);
     }
 
@@ -38460,7 +38471,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             }, 10);
         } else if (y > 1) {
             // End of the loaded rows: the focused row still takes the fully visible slot.
-            Screens_addrowEndWindow(y, key);
+            Screens_addrowWindow(y, key);
         } else {
             Main_setTimeout(
                 function () {
@@ -39055,17 +39066,12 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 ScreenObj[key].key_play();
                 break;
             case KEY_ENTER:
-                if (Screens_DirectInputMode()) {
-                    // Direct OK activates once on key-down; repeats and the release stay suppressed
-                    // until the physical key is released (the persistent key-up listener clears it).
-                    UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
-                    ScreenObj[key].key_play();
-                    break;
-                }
-                Main_removeEventListener('keydown', ScreenObj[key].key_fun);
-                Main_addEventListener('keyup', ScreenObj[key].key_up);
-                Screens_clear = false;
-                Screens_KeyEnterID = Main_setTimeout(Main_ReloadScreen, Screens_KeyUptimeout, Screens_KeyEnterID);
+                // OK watches (or opens the focused Actions target) once, on key-down, in both remote
+                // modes: a slow press must not turn into the old hold-to-refresh. Repeats and the release
+                // stay suppressed until the physical key is released (the persistent key-up listener
+                // clears it). Refresh stays on the Refresh button and key 2.
+                UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
+                ScreenObj[key].key_play();
                 break;
             case KEY_MEDIA_NEXT:
             case KEY_NUMPAD_2:

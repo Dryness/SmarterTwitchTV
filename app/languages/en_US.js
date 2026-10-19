@@ -1030,7 +1030,7 @@ function en_USLang() {
     STR_EDIT_SEARCH = 'Edit search';
     STR_REMOTE_CONTROLS = 'Browsing remote controls';
     STR_REMOTE_CONTROLS_SUMMARY =
-        'Legacy keeps the hold shortcuts: hold Left opens options and hold OK refreshes. Direct moves on each press and watches on an immediate OK; open options with the card Actions button.';
+        'OK always watches immediately. Legacy keeps the hold shortcut: hold Left opens options. Direct moves on each press; open options with the card Actions button.';
     STR_REMOTE_CONTROLS_LEGACY = 'Legacy';
     STR_REMOTE_CONTROLS_DIRECT = 'Direct (immediate)';
 

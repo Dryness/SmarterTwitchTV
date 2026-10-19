@@ -32,6 +32,7 @@ node release/scripts/phonechat-tests.js          # phone logic and mock DOM; add
 node release/scripts/update-tests.js
 node release/scripts/phonechat-collector-tests.js
 node release/scripts/chat-optimization-tests.js # TV scheduler/cache with fake clock
+node release/scripts/grid-window-tests.js        # browse grid row window; add --built for generated bundle
 node release/scripts/request-dispatcher-tests.js # production dispatcher, JDK 8+ (--release 8)
 node release/scripts/phonechat-server-tests.js   # local server integration, JDK 17+ and Android SDK 35
 ```
