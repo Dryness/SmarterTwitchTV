@@ -659,6 +659,11 @@ var Settings_value = {
         values: ['no', 'yes', 'grey'],
         defaultValue: 3
     },
+    raid_switch: {
+        //Migrated to dialog
+        values: ['no', 'auto'],
+        defaultValue: 2
+    },
     show_chatters: {
         //Migrated to dialog
         values: ['no', 'chatters', 'viewers'],
@@ -3184,8 +3189,15 @@ function Settings_PlayerEnd(click) {
     Settings_value.play_stay.values = yes_no;
     Settings_value.clip_autoPlayNext.values = yes_no;
     Settings_value.end_dialog_counter.values[0] = STR_END_DIALOG_DISABLE;
+    Settings_value.raid_switch.values = [STR_NO, STR_RAID_AUTO];
 
     var obj = {
+        raid_switch: {
+            defaultValue: Settings_value.raid_switch.defaultValue,
+            values: Settings_value.raid_switch.values,
+            title: STR_RAID_FOLLOW,
+            summary: STR_RAID_FOLLOW_SUMMARY
+        },
         open_host: {
             defaultValue: Settings_value.open_host.defaultValue,
             values: Settings_value.open_host.values,

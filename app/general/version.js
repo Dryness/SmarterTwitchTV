@@ -24,8 +24,14 @@ var version = {
     publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
     WebVersion: 'October 19 2026',
-    WebTag: 755, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 756, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 19 2026 (Web 756)',
+            changes: [
+                'Player: raids are followed automatically — when the watched streamer raids, the player switches to the raided channel; disable under Settings › End dialog options › Follow raids (requires login)'
+            ]
+        },
         {
             title: 'October 19 2026 (Web 755)',
             changes: [

@@ -888,6 +888,7 @@ function Play_loadDataSuccessEnd(playlist, startChat, SkipSaveHistory) {
         Play_UpdateMainStreamDiv();
     }
     Play_UpdateMainStream(startChat, true);
+    PlayRaid_SetChannel(Play_data.data[14]);
 
     Play_data.playlist = playlist;
     if (Play_isOn) Play_onPlayer();
@@ -1380,6 +1381,7 @@ function Play_shutdownStream() {
 
     if (Play_isOn) {
         Play_PreshutdownStream(true);
+        PlayRaid_Close();
         Main_values.Play_WasPlaying = 0;
         Play_exitMain();
         Play_data = JSON.parse(JSON.stringify(Play_data_base));

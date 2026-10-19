@@ -770,6 +770,11 @@ function en_USLang() {
         'What to do when a message or a user is deleted from chat. Yes replaces the message with a deletion notice, No keeps it with a deletion note on a blue background, Keep greyed out keeps it on screen faded.';
     STR_CHAT_CLEAR_MSG_GREY = 'Keep greyed out';
     STR_OPEN_HOST_SETTINGS = 'Always open the hosted live at the end of the stream if available';
+    STR_RAID_FOLLOW = 'Follow raids';
+    STR_RAID_FOLLOW_SUMMARY =
+        'When the watched streamer raids another channel, switch the player to the raided channel. Works in single-stream live playback and requires being logged in.';
+    STR_RAID_AUTO = 'Switch automatically';
+    STR_RAID_SWITCHING = ' is raiding, switching to ';
     STR_ALWAYS_STAY = 'Always stay with the player opened after a live ends';
     STR_PING_WARNING = "Show 'Ping to Twitch fail' warning";
     STR_PING_WARNING_SUMMARY =
