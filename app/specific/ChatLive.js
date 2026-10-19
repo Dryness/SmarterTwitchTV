@@ -1819,6 +1819,12 @@ function ChatLive_CheckIfSubSend(message, chat_number, isSub) {
     });
 }
 
+//Hoisted to prevent regex recompilation on every message, some old webviews
+//don't cache regex literals, same reason as the hoisted regexes on twemoji.js
+var ChatLive_ActionRegex = /^\x01ACTION.*\x01$/,
+    ChatLive_ActionStartRegex = /^\x01ACTION/,
+    ChatLive_ActionEndRegex = /\x01$/;
+
 function ChatLive_GetTimeStamp(time) {
     var date = new Date(parseInt(time) + Main_ClockOffset);
 
@@ -1889,13 +1895,13 @@ function ChatLive_loadChatSuccess(message, chat_number, addToStart) {
 
     //Add message
 
-    if (/^\x01ACTION.*\x01$/.test(mmessage)) {
+    if (ChatLive_ActionRegex.test(mmessage)) {
         if (!ChatLive_Highlight_Actions) return;
 
         action = true;
         mmessage = mmessage
-            .replace(/^\x01ACTION/, '')
-            .replace(/\x01$/, '')
+            .replace(ChatLive_ActionStartRegex, '')
+            .replace(ChatLive_ActionEndRegex, '')
             .trim();
     }
 

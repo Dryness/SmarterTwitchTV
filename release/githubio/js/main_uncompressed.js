@@ -8360,8 +8360,14 @@
         publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
         WebVersion: 'October 19 2026',
-        WebTag: 756, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebTag: 757, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 19 2026 (Web 757)',
+                changes: [
+                    'Performance: chat messages and titles made only of plain text skip the emoji scan, busier chats render with less work — the biggest gain is on older TVs'
+                ]
+            },
             {
                 title: 'October 19 2026 (Web 756)',
                 changes: [
@@ -14767,6 +14773,12 @@
         });
     }
 
+    //Hoisted to prevent regex recompilation on every message, some old webviews
+    //don't cache regex literals, same reason as the hoisted regexes on twemoji.js
+    var ChatLive_ActionRegex = /^\x01ACTION.*\x01$/,
+        ChatLive_ActionStartRegex = /^\x01ACTION/,
+        ChatLive_ActionEndRegex = /\x01$/;
+
     function ChatLive_GetTimeStamp(time) {
         var date = new Date(parseInt(time) + Main_ClockOffset);
 
@@ -14837,14 +14849,11 @@
 
         //Add message
 
-        if (/^\x01ACTION.*\x01$/.test(mmessage)) {
+        if (ChatLive_ActionRegex.test(mmessage)) {
             if (!ChatLive_Highlight_Actions) return;
 
             action = true;
-            mmessage = mmessage
-                .replace(/^\x01ACTION/, '')
-                .replace(/\x01$/, '')
-                .trim();
+            mmessage = mmessage.replace(ChatLive_ActionStartRegex, '').replace(ChatLive_ActionEndRegex, '').trim();
         }
 
         if (ChatLive_Highlight_AtStreamer && ChatLive_Channel_Regex_Search[chat_number].test(mmessage)) {
@@ -55175,10 +55184,6 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         );
     }
 
-    function mescape(message) {
-        return message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
     function extraMessageTokenize(message, chat_number, bits, previewsEmote) {
         var SplittedMessage = message.split(' '),
             retArray = [],
@@ -55209,7 +55214,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 } else if (emote) {
                     retArray.push(emote.chat_div);
                 } else {
-                    retArray.push(!i && skipEscape ? SplittedMessage[i] : twemoji.parse(mescape(SplittedMessage[i]), true, true));
+                    //parse with dontremove false escapes html itself, mescape is not needed before it
+                    retArray.push(!i && skipEscape ? SplittedMessage[i] : twemoji.parse(SplittedMessage[i], false, true));
                 }
             }
         }
@@ -58200,6 +58206,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             // avoid runtime RegExp creation for not so smart,
             // not JIT based, and old browsers / engines
             UFE0Fg = /\uFE0F/g,
+            // fast path test, chat messages and titles are mostly plain ASCII,
+            // and every alternative of the emoji re requires at least one
+            // non ASCII code unit, same for the sequences removed in parse
+            PRINTABLE_ASCII = /^[\x20-\x7E]*$/,
             // avoid using a string literal like '\u200D' here because minifiers expand it inline
             U200D = String.fromCharCode(0x200d),
             //https://www.compart.com/en/unicode/U+E0002
@@ -58244,6 +58254,14 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         function parse(str, dontremove, emoticon) {
             if (!str || typeof str !== 'string') return str + '';
+
+            //Printable ASCII only text can't match the emoji re nor contain the
+            //sequences removed below, so only the html escape of !dontremove applies
+            if (PRINTABLE_ASCII.test(str)) {
+                if (dontremove || (str.indexOf('<') < 0 && str.indexOf('>') < 0)) return str;
+
+                return str.replace(ltg, '&lt;').replace(bgg, '&gt;');
+            }
 
             //Twitch title may contain < or > with causes html problems
             if (!dontremove) str = str.replace(ltg, '&lt;').replace(bgg, '&gt;');

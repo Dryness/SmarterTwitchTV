@@ -129,6 +129,10 @@ var twemoji = (function () /*! Copyright Twitter Inc. and other contributors. Li
         // avoid runtime RegExp creation for not so smart,
         // not JIT based, and old browsers / engines
         UFE0Fg = /\uFE0F/g,
+        // fast path test, chat messages and titles are mostly plain ASCII,
+        // and every alternative of the emoji re requires at least one
+        // non ASCII code unit, same for the sequences removed in parse
+        PRINTABLE_ASCII = /^[\x20-\x7E]*$/,
         // avoid using a string literal like '\u200D' here because minifiers expand it inline
         U200D = String.fromCharCode(0x200d),
         //https://www.compart.com/en/unicode/U+E0002
@@ -173,6 +177,14 @@ var twemoji = (function () /*! Copyright Twitter Inc. and other contributors. Li
 
     function parse(str, dontremove, emoticon) {
         if (!str || typeof str !== 'string') return str + '';
+
+        //Printable ASCII only text can't match the emoji re nor contain the
+        //sequences removed below, so only the html escape of !dontremove applies
+        if (PRINTABLE_ASCII.test(str)) {
+            if (dontremove || (str.indexOf('<') < 0 && str.indexOf('>') < 0)) return str;
+
+            return str.replace(ltg, '&lt;').replace(bgg, '&gt;');
+        }
 
         //Twitch title may contain < or > with causes html problems
         if (!dontremove) str = str.replace(ltg, '&lt;').replace(bgg, '&gt;');

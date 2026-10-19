@@ -39,10 +39,6 @@ function emoteTemplate(url, srcset) {
     );
 }
 
-function mescape(message) {
-    return message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 function extraMessageTokenize(message, chat_number, bits, previewsEmote) {
     var SplittedMessage = message.split(' '),
         retArray = [],
@@ -73,7 +69,8 @@ function extraMessageTokenize(message, chat_number, bits, previewsEmote) {
             } else if (emote) {
                 retArray.push(emote.chat_div);
             } else {
-                retArray.push(!i && skipEscape ? SplittedMessage[i] : twemoji.parse(mescape(SplittedMessage[i]), true, true));
+                //parse with dontremove false escapes html itself, mescape is not needed before it
+                retArray.push(!i && skipEscape ? SplittedMessage[i] : twemoji.parse(SplittedMessage[i], false, true));
             }
         }
     }
