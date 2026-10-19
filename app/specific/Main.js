@@ -1634,6 +1634,7 @@ function Main_showScene2Doc() {
 function Main_hideScene2Doc() {
     PlayerUI_State.suspended = false;
     PlayerUI_Close(false);
+    PlayerUI_ResetPaused();
     Main_Scene2Doc.style.opacity = 0;
 
     Main_Scene2Doc.style.pointerEvents = 'none';
@@ -1657,7 +1658,7 @@ function Main_OPenAsVod(historyPos) {
 
     Play_data.data[3] = Main_values_Play_data[3];
     if (Play_data.data[3] === null) Play_data.data[3] = '';
-    ChannelVod_game = Play_data.data[3] ? STR_PLAYING + Play_data.data[3] : '';
+    ChannelVod_game = Play_data.data[3] ? Play_data.data[3] : '';
 
     Play_DurationSeconds = 0;
 
@@ -1727,7 +1728,7 @@ function Main_OpenClip(data, id, idsArray, handleKeyDownFunction, screen) {
 
     Play_data.data[3] = Main_values_Play_data[3];
     if (Play_data.data[3] === null) Play_data.data[3] = '';
-    ChannelClip_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? STR_PLAYING + Play_data.data[3] : '';
+    ChannelClip_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? Play_data.data[3] : '';
     ChannelClip_game_Id = Main_values_Play_data[18];
 
     if (ChannelClip_game_Id) {
@@ -1774,7 +1775,7 @@ function Main_OpenVodStart(data, id, idsArray, handleKeyDownFunction, screen) {
 
     Play_data.data[3] = Main_values_Play_data[3];
     if (Play_data.data[3] === null) Play_data.data[3] = '';
-    ChannelVod_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? STR_STARTED + STR_PLAYING + Play_data.data[3] : '';
+    ChannelVod_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? Play_data.data[3] : '';
     ChannelVod_views = Main_values_Play_data[4];
 
     if (Main_values_Play_data[16]) {

@@ -327,7 +327,10 @@ function OSInterface_mSwitchPlayerPosition(mPicturePicturePosition) {
 //Android specific: true
 //Allows to get the stream data, that if called from JS will fail do to CORS error
 function OSInterface_RestartPlayer(who_called, ResumePosition, player) {
-    if (Main_IsOn_OSInterface) Android.RestartPlayer(who_called, ResumePosition, player);
+    if (Main_IsOn_OSInterface) {
+        Android.RestartPlayer(who_called, ResumePosition, player);
+        if (!player) PlayerUI_ResetPaused(); // the restarted main player plays
+    }
 }
 
 //public void StartAuto(String uri, String mainPlaylistString, int who_called, long ResumePosition, int player)
@@ -344,6 +347,7 @@ function OSInterface_StartAuto(uri, mainPlaylistString, who_called, ResumePositi
     }
 
     Android.StartAuto(uri, mainPlaylistString, who_called, ResumePosition, player);
+    if (!player) PlayerUI_ResetPaused(); // a started main player plays
 }
 
 //public void ReuseFeedPlayer(String uri, String mainPlaylistString, int who_called, long ResumePosition, int player)
@@ -360,6 +364,7 @@ function OSInterface_ReuseFeedPlayer(uri, mainPlaylistString, who_called, Resume
     }
 
     Android.ReuseFeedPlayer(uri, mainPlaylistString, who_called, ResumePosition, player);
+    if (!player) PlayerUI_ResetPaused(); // the reused feed becomes the playing main player
 }
 
 //public void ReuseFeedPlayerPrepare(String uri, String mainPlaylistString, int who_called, long ResumePosition, int player)

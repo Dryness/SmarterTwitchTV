@@ -35,6 +35,20 @@ Drawers use one vertical selection column. Chat on phone is the first Chat actio
 to its originating row; the switcher cancels without changing playback. Preserve mode-specific
 shortcuts through the legacy handler whenever the new layer does not own the event.
 
+Player composition (Web 753): OK that reveals the bar never toggles playback; the next OK does. The
+diagnostics HUD is hidden by default (viewer opt-in through More › Diagnostics). The info block shows
+the avatar inside the safe area, the channel name with a labelled LIVE/VOD/CLIP badge, a one-line
+title with ellipsis, and one secondary line `Game · Live for … · N viewers · Watching …`. The bar
+caption reads `Quality · <rendition>` and shows `Paused` on the right while paused; bar buttons carry
+icons and group as `[Play]  [Chat][Quality][Layout] … [More][Channels]`. The timeline lives inside the
+bar card where visible; a paused chip stays bottom-left once the bar hides. Quality is a list of
+renditions with the playing one checked; picking it returns to the bar without restarting. While a
+drawer is open, the bar button that opened it keeps an underline, the rest of the bar recedes, groups
+opened from More carry a `More › …` breadcrumb, the drawer's help line matches its controls, and rows
+clipped above or below get fade hints. Spinner rows show `◂ value ▸` with the bright arrow on the
+in-bounds side. The channel switcher uses the outline focus treatment and a tab underline instead of
+a glow or scale.
+
 ## Geometry and interaction rules
 
 Keep at least 4.5–5% safe margins around primary content. At the 1080p reference, labels are roughly

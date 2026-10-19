@@ -426,8 +426,21 @@ function SettingsColor_SetAnimationStyle(pos) {
         //Layered focus: tight accent edge + soft glow + depth shadow, never scales the card
         //(scroll math and the native preview overlay read live getBoundingClientRect())
         focusShadow = '0 0 0 0.05em ' + glow + ',0 0 0.7em 0.1em ' + glow + ',0 0.35em 1em rgba(0,0,0,0.5)',
+        surface = pos === 0 ? '#1e1b25' : background,
+        focusColor = pos === 0 ? '#bca0ff' : border === background ? TextColor : border,
+        focusSurface = pos === 0 ? '#30253f' : background,
         cssClass =
-            '.feed_thumbnail_focused_no_ani,.feed_thumbnail_focused,.stream_thumbnail_focused_no_ani,.stream_thumbnail_focused {background-color:' +
+            //Switcher cards use the overlay focus look: outline, no glow.
+            '.feed_thumbnail_focused_no_ani,.feed_thumbnail_focused {background-color:' +
+            background +
+            ' !important;color:' +
+            TextColor +
+            ' !important;border-color:' +
+            border +
+            ' !important;box-shadow:none !important;outline:0.1em solid ' +
+            focusColor +
+            ';outline-offset:0.05em;}' +
+            '.stream_thumbnail_focused_no_ani,.stream_thumbnail_focused {background-color:' +
             background +
             ' !important;color:' +
             TextColor +
@@ -448,20 +461,17 @@ function SettingsColor_SetAnimationStyle(pos) {
         (animate ? 'transition: width 1s linear;' : '') +
         '}';
 
-    var surface = pos === 0 ? '#1e1b25' : background,
-        focusColor = pos === 0 ? '#bca0ff' : border === background ? TextColor : border,
-        focusSurface = pos === 0 ? '#30253f' : background;
     cssClass +=
         '#navigation-shell,#navigation-onboarding,#player-ui{color:' +
         TextColor +
         ';}' +
-        '#navigation-shell .navigation-rail,#player-ui .player-ui-bar,#player-ui .player-ui-drawer{background:' +
+        '#navigation-shell .navigation-rail,#player-ui .player-ui-bar,#player-ui .player-ui-drawer,#player-ui-paused{background:' +
         surface +
         ';}' +
         '#navigation-onboarding,#navigation-shell #navigation-status{background:' +
         background +
         ';}' +
-        '#navigation-shell .navigation-focused,#player-ui .player-ui-focused{outline-color:' +
+        '#navigation-shell .navigation-focused,#player-ui .player-ui-focused,#progress_bar_div.progress_bar_div_focus{outline-color:' +
         focusColor +
         ' !important;background:' +
         focusSurface +
@@ -480,7 +490,10 @@ function SettingsColor_SetAnimationStyle(pos) {
         ' !important;box-shadow:' +
         focusShadow +
         ' !important;}' +
-        '#navigation-shell .navigation-button[aria-current="page"]{color:' +
+        '#navigation-shell .navigation-button[aria-current="page"],#player-ui-menu .player-ui-current{color:' +
+        focusColor +
+        ';}' +
+        '#player-ui-buttons .player-ui-origin{box-shadow:inset 0 -0.12em 0 ' +
         focusColor +
         ';}' +
         '#navigation-shell #navigation-tabs [aria-selected="true"]{box-shadow:0 0.12em 0 ' +

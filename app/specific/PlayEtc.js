@@ -189,18 +189,13 @@ function Play_GetVolLevel(pos) {
 
 function Play_ResetLowlatency() {
     Play_A_Control(Play_LowLatency, Play_controlsLowLatency);
-    Main_textContentWithEle(
-        Play_controls[Play_controlsLowLatency].doc_title,
-        STR_LOWLATENCY_ENABLE_ARRAY[Play_controls[Play_controlsLowLatency].defaultValue]
-    );
+    // The summary line already names the mode; the title is the setting name only.
+    Main_textContentWithEle(Play_controls[Play_controlsLowLatency].doc_title, STR_LOW_LATENCY);
 }
 
 function Play_ResetSpeed() {
     Play_A_Control(Play_CurrentSpeed, Play_controlsSpeed);
-    Main_textContentWithEle(
-        Play_controls[Play_controlsSpeed].doc_title,
-        STR_SPEED + ' - ' + Play_controls[Play_controlsSpeed].values[Play_controls[Play_controlsSpeed].defaultValue] + 'x'
-    );
+    Main_textContentWithEle(Play_controls[Play_controlsSpeed].doc_title, STR_SPEED);
 }
 
 // function Play_ResetProxy() {
@@ -1322,6 +1317,10 @@ function Play_PlayPauseChange(State, PlayVodClip) {
     }
 
     PlayerUI_State.paused = !State;
+    if (PlayerUI_State.paused) {
+        Main_ShowElement('player-ui-paused');
+        Main_textContent('player-ui-paused-text', STR_UI.paused);
+    } else Main_HideElement('player-ui-paused');
     Main_innerHTMLWithEle(Play_BottonIcons_Pause, Play_GetPlayPauseIcon(State));
     if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_Render();
     Play_showWarningMiddleDialog(Play_GetPlayPauseIcon(!State), 500);
@@ -2891,15 +2890,14 @@ function Play_MakeControls() {
             Play_ResetPanel(PlayVodClip);
         },
         setLabel: function () {
-            var title = Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
-            if (PlayExtra_PicturePicture) title = Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
+            var current = Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
+            if (PlayExtra_PicturePicture) current = Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
+            var next = !Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
+            if (PlayExtra_PicturePicture) next = !Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
 
-            Main_textContentWithEle(Play_controls[this.position].doc_title, STR_CHAT_VIDEO_MODE + ' - ' + title);
+            Main_textContentWithEle(Play_controls[this.position].doc_title, STR_CHAT_VIDEO_MODE);
 
-            title = !Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
-            if (PlayExtra_PicturePicture) title = !Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
-
-            Main_textContent('controls_text_summary_' + this.position, STR_PRESS_ENTER_TO_CHANGE + title);
+            Main_textContent('controls_text_summary_' + this.position, current + STR_UI.separator + STR_UI.switchTo + next);
 
             if (Play_controls[Play_controlsChat].position) Play_controls[Play_controlsChat].setLabel();
         },
@@ -2951,7 +2949,7 @@ function Play_MakeControls() {
                 string = PlayExtra_PicturePicture ? STR_CHAT_5050 : STR_CHAT_SIDE;
             } else if (Play_MultiEnable && Play_Multi_MainBig) string = STR_MULTI_MAIN_WINDOW;
 
-            Main_textContent('controls_text_summary_' + this.position, '(' + string + ')');
+            Main_textContent('controls_text_summary_' + this.position, string);
         }
     };
 
@@ -3002,7 +3000,7 @@ function Play_MakeControls() {
         ShowInStay: false,
         icons: 'globe',
         offsetY: -4,
-        string: STR_PHONE_CHAT_OPEN + ' (6)',
+        string: STR_PHONE_CHAT_OPEN,
         values: null,
         defaultValue: null,
         enterKey: function () {
@@ -3210,7 +3208,7 @@ function Play_MakeControls() {
             Main_SaveValuesWithTimeout();
         },
         setLabel: function () {
-            Main_textContent('controls_text_summary_' + this.position, '(' + (Main_values.Play_ChatForceDisable ? STR_YES : STR_NO) + ')');
+            Main_textContent('controls_text_summary_' + this.position, Main_values.Play_ChatForceDisable ? STR_YES : STR_NO);
         }
     };
 
@@ -3244,7 +3242,7 @@ function Play_MakeControls() {
             }
         },
         setLabel: function () {
-            Main_textContent('controls_text_summary_' + this.position, '(' + (Settings_value.disabled_shared.defaultValue ? STR_YES : STR_NO) + ')');
+            Main_textContent('controls_text_summary_' + this.position, Settings_value.disabled_shared.defaultValue ? STR_YES : STR_NO);
         }
     };
 
@@ -4573,7 +4571,7 @@ function Play_PreStart() {
 
     Play_FullScreenSize = Main_getItemInt('Play_FullScreenSize', 3);
     Play_FullScreenPosition = Main_getItemInt('Play_FullScreenPosition', 1);
-    Play_Status_Visible = Main_getItemInt('Play_Status_Visible', 0);
+    Play_Status_Visible = Main_getItemInt('Play_Status_Visible', 2);
 
     Play_LowLatency = Main_getItemInt('Play_LowLatency', 1);
 

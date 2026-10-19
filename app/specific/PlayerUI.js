@@ -1,5 +1,5 @@
 /* Player presentation adapter. Playback objects and their original callbacks remain authoritative. */
-var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, paused: false};
+var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, timelineTimer: null, paused: false};
 
 function PlayerUI_Mode() {
     return Play_isOn ? 1 : PlayVod_isOn ? 2 : PlayClip_isOn ? 3 : 0;
@@ -112,10 +112,13 @@ function PlayerUI_Show(mode) {
         handle: PlayerUI_Handle,
         cleanup: function () {
             Main_clearTimeout(PlayerUI_State.hiddenTimer);
+            Main_clearTimeout(PlayerUI_State.timelineTimer);
             PlayerUI_State.frames = [];
             PlayerUI_State.suspended = false;
             Main_HideElement('player-ui');
             Main_RemoveClass('scene2', 'player-ui-active');
+            Main_RemoveClass('scene2', 'player-ui-drawer-open');
+            Main_RemoveClass('player-ui', 'player-ui-drawer-open');
             Main_removeEventListener('keydown', PlayerUI_Listener);
             // Release the DOM focus the focused control kept; playback keeps its own handlers.
             UIFocus_DomRelease(Main_getElementById('player-ui'));
@@ -126,6 +129,11 @@ function PlayerUI_Show(mode) {
     Main_ShowElement('player-ui');
     PlayerUI_Render();
     PlayerUI_ScheduleHide();
+    // VOD reveals the timeline about half a second after start; re-check once it is up.
+    Main_clearTimeout(PlayerUI_State.timelineTimer);
+    PlayerUI_State.timelineTimer = Main_setTimeout(function () {
+        if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_TimelineClass();
+    }, 700);
 }
 
 function PlayerUI_Listener() {
@@ -229,6 +237,47 @@ function PlayerUI_Action(key, adjust) {
     return true;
 }
 
+function PlayerUI_QualityList() {
+    var mode = PlayerUI_State.mode,
+        qualities = mode === 1 ? Play_data.qualities : mode === 2 ? PlayVod_qualities : PlayClip_qualities,
+        count = mode === 1 ? Play_getQualitiesCount() : mode === 2 ? PlayVod_getQualitiesCount() : PlayClip_getQualitiesCount(),
+        playing = mode === 1 ? Play_data.qualityPlaying : mode === 2 ? PlayVod_qualityPlaying : PlayClip_qualityPlaying,
+        items = [],
+        indexes = [],
+        current = -1,
+        i;
+    for (i = 0; i < count; i++) {
+        if (!qualities[i]) continue;
+        items.push(qualities[i].id);
+        indexes.push(i);
+        if (qualities[i].id === playing) current = items.length - 1;
+    }
+    return {items: items, indexes: indexes, current: current};
+}
+
+function PlayerUI_QualityPick(index) {
+    var mode = PlayerUI_State.mode,
+        list = PlayerUI_QualityList(),
+        position = list.indexes[index];
+    // Re-applying the playing rendition restarts the stream; picking it just returns to the bar.
+    if (index !== list.current && position !== undefined) {
+        if (mode === 1) Play_data.qualityIndex = position;
+        else if (mode === 2) PlayVod_qualityIndex = position;
+        else PlayClip_qualityIndex = position;
+        Play_PanelCounter = Play_controlsQuality;
+        Play_controls[Play_controlsQuality].enterKey.call(Play_controls[Play_controlsQuality], mode);
+    }
+    PlayerUI_State.frames.pop();
+    PlayerUI_Render();
+    PlayerUI_ScheduleHide();
+}
+
+function PlayerUI_TimelineClass() {
+    var timeline = Main_getElementById('progress_pause_holder');
+    if (timeline.offsetHeight > 0) Main_AddClass('player-ui', 'player-ui-has-timeline');
+    else Main_RemoveClass('player-ui', 'player-ui-has-timeline');
+}
+
 function PlayerUI_Render() {
     var frame = PlayerUI_Frame();
     if (!frame) return;
@@ -245,28 +294,42 @@ function PlayerUI_Render() {
         node;
     Main_emptyWithEle(bar);
     Main_emptyWithEle(menu);
+    PlayerUI_TimelineClass();
     // Reuse the actual control DOM; there is no invisible duplicate strip behind the drawers.
     for (key in Play_controls) Play_controls[key].doc.style.display = 'none';
-    var barGroups = ['pause', 'chat', 'quality', 'layout', 'more', 'channels'];
+    var barGroups = ['pause', 'chat', 'quality', 'layout', 'more', 'channels'],
+        barIcons = {
+            pause: PlayerUI_State.paused ? 'play' : 'pause',
+            chat: 'chat',
+            quality: 'levels',
+            layout: 'side-by-side',
+            more: 'options',
+            channels: 'feed'
+        };
     for (i = 0; i < barGroups.length; i++) {
         key = barGroups[i];
         node = Navigation_Button(
             bar,
             'player-ui-bar-' + i,
             key === 'pause' ? (PlayerUI_State.paused ? STR_UI.play : STR_UI.pause) : key === 'channels' ? STR_UI.channels : labels[key],
-            PlayerUI_ActivateBar.bind(null, i)
+            PlayerUI_ActivateBar.bind(null, i),
+            barIcons[key]
         );
         node.onfocus = PlayerUI_SetIndex.bind(null, i, 'bar');
-        if (!i) node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
+        if (!i) {
+            node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
+            node.className += ' player-ui-bar-primary';
+        } else if (key === 'more') node.className += ' player-ui-bar-end';
     }
     Main_textContent(
-        'player-ui-value',
-        PlayerUI_State.mode === 1 ? Play_data.qualityPlaying : PlayerUI_State.mode === 2 ? PlayVod_qualityPlaying : PlayClip_qualityPlaying
+        'player-ui-name',
+        STR_UI.quality +
+            STR_UI.separator +
+            (PlayerUI_State.mode === 1 ? Play_data.qualityPlaying : PlayerUI_State.mode === 2 ? PlayVod_qualityPlaying : PlayClip_qualityPlaying)
     );
-    Main_textContent('player-ui-name', PlayerUI_State.mode === 1 ? Play_data.data[1] : Main_values.Main_selectedChannelDisplayname);
-    Main_textContent('player-ui-help', STR_UI.playerHelp);
+    Main_textContent('player-ui-value', PlayerUI_State.paused ? STR_UI.paused : '');
     drawer.style.display = frame.group === 'bar' ? 'none' : '';
-    Main_textContent('player-ui-title', labels[frame.group] || '');
+    frame.list = false;
     if (frame.group === 'bar') {
         frame.entries = barGroups;
     } else if (frame.group === 'more') {
@@ -274,6 +337,31 @@ function PlayerUI_Render() {
         for (i = 0; i < frame.entries.length; i++) {
             node = Navigation_Button(menu, 'player-ui-row-' + i, labels[frame.entries[i]], PlayerUI_OpenAt.bind(null, i, frame.entries[i]));
             node.onfocus = PlayerUI_SetIndex.bind(null, i, 'more');
+        }
+    } else if (frame.group === 'quality' && PlayerUI_Available(Play_controlsQuality, 'quality')) {
+        // One row per rendition; the single-stream spinner row is replaced by the list. PiP and
+        // multistream keep their spinner rows through the generic branch below.
+        var list = PlayerUI_QualityList();
+        frame.entries = [];
+        if (!list.items.length) {
+            Main_textContentWithEle(menu, STR_UI.loadingQualities);
+        } else {
+            for (i = 0; i < list.items.length; i++) {
+                node = Navigation_Button(
+                    menu,
+                    'player-ui-quality-' + i,
+                    list.current === i ? list.items[i] + ' ✓' : list.items[i],
+                    PlayerUI_QualityPick.bind(null, i)
+                );
+                node.setAttribute('role', 'menuitemradio');
+                if (list.current === i) {
+                    node.setAttribute('aria-checked', 'true');
+                    node.className += ' player-ui-current';
+                }
+                node.onfocus = PlayerUI_SetIndex.bind(null, i, 'quality');
+                frame.entries.push('q:' + list.items[i]);
+            }
+            frame.list = true;
         }
     } else {
         keys = PlayerUI_Groups()[frame.group] || [];
@@ -283,8 +371,10 @@ function PlayerUI_Render() {
             control = Play_controls[key];
             if (!PlayerUI_Available(key, frame.group)) continue;
             frame.entries.push(key);
-            if (control.setLabel) control.setLabel();
+            // Same order as the descriptors' own updown: arrows (writes the raw value) before the label
+            // (which may format it, e.g. speed's "1x (Normal)").
             if (control.bottomArrows) control.bottomArrows();
+            if (control.setLabel) control.setLabel();
             control.doc.style.display = '';
             control.doc.className = 'player-ui-action';
             control.doc.setAttribute('role', 'button');
@@ -296,9 +386,50 @@ function PlayerUI_Render() {
         }
         if (!frame.entries.length) Main_textContentWithEle(menu, STR_UI.unavailable);
     }
+    PlayerUI_Orient(frame, labels);
     if (previousKey !== null && frame.entries.indexOf(previousKey) !== -1) frame.index = frame.entries.indexOf(previousKey);
     frame.index = Math.max(0, Math.min(frame.index, frame.entries.length - 1));
     PlayerUI_Focus();
+}
+
+/* Keep the viewer oriented while a drawer covers the content: underline the bar button that
+ * opened it, dim the rest of the bar, breadcrumb groups opened from More, drop the drawer state. */
+function PlayerUI_Orient(frame, labels) {
+    var drawerOpen = frame.group !== 'bar',
+        buttons = Main_getElementById('player-ui-buttons').querySelectorAll('.navigation-button'),
+        origin,
+        i;
+    if (drawerOpen) {
+        Main_AddClass('player-ui', 'player-ui-drawer-open');
+        Main_AddClass('scene2', 'player-ui-drawer-open');
+    } else {
+        Main_RemoveClass('player-ui', 'player-ui-drawer-open');
+        Main_RemoveClass('scene2', 'player-ui-drawer-open');
+    }
+    origin = PlayerUI_State.frames.length > 1 ? Main_getElementById('player-ui-bar-' + PlayerUI_State.frames[0].index) : null;
+    for (i = 0; i < buttons.length; i++) {
+        if (drawerOpen && buttons[i] === origin) {
+            buttons[i].classList.add('player-ui-origin');
+            buttons[i].setAttribute('aria-current', 'true');
+        } else {
+            buttons[i].classList.remove('player-ui-origin');
+            buttons[i].removeAttribute('aria-current');
+        }
+    }
+    if (drawerOpen && PlayerUI_State.frames.length > 2 && PlayerUI_State.frames[1].group === 'more' && labels[frame.group]) {
+        Main_textContent('player-ui-title', labels.more + ' › ' + labels[frame.group]);
+    } else {
+        Main_textContent('player-ui-title', labels[frame.group] || '');
+    }
+}
+
+function PlayerUI_HelpText(frame) {
+    if (frame.list) return STR_UI.playerHelpList;
+    if (frame.group === 'more') return STR_UI.playerHelpMenu;
+    var control = frame.entries && Play_controls[frame.entries[frame.index]];
+    // Only rows with a value range use Left/Right; the others are toggles or actions pressed with OK.
+    if (control && control.values && control.values.length > 1) return STR_UI.playerHelp;
+    return STR_UI.playerHelpAction;
 }
 
 function PlayerUI_Focus() {
@@ -307,9 +438,11 @@ function PlayerUI_Focus() {
         frame = PlayerUI_Frame(),
         target;
     if (old) old.classList.remove('player-ui-focused');
+    if (frame && frame.group !== 'bar') Main_textContent('player-ui-help', PlayerUI_HelpText(frame));
     if (!frame || !frame.entries.length) return;
     if (frame.group === 'bar') target = Main_getElementById('player-ui-bar-' + frame.index);
     else if (frame.group === 'more') target = Main_getElementById('player-ui-row-' + frame.index);
+    else if (frame.list) target = Main_getElementById('player-ui-quality-' + frame.index);
     else {
         Play_PanelCounter = frame.entries[frame.index];
         target = Play_controls[Play_PanelCounter].doc;
@@ -324,6 +457,17 @@ function PlayerUI_Focus() {
                 list.scrollTop = target.offsetTop + target.offsetHeight - list.clientHeight;
         }
     }
+    PlayerUI_ScrollHints();
+}
+
+/* Fade hints when the drawer clips rows above or below the visible scroll area. */
+function PlayerUI_ScrollHints() {
+    var scroll = Main_getElementById('player-ui-scroll');
+    if (!scroll.scrollHeight) return;
+    if (scroll.scrollTop > 1) Main_AddClass('player-ui-drawer', 'player-ui-more-above');
+    else Main_RemoveClass('player-ui-drawer', 'player-ui-more-above');
+    if (scroll.scrollTop + scroll.clientHeight < scroll.scrollHeight - 1) Main_AddClass('player-ui-drawer', 'player-ui-more-below');
+    else Main_RemoveClass('player-ui-drawer', 'player-ui-more-below');
 }
 
 function PlayerUI_ActivateBar(index) {
@@ -370,6 +514,7 @@ function PlayerUI_Handle(event, up) {
     else if (code === KEY_ENTER) {
         if (frame.group === 'bar') PlayerUI_ActivateBar(frame.index);
         else if (frame.group === 'more') PlayerUI_Open(frame.entries[frame.index]);
+        else if (frame.list) PlayerUI_QualityPick(frame.index);
         else if (frame.entries.length) PlayerUI_Action(frame.entries[frame.index], 0);
     } else if (code === KEY_LEFT || code === KEY_RIGHT || code === KEY_UP || code === KEY_DOWN) {
         if (frame.group === 'bar') {
@@ -384,7 +529,8 @@ function PlayerUI_Handle(event, up) {
             }
         } else if (code === KEY_UP || code === KEY_DOWN)
             frame.index = Math.max(0, Math.min(frame.entries.length - 1, frame.index + (code === KEY_UP ? -1 : 1)));
-        else if (frame.group !== 'more' && frame.entries.length) PlayerUI_Action(frame.entries[frame.index], code === KEY_LEFT ? -1 : 1);
+        else if (!frame.list && frame.group !== 'more' && frame.entries.length)
+            PlayerUI_Action(frame.entries[frame.index], code === KEY_LEFT ? -1 : 1);
         PlayerUI_Focus();
         PlayerUI_ScheduleHide();
     } else {
@@ -393,6 +539,16 @@ function PlayerUI_Handle(event, up) {
         return false;
     }
     return true;
+}
+
+/* The native player only reports play/pause on a toggle; every (re)start of the main player begins
+ * playing (SetupPlayer), so the bridge start calls and leaving the player clear the paused state. */
+function PlayerUI_ResetPaused() {
+    Main_HideElement('player-ui-paused');
+    if (!PlayerUI_State.paused) return;
+    PlayerUI_State.paused = false;
+    if (Play_BottonIcons_Pause) Main_innerHTMLWithEle(Play_BottonIcons_Pause, Play_GetPlayPauseIcon(true));
+    if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_Render();
 }
 
 function PlayerUI_SuspendPhone() {

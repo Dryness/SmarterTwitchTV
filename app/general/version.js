@@ -23,9 +23,21 @@ var version = {
     VersionBase: '3.0',
     publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
-    WebVersion: 'October 16 2026',
-    WebTag: 752, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebVersion: 'October 19 2026',
+    WebTag: 753, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 19 2026 (Web 753)',
+            changes: [
+                'Player: OK that reveals the controls no longer pauses the stream; the next OK toggles play/pause',
+                'Player: the technical stats overlay is hidden by default; turn it back on under More › Diagnostics',
+                'Player: one look for the player — one-line title, a Game · Live for · Viewers · Watching info line, icon bar buttons, the timeline inside the bar and a Paused chip when the bar hides',
+                'Player: Quality is now a list of renditions with the playing one checked; picking it no longer restarts the stream',
+                'Player: drawer rows lost their duplicate labels and leftover wording, and the value arrows are bigger and point where Left/Right actually act',
+                'Player: while a drawer is open the bar button that opened it stays marked, groups opened from More show a More › title, and long drawers get scroll fades',
+                'Player: channel switcher focus is a clean outline with a tab underline instead of the glow'
+            ]
+        },
         {
             title: 'October 16 2026 (Web 752)',
             changes: [

@@ -91,6 +91,25 @@ check(opened === 1, 'fresh Enter works after opening key released');
 s.UIFocus_Dispatch(event(13), true);
 s.UIFocus_Clear();
 
+/* A legacy key-down that opens an overlay must not deliver its default action (e.g. Enter click) to it. */
+let legacyPrevented = 0;
+function legacyEvent(key) {
+    return {keyCode: key, preventDefault: () => legacyPrevented++, stopImmediatePropagation: () => {}};
+}
+const openAndCancelDefault = s.UIFocus_Listener('keydown', () => {
+    s.UIFocus_Push({
+        id: 'x',
+        handle: () => true
+    });
+});
+openAndCancelDefault(legacyEvent(13));
+check(legacyPrevented === 1 && s.UIFocus_SuppressedKeys[13], 'opening key-down default action cancelled and suppressed');
+s.UIFocus_Clear();
+const plainLegacy = s.UIFocus_Listener('keydown', () => {});
+plainLegacy(legacyEvent(39));
+check(legacyPrevented === 1, 'legacy keys that open nothing keep their default action');
+s.UIFocus_Clear();
+
 /* DOM focus handoff helpers over a minimal document stub: transfer, skip and release rules. */
 s.document = {activeElement: null, body: {tagName: 'BODY'}};
 function fakeElement(name, inside) {

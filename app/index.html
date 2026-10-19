@@ -100,9 +100,11 @@
             }
 
             .feed_end_name_focus {
-                transform: translate(0, 29%) scale(1.25);
+                transform: translate(0, 29%);
                 background-color: rgba(21, 18, 28, 0.95);
-                border-color: #a78bfa;
+                border-color: rgba(0, 0, 0, 0);
+                box-shadow: 0 0.12em 0 #bca0ff;
+                color: #f5f1fa;
                 z-index: 999;
                 position: relative;
             }
@@ -1305,13 +1307,41 @@
 
             /* Player drawers choose rows with Up/Down and adjust with Left/Right:
              * reorient the inherited value arrows for that presentation only. */
-            #player-ui-actions .up {
-                transform: rotate(-90deg);
-                margin-bottom: 5%;
+            #player-ui-actions [id^='controls_arrows_'] {
+                font-size: 100% !important;
+                max-height: none !important;
             }
-
+            #player-ui-actions .up,
             #player-ui-actions .down {
-                transform: rotate(90deg);
+                position: absolute;
+                top: 50%;
+                margin: 0;
+                transform: translateY(-50%);
+                border-top: 0.3em solid transparent;
+                border-bottom: 0.3em solid transparent;
+            }
+            /* Bright arrow marks the in-bounds direction (Play_BottomArrows brightens the up
+             * triangle at the first value), so up sits on the Right side and down on the Left. */
+            #player-ui-actions .up {
+                right: 0;
+                border-left: 0.45em solid currentColor;
+                border-right: 0;
+            }
+            #player-ui-actions .down {
+                left: 0;
+                border-right: 0.45em solid currentColor;
+                border-left: 0;
+            }
+            #player-ui-actions [id^='controls_text_summary_'] {
+                position: relative;
+                display: inline-block;
+                width: auto;
+                font-size: 85%;
+                opacity: 0.75;
+            }
+            #player-ui-actions [id^='controls_name_'] {
+                display: inline-block;
+                padding: 0 1.1em;
             }
 
             .scene_channel_panel {
@@ -2729,9 +2759,9 @@
             }
 
             .side_panel_feed_img_focus {
-                box-shadow:
-                    0 0 0 0.12em #7635fc,
-                    0 0 0.7em 0.1em rgba(118, 53, 252, 0.45);
+                box-shadow: none;
+                outline: 0.1em solid #bca0ff;
+                outline-offset: 0.05em;
             }
 
             /*adapted from https://loading.io/css/*/
@@ -3132,12 +3162,15 @@
                 left: 0;
                 width: 100%;
                 height: 100%;
-                z-index: 15;
+                /* No stacking context of its own: the bar and the drawer layer separately against
+                 * the info panel (which carries the timeline), see #scene_channel_panel below. */
+                z-index: auto;
                 pointer-events: none;
                 color: #f5f1fa;
             }
             .player-ui-bar {
                 position: absolute;
+                z-index: 14;
                 left: 5%;
                 right: 5%;
                 bottom: 5%;
@@ -3147,9 +3180,10 @@
                 pointer-events: auto;
             }
             .player-ui-caption {
-                font-size: 75%;
+                font-size: 80%;
                 margin-bottom: 0.8em;
-                opacity: 0.85;
+                color: #c1b8cd;
+                opacity: 1;
             }
             #player-ui-value {
                 float: right;
@@ -3160,17 +3194,29 @@
             }
             #player-ui-buttons {
                 display: flex;
-                justify-content: space-between;
+                justify-content: flex-start;
             }
             #player-ui-buttons .navigation-button {
                 padding: 0.5em 0.7em;
                 text-align: center;
+                margin-right: 0.5em;
+            }
+            #player-ui-buttons .navigation-button .icon {
+                margin-right: 0.35em;
+            }
+            #player-ui-buttons .player-ui-bar-primary {
+                margin-right: 1.6em;
+            }
+            #player-ui-buttons .player-ui-bar-end {
+                margin-left: auto;
             }
             .player-ui-drawer {
                 position: absolute;
+                z-index: 16;
                 right: 5%;
                 top: 5%;
-                bottom: 24%;
+                /* Ends a small gap above the bar, whose height is em-based (+3.4em with the timeline). */
+                bottom: calc(5% + 6.7em);
                 width: 34%;
                 padding: 1.3em;
                 background: #1e1b25;
@@ -3183,7 +3229,9 @@
                 margin: 0;
             }
             #player-ui-help {
-                font-size: 63%;
+                /* Keep the strings' wide gaps between key groups; they wrap at the gaps if needed. */
+                white-space: pre-wrap;
+                font-size: 76%;
                 opacity: 0.85;
                 margin: 1em 0 1.5em;
             }
@@ -3201,15 +3249,19 @@
                 width: 100%;
                 margin-bottom: 0.3em;
             }
+            #player-ui-menu .player-ui-current {
+                color: #c6afff;
+            }
             .player-ui-action {
                 box-sizing: border-box;
                 display: block;
                 width: 100%;
-                min-height: 3.4em;
+                min-height: 2.9em;
                 padding: 0.65em;
                 margin-bottom: 0.4em;
                 border-radius: 0.25em;
                 cursor: pointer;
+                position: relative;
             }
             .player-ui-action:focus {
                 outline: none;
@@ -3234,7 +3286,7 @@
                 transform: none;
                 left: auto;
                 height: auto;
-                font-size: 85%;
+                font-size: 90%;
                 width: 100%;
                 white-space: normal;
                 line-height: 1.4;
@@ -3247,14 +3299,166 @@
                 text-shadow: none;
             }
             .player-ui-action .arrows_text {
-                font-size: 85%;
+                font-size: 100%;
+                color: inherit;
             }
             .player-ui-active #controls_holder,
             .player-ui-active #pause_next_div {
                 display: none;
             }
+            .player-ui-has-timeline .player-ui-bar {
+                padding-top: 3.4em;
+            }
+            .player-ui-has-timeline .player-ui-drawer {
+                bottom: calc(5% + 9.1em);
+            }
+            /* The info panel (timeline inside) paints above the bar while the bar is up; the drawer
+             * (z 16) still covers the panel's top gradient. */
+            #scene2.player-ui-active #scene_channel_panel {
+                z-index: 15;
+            }
             .player-ui-active #progress_pause_holder {
-                bottom: 23%;
+                bottom: calc(5% + 5.45em);
+                left: 6.3%;
+                width: 87.4%;
+            }
+
+            /* Drawer orientation: origin underline on the bar button that opened the drawer,
+             * the rest of the bar recedes, the diagnostics HUD steps aside. */
+            .player-ui-origin {
+                box-shadow: inset 0 -0.12em 0 #bca0ff;
+            }
+            .player-ui-drawer-open .player-ui-bar .navigation-button {
+                opacity: 0.6;
+            }
+            .player-ui-drawer-open .player-ui-bar .player-ui-origin {
+                opacity: 1;
+            }
+            #scene2.player-ui-drawer-open #playsideinfo {
+                visibility: hidden;
+            }
+
+            /* Channel switcher (UserLiveFeed): overlay look only; card geometry is untouched
+             * because the native preview places feeds in fixed slots. */
+            #user_feed .side_panel_new_title {
+                color: #f5f1fa;
+            }
+            #user_feed .side_panel_new_game {
+                color: #c1b8cd;
+            }
+            #user_feed .feed_end_name {
+                color: #c1b8cd;
+            }
+            #user_feed .feed_end_name_focus {
+                color: #f5f1fa;
+            }
+            #user_feed .icon_feed_refresh {
+                color: #c1b8cd;
+            }
+            #player-ui-scroll::-webkit-scrollbar {
+                width: 0;
+                height: 0;
+            }
+            .player-ui-drawer.player-ui-more-below::after,
+            .player-ui-drawer.player-ui-more-above::before {
+                content: '';
+                position: absolute;
+                left: 1.1em;
+                right: 1.1em;
+                height: 2.5em;
+                pointer-events: none;
+                z-index: 1;
+            }
+            .player-ui-drawer.player-ui-more-below::after {
+                bottom: 1.3em;
+            }
+            .player-ui-drawer.player-ui-more-above::before {
+                top: 6em;
+            }
+            /* Seek-only hints (jump target, step size) belong to the focused timeline, which closes the
+             * bar; inside the bar they would spill into the caption row. */
+            .player-ui-active #progress_bar_jump_to,
+            .player-ui-active #progress_bar_steps {
+                display: none;
+            }
+            /* The timeline is never focused while the bar owns input: no stale legacy focus box. */
+            #scene2.player-ui-active #progress_bar_div.progress_bar_div_focus {
+                outline: none;
+                background: transparent;
+            }
+            .player-ui-active #progress_pause_holder .progress_bar_div {
+                height: 1.8em;
+                transform: none;
+            }
+            /* Timeline focus (bar hidden, Up from the player bar) uses the overlay focus look. */
+            #progress_bar_div.progress_bar_div_focus {
+                outline: 0.13em solid #bca0ff;
+                outline-offset: 0.04em;
+                background: rgba(48, 37, 63, 0.9);
+                box-shadow: none;
+            }
+            #player-ui-paused {
+                position: absolute;
+                left: 5%;
+                bottom: 5%;
+                z-index: 15;
+                padding: 0.4em 0.8em;
+                border-radius: 0.3em;
+                background: #1e1b25;
+                color: #f5f1fa;
+                font-size: 90%;
+            }
+            #player-ui-paused .icon {
+                margin-right: 0.35em;
+            }
+            #scene2.player-ui-active #player-ui-paused {
+                display: none;
+            }
+
+            /* Single-stream info block: safe-area padding, one-line title, one secondary line.
+             * Scoped to #stream_info so picture-in-picture and multistream keep their layout. */
+            #scene_channel_panel #stream_info {
+                padding: 2.7% 5% 0 5%;
+            }
+            #scene_channel_panel #stream_info img.stream_info_icon {
+                width: 4.5%;
+                border-radius: 50%;
+                margin: 0 1.2% 0 0;
+                vertical-align: top;
+            }
+            #scene_channel_panel #stream_info .playmaininfo > div:first-child {
+                font-size: 125% !important;
+            }
+            #scene_channel_panel #stream_info_title {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 70%;
+                font-size: 100%;
+            }
+            #scene_channel_panel #stream_info_game,
+            #scene_channel_panel #stream_info .stream_info_timers {
+                font-size: 85%;
+                color: #c1b8cd;
+            }
+            #scene_channel_panel #stream_info_game {
+                display: inline;
+            }
+            /* Separators live in CSS so live, VOD and clip writers (some asynchronous, e.g. a late
+             * game name) never need to know what is already on the line. */
+            #scene_channel_panel #stream_info .stream_info_timers:not(:empty):before {
+                content: '\00b7\00a0';
+            }
+            #scene_channel_panel #stream_info_game:empty + .stream_info_timers:before {
+                content: none;
+            }
+            #scene_channel_panel #stream_info .partnericon_text {
+                font-size: 60%;
+                padding: 0.15em 0.45em;
+                border-radius: 0.2em;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                vertical-align: middle;
             }
         </style>
     </head>
@@ -4050,6 +4254,10 @@
                             <div id="player-ui-actions"></div>
                         </div>
                     </aside>
+                </div>
+                <div id="player-ui-paused" class="player-ui-paused hide">
+                    <i class="icon icon-pause"></i>
+                    <span id="player-ui-paused-text"></span>
                 </div>
                 <div id="scene2_click" class="screen_size hide" style="width: 55%; height: 59%; left: 16%; z-index: 9999">
                     <div id="player_embed_clicks" class="hide">

@@ -119,14 +119,14 @@ function PlayVod_Start() {
         );
         Main_innerHTML('stream_info_title', ChannelVod_title);
         Main_textContent('stream_info_game', ChannelVod_game);
-        Main_innerHTMLWithEle(Play_infoLiveTime, ChannelVod_createdAt + ',' + STR_SPACE_HTML + ChannelVod_views);
+        Main_innerHTMLWithEle(Play_infoLiveTime, ChannelVod_createdAt + STR_UI.separator + ChannelVod_views);
         Main_textContent('stream_live_viewers', '');
         Main_textContentWithEle(Play_infoWatchingTime, '');
 
         Main_replaceClassEmoji('stream_info_title');
     } else {
         if (Play_data.data[3]) {
-            Main_textContent('stream_info_game', STR_PLAYING + Play_data.data[3]);
+            Main_textContent('stream_info_game', Play_data.data[3]);
         }
     }
 
@@ -1516,8 +1516,7 @@ function PlayVod_updateVodInfoPanel(obj) {
         Play_infoLiveTime,
         STR_STREAM_ON +
             Main_videoCreatedAt(response.createdAt) +
-            ',' +
-            STR_SPACE_HTML +
+            STR_UI.separator +
             Main_formatNumber(response.viewCount) +
             Main_GetViewsStrings(response.viewCount)
     );
@@ -1898,7 +1897,7 @@ function PlayVod_UpdateGameInfoLabels(gameId, gameName) {
     Play_data.data[3] = gameName;
     if (gameName) {
         Play_controls[Play_controlsGameCont].setLabel(gameName);
-        Main_innerHTML('stream_info_game', STR_PLAYING + gameName);
+        Main_innerHTML('stream_info_game', gameName);
     }
 }
 

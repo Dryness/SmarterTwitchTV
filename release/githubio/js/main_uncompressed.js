@@ -1442,6 +1442,15 @@
             searchHelp: 'OK · Edit search / type    ← → · Choose type    ↑ ↓ · Form / results    Back · Return',
             settingsNavHelp: 'OK · Select    ← → · Adjust    ↑ · Navigation    Back · Return',
             playerHelp: '↑ ↓ · Choose    ← → · Adjust    OK · Apply    Back · Return',
+            playerHelpMenu: '↑ ↓ · Choose    OK · Open    Back · Return',
+            playerHelpList: '↑ ↓ · Choose    OK · Select    Back · Return',
+            playerHelpAction: '↑ ↓ · Choose    OK · Apply    Back · Return',
+            loadingQualities: 'Loading qualities…',
+            switchTo: 'OK switches to ',
+            liveFor: 'Live for ',
+            separator: ' · ',
+            watching: 'Watching ',
+            paused: 'Paused',
             chat: 'Chat',
             layout: 'Layout',
             more: 'More',
@@ -8339,9 +8348,21 @@
         VersionBase: '3.0',
         publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
-        WebVersion: 'October 16 2026',
-        WebTag: 752, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebVersion: 'October 19 2026',
+        WebTag: 753, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 19 2026 (Web 753)',
+                changes: [
+                    'Player: OK that reveals the controls no longer pauses the stream; the next OK toggles play/pause',
+                    'Player: the technical stats overlay is hidden by default; turn it back on under More › Diagnostics',
+                    'Player: one look for the player — one-line title, a Game · Live for · Viewers · Watching info line, icon bar buttons, the timeline inside the bar and a Paused chip when the bar hides',
+                    'Player: Quality is now a list of renditions with the playing one checked; picking it no longer restarts the stream',
+                    'Player: drawer rows lost their duplicate labels and leftover wording, and the value arrows are bigger and point where Left/Right actually act',
+                    'Player: while a drawer is open the bar button that opened it stays marked, groups opened from More show a More › title, and long drawers get scroll fades',
+                    'Player: channel switcher focus is a clean outline with a tab underline instead of the glow'
+                ]
+            },
             {
                 title: 'October 16 2026 (Web 752)',
                 changes: [
@@ -18920,6 +18941,7 @@
     function Main_hideScene2Doc() {
         PlayerUI_State.suspended = false;
         PlayerUI_Close(false);
+        PlayerUI_ResetPaused();
         Main_Scene2Doc.style.opacity = 0;
 
         Main_Scene2Doc.style.pointerEvents = 'none';
@@ -18943,7 +18965,7 @@
 
         Play_data.data[3] = Main_values_Play_data[3];
         if (Play_data.data[3] === null) Play_data.data[3] = '';
-        ChannelVod_game = Play_data.data[3] ? STR_PLAYING + Play_data.data[3] : '';
+        ChannelVod_game = Play_data.data[3] ? Play_data.data[3] : '';
 
         Play_DurationSeconds = 0;
 
@@ -19013,7 +19035,7 @@
 
         Play_data.data[3] = Main_values_Play_data[3];
         if (Play_data.data[3] === null) Play_data.data[3] = '';
-        ChannelClip_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? STR_PLAYING + Play_data.data[3] : '';
+        ChannelClip_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? Play_data.data[3] : '';
         ChannelClip_game_Id = Main_values_Play_data[18];
 
         if (ChannelClip_game_Id) {
@@ -19060,7 +19082,7 @@
 
         Play_data.data[3] = Main_values_Play_data[3];
         if (Play_data.data[3] === null) Play_data.data[3] = '';
-        ChannelVod_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? STR_STARTED + STR_PLAYING + Play_data.data[3] : '';
+        ChannelVod_game = Play_data.data[3] !== '' && Play_data.data[3] !== null ? Play_data.data[3] : '';
         ChannelVod_views = Main_values_Play_data[4];
 
         if (Main_values_Play_data[16]) {
@@ -22268,7 +22290,10 @@
     //Android specific: true
     //Allows to get the stream data, that if called from JS will fail do to CORS error
     function OSInterface_RestartPlayer(who_called, ResumePosition, player) {
-        if (Main_IsOn_OSInterface) Android.RestartPlayer(who_called, ResumePosition, player);
+        if (Main_IsOn_OSInterface) {
+            Android.RestartPlayer(who_called, ResumePosition, player);
+            if (!player) PlayerUI_ResetPaused(); // the restarted main player plays
+        }
     }
 
     //public void StartAuto(String uri, String mainPlaylistString, int who_called, long ResumePosition, int player)
@@ -22285,6 +22310,7 @@
         }
 
         Android.StartAuto(uri, mainPlaylistString, who_called, ResumePosition, player);
+        if (!player) PlayerUI_ResetPaused(); // a started main player plays
     }
 
     //public void ReuseFeedPlayer(String uri, String mainPlaylistString, int who_called, long ResumePosition, int player)
@@ -22301,6 +22327,7 @@
         }
 
         Android.ReuseFeedPlayer(uri, mainPlaylistString, who_called, ResumePosition, player);
+        if (!player) PlayerUI_ResetPaused(); // the reused feed becomes the playing main player
     }
 
     //public void ReuseFeedPlayerPrepare(String uri, String mainPlaylistString, int who_called, long ResumePosition, int player)
@@ -23989,12 +24016,12 @@
         Play_BufferSize = 0;
 
         Play_data.watching_time = new Date().getTime();
-        Main_textContentWithEle(Play_infoWatchingTime, ', ' + STR_WATCHING + Play_timeS(0));
+        Main_textContentWithEle(Play_infoWatchingTime, STR_UI.watching + Play_timeS(0));
         PlayClip_SetProgressBarJumpers();
         PlayVod_previews_clear();
         Main_empty('inner_progress_bar_muted');
 
-        Main_textContentWithEle(Play_infoLiveTime, Play_timeMs(0));
+        Main_textContentWithEle(Play_infoLiveTime, STR_UI.liveFor + Play_timeMs(0));
 
         Play_isOn = true;
         Play_Playing = false;
@@ -24284,14 +24311,14 @@
         streamTitle = Play_data.data[2];
 
         if (streamGame !== Play_data.data[3]) {
-            Main_textContent('stream_info_game', Play_data.data[3] !== '' ? STR_PLAYING + Play_data.data[3] : '');
+            Main_textContent('stream_info_game', Play_data.data[3] !== '' ? Play_data.data[3] : '');
         }
         streamGame = Play_data.data[3];
 
         if (streamViewers !== Play_data.data[13]) {
-            Main_innerHTML(
+            Main_textContent(
                 'stream_live_viewers',
-                STR_SPACE_HTML + STR_FOR + Main_formatNumber(Play_data.data[13]) + STR_SPACE_HTML + Main_GetViewerStrings(Play_data.data[13])
+                Main_formatNumber(Play_data.data[13]) + ' ' + Main_GetViewerStrings(Play_data.data[13]).toLowerCase()
             );
         }
         streamViewers = Play_data.data[13];
@@ -25494,14 +25521,15 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
             return;
         } else {
-            Main_textContentWithEle(Play_infoWatchingTime, ', ' + STR_WATCHING + Play_timeMs(dateNow - Play_data.watching_time));
+            // The info line's separators are drawn by CSS (#stream_info .stream_info_timers).
+            Main_textContentWithEle(Play_infoWatchingTime, STR_UI.watching + Play_timeMs(dateNow - Play_data.watching_time));
             Main_textContentWithEle(Play_infoLiveTime, Play_GetLiveTime(dateNow, Play_data.data[12], Play_data.watching_time));
         }
     }
 
     //Server time info may be wrong resulting in too big time
     function Play_GetLiveTime(dateNow, Time, watching_time) {
-        return STR_SINCE + Play_streamLiveAtWitDate(dateNow, Time && parseInt(Time) ? Time : watching_time);
+        return STR_UI.liveFor + Play_streamLiveAtWitDate(dateNow, Time && parseInt(Time) ? Time : watching_time);
     }
 
     function Play_VideoStatusTest() {
@@ -26134,7 +26162,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         Main_innerHTML('stream_info_title', ChannelClip_title);
 
-        Main_innerHTMLWithEle(Play_infoLiveTime, ChannelClip_createdAt + ',' + STR_SPACE_HTML + ChannelClip_views);
+        Main_innerHTMLWithEle(Play_infoLiveTime, ChannelClip_createdAt + STR_UI.separator + ChannelClip_views);
         Main_textContent('stream_live_viewers', '');
         Main_textContentWithEle(Play_infoWatchingTime, '');
 
@@ -26306,7 +26334,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     }
 
                     if (clip.game && clip.game.displayName) {
-                        Main_innerHTML('stream_info_game', STR_PLAYING + clip.game.displayName);
+                        Main_innerHTML('stream_info_game', clip.game.displayName);
                         ChannelClip_game = clip.game.displayName;
                         Play_data.data[3] = ChannelClip_game;
                         Play_controls[Play_controlsGameCont].setLabel(Play_data.data[3]);
@@ -27371,18 +27399,13 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
     function Play_ResetLowlatency() {
         Play_A_Control(Play_LowLatency, Play_controlsLowLatency);
-        Main_textContentWithEle(
-            Play_controls[Play_controlsLowLatency].doc_title,
-            STR_LOWLATENCY_ENABLE_ARRAY[Play_controls[Play_controlsLowLatency].defaultValue]
-        );
+        // The summary line already names the mode; the title is the setting name only.
+        Main_textContentWithEle(Play_controls[Play_controlsLowLatency].doc_title, STR_LOW_LATENCY);
     }
 
     function Play_ResetSpeed() {
         Play_A_Control(Play_CurrentSpeed, Play_controlsSpeed);
-        Main_textContentWithEle(
-            Play_controls[Play_controlsSpeed].doc_title,
-            STR_SPEED + ' - ' + Play_controls[Play_controlsSpeed].values[Play_controls[Play_controlsSpeed].defaultValue] + 'x'
-        );
+        Main_textContentWithEle(Play_controls[Play_controlsSpeed].doc_title, STR_SPEED);
     }
 
     // function Play_ResetProxy() {
@@ -28504,6 +28527,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
 
         PlayerUI_State.paused = !State;
+        if (PlayerUI_State.paused) {
+            Main_ShowElement('player-ui-paused');
+            Main_textContent('player-ui-paused-text', STR_UI.paused);
+        } else Main_HideElement('player-ui-paused');
         Main_innerHTMLWithEle(Play_BottonIcons_Pause, Play_GetPlayPauseIcon(State));
         if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_Render();
         Play_showWarningMiddleDialog(Play_GetPlayPauseIcon(!State), 500);
@@ -30073,15 +30100,14 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 Play_ResetPanel(PlayVodClip);
             },
             setLabel: function () {
-                var title = Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
-                if (PlayExtra_PicturePicture) title = Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
+                var current = Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
+                if (PlayExtra_PicturePicture) current = Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
+                var next = !Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
+                if (PlayExtra_PicturePicture) next = !Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
 
-                Main_textContentWithEle(Play_controls[this.position].doc_title, STR_CHAT_VIDEO_MODE + ' - ' + title);
+                Main_textContentWithEle(Play_controls[this.position].doc_title, STR_CHAT_VIDEO_MODE);
 
-                title = !Play_isFullScreen ? STR_CHAT_SIDE_FULL : STR_CHAT_SIDE;
-                if (PlayExtra_PicturePicture) title = !Play_isFullScreen ? STR_CHAT_PP_SIDE_FULL : STR_CHAT_5050;
-
-                Main_textContent('controls_text_summary_' + this.position, STR_PRESS_ENTER_TO_CHANGE + title);
+                Main_textContent('controls_text_summary_' + this.position, current + STR_UI.separator + STR_UI.switchTo + next);
 
                 if (Play_controls[Play_controlsChat].position) Play_controls[Play_controlsChat].setLabel();
             },
@@ -30133,7 +30159,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     string = PlayExtra_PicturePicture ? STR_CHAT_5050 : STR_CHAT_SIDE;
                 } else if (Play_MultiEnable && Play_Multi_MainBig) string = STR_MULTI_MAIN_WINDOW;
 
-                Main_textContent('controls_text_summary_' + this.position, '(' + string + ')');
+                Main_textContent('controls_text_summary_' + this.position, string);
             }
         };
 
@@ -30184,7 +30210,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             ShowInStay: false,
             icons: 'globe',
             offsetY: -4,
-            string: STR_PHONE_CHAT_OPEN + ' (6)',
+            string: STR_PHONE_CHAT_OPEN,
             values: null,
             defaultValue: null,
             enterKey: function () {
@@ -30392,7 +30418,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 Main_SaveValuesWithTimeout();
             },
             setLabel: function () {
-                Main_textContent('controls_text_summary_' + this.position, '(' + (Main_values.Play_ChatForceDisable ? STR_YES : STR_NO) + ')');
+                Main_textContent('controls_text_summary_' + this.position, Main_values.Play_ChatForceDisable ? STR_YES : STR_NO);
             }
         };
 
@@ -30426,10 +30452,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 }
             },
             setLabel: function () {
-                Main_textContent(
-                    'controls_text_summary_' + this.position,
-                    '(' + (Settings_value.disabled_shared.defaultValue ? STR_YES : STR_NO) + ')'
-                );
+                Main_textContent('controls_text_summary_' + this.position, Settings_value.disabled_shared.defaultValue ? STR_YES : STR_NO);
             }
         };
 
@@ -31759,7 +31782,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         Play_FullScreenSize = Main_getItemInt('Play_FullScreenSize', 3);
         Play_FullScreenPosition = Main_getItemInt('Play_FullScreenPosition', 1);
-        Play_Status_Visible = Main_getItemInt('Play_Status_Visible', 0);
+        Play_Status_Visible = Main_getItemInt('Play_Status_Visible', 2);
 
         Play_LowLatency = Main_getItemInt('Play_LowLatency', 1);
 
@@ -33986,14 +34009,14 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             );
             Main_innerHTML('stream_info_title', ChannelVod_title);
             Main_textContent('stream_info_game', ChannelVod_game);
-            Main_innerHTMLWithEle(Play_infoLiveTime, ChannelVod_createdAt + ',' + STR_SPACE_HTML + ChannelVod_views);
+            Main_innerHTMLWithEle(Play_infoLiveTime, ChannelVod_createdAt + STR_UI.separator + ChannelVod_views);
             Main_textContent('stream_live_viewers', '');
             Main_textContentWithEle(Play_infoWatchingTime, '');
 
             Main_replaceClassEmoji('stream_info_title');
         } else {
             if (Play_data.data[3]) {
-                Main_textContent('stream_info_game', STR_PLAYING + Play_data.data[3]);
+                Main_textContent('stream_info_game', Play_data.data[3]);
             }
         }
 
@@ -35401,8 +35424,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             Play_infoLiveTime,
             STR_STREAM_ON +
                 Main_videoCreatedAt(response.createdAt) +
-                ',' +
-                STR_SPACE_HTML +
+                STR_UI.separator +
                 Main_formatNumber(response.viewCount) +
                 Main_GetViewsStrings(response.viewCount)
         );
@@ -35783,7 +35805,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Play_data.data[3] = gameName;
         if (gameName) {
             Play_controls[Play_controlsGameCont].setLabel(gameName);
-            Main_innerHTML('stream_info_game', STR_PLAYING + gameName);
+            Main_innerHTML('stream_info_game', gameName);
         }
     }
 
@@ -35853,7 +35875,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     //     PlayVod_ProcessChapters(obj);
     // }
     /* Player presentation adapter. Playback objects and their original callbacks remain authoritative. */
-    var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, paused: false};
+    var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, timelineTimer: null, paused: false};
 
     function PlayerUI_Mode() {
         return Play_isOn ? 1 : PlayVod_isOn ? 2 : PlayClip_isOn ? 3 : 0;
@@ -35966,10 +35988,13 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             handle: PlayerUI_Handle,
             cleanup: function () {
                 Main_clearTimeout(PlayerUI_State.hiddenTimer);
+                Main_clearTimeout(PlayerUI_State.timelineTimer);
                 PlayerUI_State.frames = [];
                 PlayerUI_State.suspended = false;
                 Main_HideElement('player-ui');
                 Main_RemoveClass('scene2', 'player-ui-active');
+                Main_RemoveClass('scene2', 'player-ui-drawer-open');
+                Main_RemoveClass('player-ui', 'player-ui-drawer-open');
                 Main_removeEventListener('keydown', PlayerUI_Listener);
                 // Release the DOM focus the focused control kept; playback keeps its own handlers.
                 UIFocus_DomRelease(Main_getElementById('player-ui'));
@@ -35980,6 +36005,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_ShowElement('player-ui');
         PlayerUI_Render();
         PlayerUI_ScheduleHide();
+        // VOD reveals the timeline about half a second after start; re-check once it is up.
+        Main_clearTimeout(PlayerUI_State.timelineTimer);
+        PlayerUI_State.timelineTimer = Main_setTimeout(function () {
+            if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_TimelineClass();
+        }, 700);
     }
 
     function PlayerUI_Listener() {
@@ -36083,6 +36113,47 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         return true;
     }
 
+    function PlayerUI_QualityList() {
+        var mode = PlayerUI_State.mode,
+            qualities = mode === 1 ? Play_data.qualities : mode === 2 ? PlayVod_qualities : PlayClip_qualities,
+            count = mode === 1 ? Play_getQualitiesCount() : mode === 2 ? PlayVod_getQualitiesCount() : PlayClip_getQualitiesCount(),
+            playing = mode === 1 ? Play_data.qualityPlaying : mode === 2 ? PlayVod_qualityPlaying : PlayClip_qualityPlaying,
+            items = [],
+            indexes = [],
+            current = -1,
+            i;
+        for (i = 0; i < count; i++) {
+            if (!qualities[i]) continue;
+            items.push(qualities[i].id);
+            indexes.push(i);
+            if (qualities[i].id === playing) current = items.length - 1;
+        }
+        return {items: items, indexes: indexes, current: current};
+    }
+
+    function PlayerUI_QualityPick(index) {
+        var mode = PlayerUI_State.mode,
+            list = PlayerUI_QualityList(),
+            position = list.indexes[index];
+        // Re-applying the playing rendition restarts the stream; picking it just returns to the bar.
+        if (index !== list.current && position !== undefined) {
+            if (mode === 1) Play_data.qualityIndex = position;
+            else if (mode === 2) PlayVod_qualityIndex = position;
+            else PlayClip_qualityIndex = position;
+            Play_PanelCounter = Play_controlsQuality;
+            Play_controls[Play_controlsQuality].enterKey.call(Play_controls[Play_controlsQuality], mode);
+        }
+        PlayerUI_State.frames.pop();
+        PlayerUI_Render();
+        PlayerUI_ScheduleHide();
+    }
+
+    function PlayerUI_TimelineClass() {
+        var timeline = Main_getElementById('progress_pause_holder');
+        if (timeline.offsetHeight > 0) Main_AddClass('player-ui', 'player-ui-has-timeline');
+        else Main_RemoveClass('player-ui', 'player-ui-has-timeline');
+    }
+
     function PlayerUI_Render() {
         var frame = PlayerUI_Frame();
         if (!frame) return;
@@ -36099,28 +36170,42 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             node;
         Main_emptyWithEle(bar);
         Main_emptyWithEle(menu);
+        PlayerUI_TimelineClass();
         // Reuse the actual control DOM; there is no invisible duplicate strip behind the drawers.
         for (key in Play_controls) Play_controls[key].doc.style.display = 'none';
-        var barGroups = ['pause', 'chat', 'quality', 'layout', 'more', 'channels'];
+        var barGroups = ['pause', 'chat', 'quality', 'layout', 'more', 'channels'],
+            barIcons = {
+                pause: PlayerUI_State.paused ? 'play' : 'pause',
+                chat: 'chat',
+                quality: 'levels',
+                layout: 'side-by-side',
+                more: 'options',
+                channels: 'feed'
+            };
         for (i = 0; i < barGroups.length; i++) {
             key = barGroups[i];
             node = Navigation_Button(
                 bar,
                 'player-ui-bar-' + i,
                 key === 'pause' ? (PlayerUI_State.paused ? STR_UI.play : STR_UI.pause) : key === 'channels' ? STR_UI.channels : labels[key],
-                PlayerUI_ActivateBar.bind(null, i)
+                PlayerUI_ActivateBar.bind(null, i),
+                barIcons[key]
             );
             node.onfocus = PlayerUI_SetIndex.bind(null, i, 'bar');
-            if (!i) node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
+            if (!i) {
+                node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
+                node.className += ' player-ui-bar-primary';
+            } else if (key === 'more') node.className += ' player-ui-bar-end';
         }
         Main_textContent(
-            'player-ui-value',
-            PlayerUI_State.mode === 1 ? Play_data.qualityPlaying : PlayerUI_State.mode === 2 ? PlayVod_qualityPlaying : PlayClip_qualityPlaying
+            'player-ui-name',
+            STR_UI.quality +
+                STR_UI.separator +
+                (PlayerUI_State.mode === 1 ? Play_data.qualityPlaying : PlayerUI_State.mode === 2 ? PlayVod_qualityPlaying : PlayClip_qualityPlaying)
         );
-        Main_textContent('player-ui-name', PlayerUI_State.mode === 1 ? Play_data.data[1] : Main_values.Main_selectedChannelDisplayname);
-        Main_textContent('player-ui-help', STR_UI.playerHelp);
+        Main_textContent('player-ui-value', PlayerUI_State.paused ? STR_UI.paused : '');
         drawer.style.display = frame.group === 'bar' ? 'none' : '';
-        Main_textContent('player-ui-title', labels[frame.group] || '');
+        frame.list = false;
         if (frame.group === 'bar') {
             frame.entries = barGroups;
         } else if (frame.group === 'more') {
@@ -36128,6 +36213,31 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             for (i = 0; i < frame.entries.length; i++) {
                 node = Navigation_Button(menu, 'player-ui-row-' + i, labels[frame.entries[i]], PlayerUI_OpenAt.bind(null, i, frame.entries[i]));
                 node.onfocus = PlayerUI_SetIndex.bind(null, i, 'more');
+            }
+        } else if (frame.group === 'quality' && PlayerUI_Available(Play_controlsQuality, 'quality')) {
+            // One row per rendition; the single-stream spinner row is replaced by the list. PiP and
+            // multistream keep their spinner rows through the generic branch below.
+            var list = PlayerUI_QualityList();
+            frame.entries = [];
+            if (!list.items.length) {
+                Main_textContentWithEle(menu, STR_UI.loadingQualities);
+            } else {
+                for (i = 0; i < list.items.length; i++) {
+                    node = Navigation_Button(
+                        menu,
+                        'player-ui-quality-' + i,
+                        list.current === i ? list.items[i] + ' ✓' : list.items[i],
+                        PlayerUI_QualityPick.bind(null, i)
+                    );
+                    node.setAttribute('role', 'menuitemradio');
+                    if (list.current === i) {
+                        node.setAttribute('aria-checked', 'true');
+                        node.className += ' player-ui-current';
+                    }
+                    node.onfocus = PlayerUI_SetIndex.bind(null, i, 'quality');
+                    frame.entries.push('q:' + list.items[i]);
+                }
+                frame.list = true;
             }
         } else {
             keys = PlayerUI_Groups()[frame.group] || [];
@@ -36137,8 +36247,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 control = Play_controls[key];
                 if (!PlayerUI_Available(key, frame.group)) continue;
                 frame.entries.push(key);
-                if (control.setLabel) control.setLabel();
+                // Same order as the descriptors' own updown: arrows (writes the raw value) before the label
+                // (which may format it, e.g. speed's "1x (Normal)").
                 if (control.bottomArrows) control.bottomArrows();
+                if (control.setLabel) control.setLabel();
                 control.doc.style.display = '';
                 control.doc.className = 'player-ui-action';
                 control.doc.setAttribute('role', 'button');
@@ -36150,9 +36262,50 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             }
             if (!frame.entries.length) Main_textContentWithEle(menu, STR_UI.unavailable);
         }
+        PlayerUI_Orient(frame, labels);
         if (previousKey !== null && frame.entries.indexOf(previousKey) !== -1) frame.index = frame.entries.indexOf(previousKey);
         frame.index = Math.max(0, Math.min(frame.index, frame.entries.length - 1));
         PlayerUI_Focus();
+    }
+
+    /* Keep the viewer oriented while a drawer covers the content: underline the bar button that
+     * opened it, dim the rest of the bar, breadcrumb groups opened from More, drop the drawer state. */
+    function PlayerUI_Orient(frame, labels) {
+        var drawerOpen = frame.group !== 'bar',
+            buttons = Main_getElementById('player-ui-buttons').querySelectorAll('.navigation-button'),
+            origin,
+            i;
+        if (drawerOpen) {
+            Main_AddClass('player-ui', 'player-ui-drawer-open');
+            Main_AddClass('scene2', 'player-ui-drawer-open');
+        } else {
+            Main_RemoveClass('player-ui', 'player-ui-drawer-open');
+            Main_RemoveClass('scene2', 'player-ui-drawer-open');
+        }
+        origin = PlayerUI_State.frames.length > 1 ? Main_getElementById('player-ui-bar-' + PlayerUI_State.frames[0].index) : null;
+        for (i = 0; i < buttons.length; i++) {
+            if (drawerOpen && buttons[i] === origin) {
+                buttons[i].classList.add('player-ui-origin');
+                buttons[i].setAttribute('aria-current', 'true');
+            } else {
+                buttons[i].classList.remove('player-ui-origin');
+                buttons[i].removeAttribute('aria-current');
+            }
+        }
+        if (drawerOpen && PlayerUI_State.frames.length > 2 && PlayerUI_State.frames[1].group === 'more' && labels[frame.group]) {
+            Main_textContent('player-ui-title', labels.more + ' › ' + labels[frame.group]);
+        } else {
+            Main_textContent('player-ui-title', labels[frame.group] || '');
+        }
+    }
+
+    function PlayerUI_HelpText(frame) {
+        if (frame.list) return STR_UI.playerHelpList;
+        if (frame.group === 'more') return STR_UI.playerHelpMenu;
+        var control = frame.entries && Play_controls[frame.entries[frame.index]];
+        // Only rows with a value range use Left/Right; the others are toggles or actions pressed with OK.
+        if (control && control.values && control.values.length > 1) return STR_UI.playerHelp;
+        return STR_UI.playerHelpAction;
     }
 
     function PlayerUI_Focus() {
@@ -36161,9 +36314,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             frame = PlayerUI_Frame(),
             target;
         if (old) old.classList.remove('player-ui-focused');
+        if (frame && frame.group !== 'bar') Main_textContent('player-ui-help', PlayerUI_HelpText(frame));
         if (!frame || !frame.entries.length) return;
         if (frame.group === 'bar') target = Main_getElementById('player-ui-bar-' + frame.index);
         else if (frame.group === 'more') target = Main_getElementById('player-ui-row-' + frame.index);
+        else if (frame.list) target = Main_getElementById('player-ui-quality-' + frame.index);
         else {
             Play_PanelCounter = frame.entries[frame.index];
             target = Play_controls[Play_PanelCounter].doc;
@@ -36178,6 +36333,17 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     list.scrollTop = target.offsetTop + target.offsetHeight - list.clientHeight;
             }
         }
+        PlayerUI_ScrollHints();
+    }
+
+    /* Fade hints when the drawer clips rows above or below the visible scroll area. */
+    function PlayerUI_ScrollHints() {
+        var scroll = Main_getElementById('player-ui-scroll');
+        if (!scroll.scrollHeight) return;
+        if (scroll.scrollTop > 1) Main_AddClass('player-ui-drawer', 'player-ui-more-above');
+        else Main_RemoveClass('player-ui-drawer', 'player-ui-more-above');
+        if (scroll.scrollTop + scroll.clientHeight < scroll.scrollHeight - 1) Main_AddClass('player-ui-drawer', 'player-ui-more-below');
+        else Main_RemoveClass('player-ui-drawer', 'player-ui-more-below');
     }
 
     function PlayerUI_ActivateBar(index) {
@@ -36224,6 +36390,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         else if (code === KEY_ENTER) {
             if (frame.group === 'bar') PlayerUI_ActivateBar(frame.index);
             else if (frame.group === 'more') PlayerUI_Open(frame.entries[frame.index]);
+            else if (frame.list) PlayerUI_QualityPick(frame.index);
             else if (frame.entries.length) PlayerUI_Action(frame.entries[frame.index], 0);
         } else if (code === KEY_LEFT || code === KEY_RIGHT || code === KEY_UP || code === KEY_DOWN) {
             if (frame.group === 'bar') {
@@ -36238,7 +36405,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 }
             } else if (code === KEY_UP || code === KEY_DOWN)
                 frame.index = Math.max(0, Math.min(frame.entries.length - 1, frame.index + (code === KEY_UP ? -1 : 1)));
-            else if (frame.group !== 'more' && frame.entries.length) PlayerUI_Action(frame.entries[frame.index], code === KEY_LEFT ? -1 : 1);
+            else if (!frame.list && frame.group !== 'more' && frame.entries.length)
+                PlayerUI_Action(frame.entries[frame.index], code === KEY_LEFT ? -1 : 1);
             PlayerUI_Focus();
             PlayerUI_ScheduleHide();
         } else {
@@ -36247,6 +36415,16 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             return false;
         }
         return true;
+    }
+
+    /* The native player only reports play/pause on a toggle; every (re)start of the main player begins
+     * playing (SetupPlayer), so the bridge start calls and leaving the player clear the paused state. */
+    function PlayerUI_ResetPaused() {
+        Main_HideElement('player-ui-paused');
+        if (!PlayerUI_State.paused) return;
+        PlayerUI_State.paused = false;
+        if (Play_BottonIcons_Pause) Main_innerHTMLWithEle(Play_BottonIcons_Pause, Play_GetPlayPauseIcon(true));
+        if (PlayerUI_State.frames.length && !PlayerUI_State.suspended) PlayerUI_Render();
     }
 
     function PlayerUI_SuspendPhone() {
@@ -49028,8 +49206,21 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             //Layered focus: tight accent edge + soft glow + depth shadow, never scales the card
             //(scroll math and the native preview overlay read live getBoundingClientRect())
             focusShadow = '0 0 0 0.05em ' + glow + ',0 0 0.7em 0.1em ' + glow + ',0 0.35em 1em rgba(0,0,0,0.5)',
+            surface = pos === 0 ? '#1e1b25' : background,
+            focusColor = pos === 0 ? '#bca0ff' : border === background ? TextColor : border,
+            focusSurface = pos === 0 ? '#30253f' : background,
             cssClass =
-                '.feed_thumbnail_focused_no_ani,.feed_thumbnail_focused,.stream_thumbnail_focused_no_ani,.stream_thumbnail_focused {background-color:' +
+                //Switcher cards use the overlay focus look: outline, no glow.
+                '.feed_thumbnail_focused_no_ani,.feed_thumbnail_focused {background-color:' +
+                background +
+                ' !important;color:' +
+                TextColor +
+                ' !important;border-color:' +
+                border +
+                ' !important;box-shadow:none !important;outline:0.1em solid ' +
+                focusColor +
+                ';outline-offset:0.05em;}' +
+                '.stream_thumbnail_focused_no_ani,.stream_thumbnail_focused {background-color:' +
                 background +
                 ' !important;color:' +
                 TextColor +
@@ -49050,20 +49241,17 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             (animate ? 'transition: width 1s linear;' : '') +
             '}';
 
-        var surface = pos === 0 ? '#1e1b25' : background,
-            focusColor = pos === 0 ? '#bca0ff' : border === background ? TextColor : border,
-            focusSurface = pos === 0 ? '#30253f' : background;
         cssClass +=
             '#navigation-shell,#navigation-onboarding,#player-ui{color:' +
             TextColor +
             ';}' +
-            '#navigation-shell .navigation-rail,#player-ui .player-ui-bar,#player-ui .player-ui-drawer{background:' +
+            '#navigation-shell .navigation-rail,#player-ui .player-ui-bar,#player-ui .player-ui-drawer,#player-ui-paused{background:' +
             surface +
             ';}' +
             '#navigation-onboarding,#navigation-shell #navigation-status{background:' +
             background +
             ';}' +
-            '#navigation-shell .navigation-focused,#player-ui .player-ui-focused{outline-color:' +
+            '#navigation-shell .navigation-focused,#player-ui .player-ui-focused,#progress_bar_div.progress_bar_div_focus{outline-color:' +
             focusColor +
             ' !important;background:' +
             focusSurface +
@@ -49082,7 +49270,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             ' !important;box-shadow:' +
             focusShadow +
             ' !important;}' +
-            '#navigation-shell .navigation-button[aria-current="page"]{color:' +
+            '#navigation-shell .navigation-button[aria-current="page"],#player-ui-menu .player-ui-current{color:' +
+            focusColor +
+            ';}' +
+            '#player-ui-buttons .player-ui-origin{box-shadow:inset 0 -0.12em 0 ' +
             focusColor +
             ';}' +
             '#navigation-shell #navigation-tabs [aria-selected="true"]{box-shadow:0 0.12em 0 ' +
@@ -50535,6 +50726,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     if (type === 'keydown' && UIFocus_Stack[UIFocus_Stack.length - 1] !== previous) {
                         // A legacy key-down that opens an overlay still owns the held press.
                         UIFocus_SuppressedKeys[event.keyCode] = previous || {};
+                        // Its default action (Enter activation) must not reach the control the new owner just focused.
+                        if (event.preventDefault) event.preventDefault();
                     }
                 }
             };

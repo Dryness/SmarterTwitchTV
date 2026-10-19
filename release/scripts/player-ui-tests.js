@@ -31,11 +31,23 @@ function element(id) {
             id,
             style: {},
             textContent: '',
-            classList: {add() {}, remove() {}},
+            classList: {
+                classes: new Set(),
+                add(c) {
+                    this.classes.add(c);
+                },
+                remove(c) {
+                    this.classes.delete(c);
+                }
+            },
             setAttribute() {},
+            removeAttribute() {},
             focus() {},
             querySelector() {
                 return null;
+            },
+            querySelectorAll() {
+                return [];
             }
         });
     return nodes.get(id);
@@ -70,8 +82,8 @@ const s = {
     Main_getElementById: element,
     Main_ShowElement: id => effects.push('show:' + id),
     Main_HideElement: id => effects.push('hide:' + id),
-    Main_AddClass() {},
-    Main_RemoveClass() {},
+    Main_AddClass: (id, cls) => element(id).classList.add(cls),
+    Main_RemoveClass: (id, cls) => element(id).classList.remove(cls),
     Main_addEventListener() {},
     Main_removeEventListener() {},
     Main_isScene2DocVisible: () => true,
@@ -104,6 +116,7 @@ const s = {
     Play_hidePanelFull: mode => effects.push(['hidePanel', mode]),
     OSInterface_setPlaybackSpeed: value => effects.push(['speed', value]),
     Play_ResetSpeed: () => effects.push('speed:reset'),
+    Play_ChatPosition: () => effects.push('chatpos'),
     PhoneChat_Show: () => effects.push('phone:show'),
     Play_ResetLowlatency() {},
     PlayVod_ChaptersArray: [],
@@ -134,6 +147,15 @@ const s = {
         ]
     },
     Play_data_base: {},
+    Play_getQualitiesCount: () => s.Play_data.qualities.length,
+    PlayVod_qualities: [{id: 'Auto', position: -1}],
+    PlayVod_getQualitiesCount: () => s.PlayVod_qualities.length,
+    PlayVod_qualityPlaying: 'Auto',
+    PlayVod_qualityIndex: 0,
+    PlayClip_qualities: [{id: 'Auto', position: -1}],
+    PlayClip_getQualitiesCount: () => s.PlayClip_qualities.length,
+    PlayClip_qualityPlaying: 'Auto',
+    PlayClip_qualityIndex: 0,
     Play_SetPlayQuality: id => {
         s.Play_data.quality = id;
         effects.push(['select', id]);
@@ -144,8 +166,21 @@ const s = {
     OSInterface_RestartPlayer: (...args) => effects.push(['restart', ...args]),
     Play_qualityIndexReset: () => effects.push('quality:reset'),
     Play_ResetPanel: mode => effects.push(['resetPanel', mode]),
+    UIFocus_DomRelease: () => false,
+    Play_BottonIcons_Pause: null,
     UIFocus_Suspend() {},
-    UIFocus_Pop() {},
+    UIFocus_Stack: [],
+    UIFocus_Push: owner => {
+        if (!owner || !owner.id || typeof owner.handle !== 'function') return false;
+        s.UIFocus_Stack.push(owner);
+        return true;
+    },
+    UIFocus_Pop: () => {
+        const owner = s.UIFocus_Stack.pop();
+        if (!owner) return null;
+        if (owner.cleanup) owner.cleanup();
+        return owner;
+    },
     Play_ForceShowPannel() {},
     KEY_ENTER: 13,
     KEY_LEFT: 37,
@@ -232,6 +267,84 @@ check(
     effects.some(x => Array.isArray(x) && x[0] === 'quality' && x[1] === 2),
     'quality commits actual bridge position'
 );
+/* Quality drawer list: one row per rendition; picking the playing one must not restart. */
+s.Play_data.qualities = [
+    {id: 'Auto', position: -1},
+    {id: '720p', position: 2},
+    {id: '480p', position: 4}
+];
+s.Play_data.qualityPlaying = 'Auto';
+s.Play_data.qualityIndex = 0;
+s.PlayerUI_State.mode = 1;
+s.PlayerUI_State.frames = [
+    {group: 'bar', index: 2},
+    {group: 'quality', index: 0, entries: ['q:Auto', 'q:720p', 'q:480p'], list: true}
+];
+const commitEffects = () => effects.filter(x => Array.isArray(x) && (x[0] === 'quality' || x[0] === 'restart' || x[0] === 'select')).length;
+const commitsBefore = commitEffects();
+s.PlayerUI_Handle({keyCode: s.KEY_ENTER}, false);
+check(commitEffects() === commitsBefore, 'picking the playing rendition changes nothing');
+check(!effects.some(x => Array.isArray(x) && x[0] === 'restart'), 'playing rendition pick never restarts the stream');
+check(s.PlayerUI_State.frames.length === 1 && s.PlayerUI_State.frames[0].group === 'bar', 'playing rendition pick returns to the bar');
+s.PlayerUI_State.frames = [
+    {group: 'bar', index: 2},
+    {group: 'quality', index: 1, entries: ['q:Auto', 'q:720p', 'q:480p'], list: true}
+];
+s.PlayerUI_Handle({keyCode: s.KEY_ENTER}, false);
+check(commitEffects() === commitsBefore + 2, 'picking another rendition commits exactly once');
+check(s.Play_data.qualityIndex === 1, 'picked rendition index stored');
+check(s.PlayerUI_State.frames.length === 1 && s.PlayerUI_State.frames[0].group === 'bar', 'applied pick returns to the bar');
+/* A hole in the mode's qualities array must not shift the stored index of the picked rendition. */
+s.Play_data.qualities = [{id: 'Auto', position: -1}, null, {id: '720p', position: 2}];
+s.Play_data.qualityPlaying = 'Auto';
+s.Play_data.qualityIndex = 0;
+const holeList = s.PlayerUI_QualityList();
+check(holeList.items.length === 2 && holeList.indexes[1] === 2, "list keeps each rendition's array index");
+s.PlayerUI_State.frames = [
+    {group: 'bar', index: 2},
+    {group: 'quality', index: 1, entries: ['q:Auto', 'q:720p'], list: true}
+];
+s.PlayerUI_Handle({keyCode: s.KEY_ENTER}, false);
+check(s.Play_data.qualityIndex === 2, 'picked rendition stores its own array index');
+s.Play_data.qualities = [
+    {id: 'Auto', position: -1},
+    {id: '720p', position: 2},
+    {id: '480p', position: 4}
+];
+/* Spinner rows: Left/Right adjust values through the production updown. */
+s.PlayerUI_State.frames = [{group: 'chatSettings', index: 0, entries: [s.Play_controlsChatPos]}];
+s.Play_ChatEnable = true;
+s.Play_ChatPositions = 0;
+s.Play_controls[s.Play_controlsChatPos].defaultValue = 0;
+s.PlayerUI_Action(s.Play_controlsChatPos, 1);
+check(s.Play_ChatPositions === 1 && effects.includes('chatpos'), 'chat position adjusts with the right key');
+s.PlayerUI_Action(s.Play_controlsChatPos, -1);
+check(s.Play_ChatPositions === 0, 'chat position adjusts back with the left key');
+/* Drawer orientation helpers: per-drawer help line and full cleanup of drawer state. */
+s.STR_UI = {playerHelp: 'adjust', playerHelpMenu: 'menu', playerHelpList: 'list', playerHelpAction: 'action'};
+check(s.PlayerUI_HelpText({group: 'more'}) === 'menu', 'More menu shows the open help line');
+check(s.PlayerUI_HelpText({group: 'quality', list: true}) === 'list', 'quality list shows the select help line');
+check(
+    s.PlayerUI_HelpText({group: 'playback', index: 0, entries: [s.Play_controlsSpeed]}) === 'adjust',
+    'rows with a value range keep the adjust help line'
+);
+check(s.PlayerUI_HelpText({group: 'playback', index: 0, entries: [s.Play_controlsScreeOff]}) === 'action', 'action rows do not advertise Left/Right');
+/* Paused state: every main-player start clears it; the chip is hidden either way. */
+s.PlayerUI_State.paused = true;
+s.PlayerUI_State.frames = [];
+s.PlayerUI_ResetPaused();
+check(!s.PlayerUI_State.paused && effects.includes('hide:player-ui-paused'), 'paused state and chip reset on a new playback');
+s.document = {activeElement: null, body: {}};
+s.PlayerUI_State.frames = [];
+s.PlayerUI_Show(1);
+element('player-ui').classList.add('player-ui-drawer-open');
+element('scene2').classList.add('player-ui-drawer-open');
+s.UIFocus_Pop(false);
+check(
+    !element('player-ui').classList.classes.has('player-ui-drawer-open') && !element('scene2').classList.classes.has('player-ui-drawer-open'),
+    'owner cleanup drops the drawer-open state'
+);
+s.PlayerUI_State.frames = [{group: 'bar', index: 0}];
 s.Play_MultiEnable = true;
 check(!s.PlayerUI_Available(s.Play_controlsQuality, 'quality'), 'single-stream quality absent in multistream');
 check(s.PlayerUI_Available(s.Play_controlsQualityMulti, 'quality'), 'multistream restart remains reachable');

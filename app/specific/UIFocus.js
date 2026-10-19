@@ -111,6 +111,8 @@ function UIFocus_Listener(type, handler) {
                 if (type === 'keydown' && UIFocus_Stack[UIFocus_Stack.length - 1] !== previous) {
                     // A legacy key-down that opens an overlay still owns the held press.
                     UIFocus_SuppressedKeys[event.keyCode] = previous || {};
+                    // Its default action (Enter activation) must not reach the control the new owner just focused.
+                    if (event.preventDefault) event.preventDefault();
                 }
             }
         };

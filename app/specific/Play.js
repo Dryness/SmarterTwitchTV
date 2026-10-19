@@ -216,12 +216,12 @@ function Play_Start(offline_chat) {
     Play_BufferSize = 0;
 
     Play_data.watching_time = new Date().getTime();
-    Main_textContentWithEle(Play_infoWatchingTime, ', ' + STR_WATCHING + Play_timeS(0));
+    Main_textContentWithEle(Play_infoWatchingTime, STR_UI.watching + Play_timeS(0));
     PlayClip_SetProgressBarJumpers();
     PlayVod_previews_clear();
     Main_empty('inner_progress_bar_muted');
 
-    Main_textContentWithEle(Play_infoLiveTime, Play_timeMs(0));
+    Main_textContentWithEle(Play_infoLiveTime, STR_UI.liveFor + Play_timeMs(0));
 
     Play_isOn = true;
     Play_Playing = false;
@@ -511,14 +511,14 @@ function Play_UpdateMainStreamDiv() {
     streamTitle = Play_data.data[2];
 
     if (streamGame !== Play_data.data[3]) {
-        Main_textContent('stream_info_game', Play_data.data[3] !== '' ? STR_PLAYING + Play_data.data[3] : '');
+        Main_textContent('stream_info_game', Play_data.data[3] !== '' ? Play_data.data[3] : '');
     }
     streamGame = Play_data.data[3];
 
     if (streamViewers !== Play_data.data[13]) {
-        Main_innerHTML(
+        Main_textContent(
             'stream_live_viewers',
-            STR_SPACE_HTML + STR_FOR + Main_formatNumber(Play_data.data[13]) + STR_SPACE_HTML + Main_GetViewerStrings(Play_data.data[13])
+            Main_formatNumber(Play_data.data[13]) + ' ' + Main_GetViewerStrings(Play_data.data[13]).toLowerCase()
         );
     }
     streamViewers = Play_data.data[13];
@@ -1718,14 +1718,15 @@ function Play_RefreshWatchingTime() {
 
         return;
     } else {
-        Main_textContentWithEle(Play_infoWatchingTime, ', ' + STR_WATCHING + Play_timeMs(dateNow - Play_data.watching_time));
+        // The info line's separators are drawn by CSS (#stream_info .stream_info_timers).
+        Main_textContentWithEle(Play_infoWatchingTime, STR_UI.watching + Play_timeMs(dateNow - Play_data.watching_time));
         Main_textContentWithEle(Play_infoLiveTime, Play_GetLiveTime(dateNow, Play_data.data[12], Play_data.watching_time));
     }
 }
 
 //Server time info may be wrong resulting in too big time
 function Play_GetLiveTime(dateNow, Time, watching_time) {
-    return STR_SINCE + Play_streamLiveAtWitDate(dateNow, Time && parseInt(Time) ? Time : watching_time);
+    return STR_UI.liveFor + Play_streamLiveAtWitDate(dateNow, Time && parseInt(Time) ? Time : watching_time);
 }
 
 function Play_VideoStatusTest() {
