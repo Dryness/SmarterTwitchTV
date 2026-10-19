@@ -48,3 +48,5 @@ apk/.idea/deviceManager.xml
 
 .zcode/
 apk/.kotlin/
+.claude/
+.impeccable/
