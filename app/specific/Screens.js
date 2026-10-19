@@ -24,6 +24,7 @@ var Screens_clear = false;
 var Screens_KeyEnterID;
 var Screens_DialogHideTimout = 10000;
 var Screens_KeyUptimeout = 250;
+var Screens_KeyHoldTimeout = 500;
 var Screens_ScrollAnimationTimeout = 300; //Same time as animate_height_transition
 var Screens_ChangeFocusAnimationFinished = true;
 var Screens_ChangeFocusAnimationFast = false;
@@ -2319,8 +2320,8 @@ function Screens_handleKeyUp(key, e) {
         if (!Screens_clear) {
             if (!ScreenObj[key].posX) Screens_OpenSidePanel(false, key);
             else {
-                // Left from a card body enters the previous card's Actions target.
-                ScreenObj[key].posSub = Screens_SubActions;
+                // Left moves straight to the previous card.
+                ScreenObj[key].posSub = Screens_SubBody;
                 Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
                 Main_addEventListener('keydown', ScreenObj[key].key_fun);
             }
@@ -2406,18 +2407,6 @@ function Screens_handleKeyDown(key, event) {
     }
     if (
         event.keyCode === KEY_RIGHT &&
-        ScreenObj[key].posSub !== Screens_SubActions &&
-        ScreenObj[key].posY > -1 &&
-        !Main_CantClick() &&
-        Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
-    ) {
-        // Body Right enters this card's Actions target; one-press watching stays on OK.
-        Main_keyClickDelayStart();
-        Screens_FocusSub(key, Screens_SubActions);
-        return;
-    }
-    if (
-        event.keyCode === KEY_RIGHT &&
         (ScreenObj[key].posX === ScreenObj[key].ColumnsCount - 1 ||
             (ScreenObj[key].dataEnded && !ScreenObj[key].DataObj[ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1)]))
     )
@@ -2426,43 +2415,6 @@ function Screens_handleKeyDown(key, event) {
     if (Main_CantClick()) return;
 
     Main_keyClickDelayStart();
-
-    if (ScreenObj[key].posSub === Screens_SubActions && ScreenObj[key].posY > -1 && Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)) {
-        if (event.keyCode === KEY_LEFT) {
-            Screens_FocusSub(key, Screens_SubBody);
-            return;
-        }
-        if (
-            event.keyCode === KEY_ENTER ||
-            event.keyCode === KEY_PLAY ||
-            event.keyCode === KEY_PLAYPAUSE ||
-            event.keyCode === KEY_KEYBOARD_SPACE ||
-            event.keyCode === KEY_MEDIA_PREVIOUS
-        ) {
-            // OK opens this item's options once; it never inherits the body's hold-to-refresh timer.
-            UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
-            Screens_ThumbOptionStart(key, false);
-            return;
-        }
-        if (event.keyCode === KEY_KEYBOARD_BACKSPACE || event.keyCode === KEY_RETURN) {
-            Screens_FocusSub(key, Screens_SubBody);
-            return;
-        }
-        if (event.keyCode === KEY_RIGHT) {
-            // Next card body stays in this row; movement never wraps to another content row.
-            var nextId = ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1);
-            if (
-                ScreenObj[key].posX < ScreenObj[key].ColumnsCount - 1 &&
-                ScreenObj[key].DataObj[nextId] &&
-                !ScreenObj[key].DataObj[nextId].image
-            ) {
-                ScreenObj[key].posSub = Screens_SubBody;
-                Screens_ChangeFocus(0, ScreenObj[key].posX + 1, key);
-            }
-            return;
-        }
-        // Up/Down keep the subtarget column through the ordinary vertical handlers below.
-    }
 
     switch (event.keyCode) {
         case KEY_MEDIA_REWIND:
@@ -2526,7 +2478,7 @@ function Screens_handleKeyDown(key, event) {
                     Screens_RemoveAllFocus(key);
                     Navigation_Open(ScreenObj[key].key_fun, 'rail');
                 } else {
-                    ScreenObj[key].posSub = Screens_SubActions;
+                    ScreenObj[key].posSub = Screens_SubBody;
                     Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
                 }
                 break;
@@ -2564,12 +2516,17 @@ function Screens_handleKeyDown(key, event) {
             ScreenObj[key].key_play();
             break;
         case KEY_ENTER:
-            // OK watches (or opens the focused Actions target) once, on key-down, in both remote
-            // modes: a slow press must not turn into the old hold-to-refresh. Repeats and the release
-            // stay suppressed until the physical key is released (the persistent key-up listener
-            // clears it). Refresh stays on the Refresh button and key 2.
-            UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
-            ScreenObj[key].key_play();
+            // Tap watches on release; holding OK opens the item's options (the card's Actions affordance).
+            Main_removeEventListener('keydown', ScreenObj[key].key_fun);
+            Main_addEventListener('keyup', ScreenObj[key].key_up);
+            Screens_clear = false;
+            Screens_KeyEnterID = Main_setTimeout(
+                function () {
+                    Screens_ThumbOptionStart(key, false);
+                },
+                Screens_KeyHoldTimeout,
+                Screens_KeyEnterID
+            );
             break;
         case KEY_MEDIA_NEXT:
         case KEY_NUMPAD_2:

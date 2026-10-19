@@ -2479,6 +2479,11 @@
                 overflow: hidden;
             }
 
+            /*Deleted messages kept on screen when chat clear is set to Keep greyed out*/
+            .chat_deleted {
+                opacity: 0.45;
+            }
+
             .chat_line_animation {
                 animation: chat_message_animation 180ms cubic-bezier(0.4, 0, 0.2, 1) 0s;
             }
@@ -2910,6 +2915,7 @@
                 bottom: 0;
                 width: 5.8%;
                 background: #1e1b25;
+                z-index: 5; /* above the later positioned title and tabs so the expanded rail stays readable */
                 padding: 2.5vh 0.7vw;
                 overflow: hidden;
                 pointer-events: auto;
@@ -3070,7 +3076,7 @@
                 right: 5%;
                 top: 30%;
                 bottom: 15%;
-                z-index: 7;
+                z-index: 5; /* below the navigation shell (6) so the expanded rail covers it */
                 color: #f5f1fa;
             }
             .navigation-onboarding h2 {

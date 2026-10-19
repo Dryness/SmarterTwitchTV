@@ -656,8 +656,8 @@ var Settings_value = {
     },
     clear_chat: {
         //Migrated to dialog
-        values: ['no', 'yes'],
-        defaultValue: 2
+        values: ['no', 'yes', 'grey'],
+        defaultValue: 3
     },
     show_chatters: {
         //Migrated to dialog
@@ -3409,7 +3409,7 @@ function Settings_DialogShowChat(click) {
     Settings_value.chat_line_animation.values = yes_no;
     Settings_value.chat_timestamp.values = yes_no;
     Settings_value.chat_showUserNotice.values = yes_no;
-    Settings_value.clear_chat.values = yes_no;
+    Settings_value.clear_chat.values = [STR_NO, STR_YES, STR_CHAT_CLEAR_MSG_GREY];
     Settings_value.show_chatters.values = [STR_DISABLED, STR_SHOW_IN_CHAT_CHATTERS, STR_SHOW_IN_CHAT_VIEWERS];
 
     var obj = {

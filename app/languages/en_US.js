@@ -767,7 +767,8 @@ function en_USLang() {
     STR_CHAT_MESSAGE_DELETED_ALL = 'All messages from this user were requested to be deleted';
     STR_CHAT_MESSAGE_DELETED_TIMEOUT = ", they've been timed out for";
     STR_CHAT_CLEAR_MSG_SUMMARY =
-        'Delete messages from specific users (e.g., after a timeout or ban). If enabled, messages are removed; otherwise, only the background changes to blue.';
+        'What to do when a message or a user is deleted from chat. Yes replaces the message with a deletion notice, No keeps it with a deletion note on a blue background, Keep greyed out keeps it on screen faded.';
+    STR_CHAT_CLEAR_MSG_GREY = 'Keep greyed out';
     STR_OPEN_HOST_SETTINGS = 'Always open the hosted live at the end of the stream if available';
     STR_ALWAYS_STAY = 'Always stay with the player opened after a live ends';
     STR_PING_WARNING = "Show 'Ping to Twitch fail' warning";
@@ -1030,7 +1031,7 @@ function en_USLang() {
     STR_EDIT_SEARCH = 'Edit search';
     STR_REMOTE_CONTROLS = 'Browsing remote controls';
     STR_REMOTE_CONTROLS_SUMMARY =
-        'OK always watches immediately. Legacy keeps the hold shortcut: hold Left opens options. Direct moves on each press; open options with the card Actions button.';
+        'Tap OK to watch; hold OK to open the card options. Legacy also opens options by holding Left. Direct moves on each press.';
     STR_REMOTE_CONTROLS_LEGACY = 'Legacy';
     STR_REMOTE_CONTROLS_DIRECT = 'Direct (immediate)';
 

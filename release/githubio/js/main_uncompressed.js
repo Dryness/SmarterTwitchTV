@@ -536,6 +536,7 @@
         STR_OPEN_EXTERNAL_PLAYER,
         STR_CHAT_CLEAR_MSG,
         STR_CHAT_CLEAR_MSG_SUMMARY,
+        STR_CHAT_CLEAR_MSG_GREY,
         STR_CHAT_SHOW_BADGES,
         STR_CHAT_SHOW_BADGES_MOD,
         STR_CHAT_SHOW_BADGES_VIP,
@@ -2174,7 +2175,8 @@
         STR_CHAT_MESSAGE_DELETED_ALL = 'All messages from this user were requested to be deleted';
         STR_CHAT_MESSAGE_DELETED_TIMEOUT = ", they've been timed out for";
         STR_CHAT_CLEAR_MSG_SUMMARY =
-            'Delete messages from specific users (e.g., after a timeout or ban). If enabled, messages are removed; otherwise, only the background changes to blue.';
+            'What to do when a message or a user is deleted from chat. Yes replaces the message with a deletion notice, No keeps it with a deletion note on a blue background, Keep greyed out keeps it on screen faded.';
+        STR_CHAT_CLEAR_MSG_GREY = 'Keep greyed out';
         STR_OPEN_HOST_SETTINGS = 'Always open the hosted live at the end of the stream if available';
         STR_ALWAYS_STAY = 'Always stay with the player opened after a live ends';
         STR_PING_WARNING = "Show 'Ping to Twitch fail' warning";
@@ -2442,7 +2444,7 @@
         STR_EDIT_SEARCH = 'Edit search';
         STR_REMOTE_CONTROLS = 'Browsing remote controls';
         STR_REMOTE_CONTROLS_SUMMARY =
-            'OK always watches immediately. Legacy keeps the hold shortcut: hold Left opens options. Direct moves on each press; open options with the card Actions button.';
+            'Tap OK to watch; hold OK to open the card options. Legacy also opens options by holding Left. Direct moves on each press.';
         STR_REMOTE_CONTROLS_LEGACY = 'Legacy';
         STR_REMOTE_CONTROLS_DIRECT = 'Direct (immediate)';
 
@@ -8349,8 +8351,16 @@
         publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
         WebVersion: 'October 19 2026',
-        WebTag: 754, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebTag: 755, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 19 2026 (Web 755)',
+                changes: [
+                    'Chat: deleted messages can stay on screen greyed out instead of being replaced, via the chat clear option Keep greyed out (now the default)',
+                    'Browse grid: Left and Right move straight to the previous or next card, hold OK to open the card options',
+                    'Navigation rail: the expanded rail now covers the page title instead of showing through it'
+                ]
+            },
             {
                 title: 'October 19 2026 (Web 754)',
                 changes: [
@@ -13157,6 +13167,7 @@
     var ChatLive_Custom_Nick_Color;
     var ChatLive_Show_TimeStamp;
     var ChatLive_ClearChat;
+    var ChatLive_ClearChatGrey;
     var ChatLive_HideBots;
     var ChatLive_ShowBadges;
     var ChatLive_ShowBadgesMod;
@@ -13194,7 +13205,8 @@
         chat_lineChatLive_Individual_Lines = Settings_value.individual_lines.defaultValue;
         ChatLive_Custom_Nick_Color = Settings_value.chat_nickcolor.defaultValue;
         ChatLive_Show_TimeStamp = Settings_value.chat_timestamp.defaultValue;
-        ChatLive_ClearChat = Settings_value.clear_chat.defaultValue;
+        ChatLive_ClearChat = Settings_value.clear_chat.defaultValue === 1;
+        ChatLive_ClearChatGrey = Settings_value.clear_chat.defaultValue === 2;
         ChatLive_HideBots = Settings_value.chat_bot.defaultValue;
         ChatLive_Individual_Background_flip[chat_number] = 0;
         ChatLive_ShowBadges = Settings_value.chat_show_badges.defaultValue;
@@ -15290,10 +15302,13 @@
                 //Array.prototype maybe not supported by all browsers
                 Array.prototype.forEach.call(array, function (el) {
                     if (el) {
-                        if (ChatLive_ClearChat) el.innerHTML = msg;
+                        if (ChatLive_ClearChatGrey) {
+                            //Keep the messages on screen, only fade the whole line
+                            Main_AddClassWithEle(el.parentElement, 'chat_deleted');
+                        } else if (ChatLive_ClearChat) el.innerHTML = msg;
                         else el.innerHTML += STR_BR + STR_BR + msg;
 
-                        Main_AddClassWithEle(el.parentElement, 'chat_purged');
+                        if (!ChatLive_ClearChatGrey) Main_AddClassWithEle(el.parentElement, 'chat_purged');
                         //Prevent duplicate removal
                         Main_RemoveClassWithEle(el, classId);
                     }
@@ -15323,10 +15338,13 @@
             var el = Main_getElementById(message.tags['target-msg-id']);
 
             if (el) {
-                if (ChatLive_ClearChat) el.innerHTML = STR_CHAT_MESSAGE_DELETED;
+                if (ChatLive_ClearChatGrey) {
+                    //Keep the message on screen, only fade the whole line
+                    Main_AddClassWithEle(el.parentElement, 'chat_deleted');
+                } else if (ChatLive_ClearChat) el.innerHTML = STR_CHAT_MESSAGE_DELETED;
                 else el.innerHTML += STR_BR + STR_BR + STR_CHAT_MESSAGE_DELETED;
 
-                Main_AddClassWithEle(el.parentElement, 'chat_purged');
+                if (!ChatLive_ClearChatGrey) Main_AddClassWithEle(el.parentElement, 'chat_purged');
                 //Prevent duplicate removal
                 el.id = '_';
             }
@@ -36504,6 +36522,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     var Screens_KeyEnterID;
     var Screens_DialogHideTimout = 10000;
     var Screens_KeyUptimeout = 250;
+    var Screens_KeyHoldTimeout = 500;
     var Screens_ScrollAnimationTimeout = 300; //Same time as animate_height_transition
     var Screens_ChangeFocusAnimationFinished = true;
     var Screens_ChangeFocusAnimationFast = false;
@@ -38817,8 +38836,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             if (!Screens_clear) {
                 if (!ScreenObj[key].posX) Screens_OpenSidePanel(false, key);
                 else {
-                    // Left from a card body enters the previous card's Actions target.
-                    ScreenObj[key].posSub = Screens_SubActions;
+                    // Left moves straight to the previous card.
+                    ScreenObj[key].posSub = Screens_SubBody;
                     Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
                     Main_addEventListener('keydown', ScreenObj[key].key_fun);
                 }
@@ -38904,18 +38923,6 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
         if (
             event.keyCode === KEY_RIGHT &&
-            ScreenObj[key].posSub !== Screens_SubActions &&
-            ScreenObj[key].posY > -1 &&
-            !Main_CantClick() &&
-            Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
-        ) {
-            // Body Right enters this card's Actions target; one-press watching stays on OK.
-            Main_keyClickDelayStart();
-            Screens_FocusSub(key, Screens_SubActions);
-            return;
-        }
-        if (
-            event.keyCode === KEY_RIGHT &&
             (ScreenObj[key].posX === ScreenObj[key].ColumnsCount - 1 ||
                 (ScreenObj[key].dataEnded && !ScreenObj[key].DataObj[ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1)]))
         )
@@ -38924,47 +38931,6 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         if (Main_CantClick()) return;
 
         Main_keyClickDelayStart();
-
-        if (
-            ScreenObj[key].posSub === Screens_SubActions &&
-            ScreenObj[key].posY > -1 &&
-            Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
-        ) {
-            if (event.keyCode === KEY_LEFT) {
-                Screens_FocusSub(key, Screens_SubBody);
-                return;
-            }
-            if (
-                event.keyCode === KEY_ENTER ||
-                event.keyCode === KEY_PLAY ||
-                event.keyCode === KEY_PLAYPAUSE ||
-                event.keyCode === KEY_KEYBOARD_SPACE ||
-                event.keyCode === KEY_MEDIA_PREVIOUS
-            ) {
-                // OK opens this item's options once; it never inherits the body's hold-to-refresh timer.
-                UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
-                Screens_ThumbOptionStart(key, false);
-                return;
-            }
-            if (event.keyCode === KEY_KEYBOARD_BACKSPACE || event.keyCode === KEY_RETURN) {
-                Screens_FocusSub(key, Screens_SubBody);
-                return;
-            }
-            if (event.keyCode === KEY_RIGHT) {
-                // Next card body stays in this row; movement never wraps to another content row.
-                var nextId = ScreenObj[key].posY + '_' + (ScreenObj[key].posX + 1);
-                if (
-                    ScreenObj[key].posX < ScreenObj[key].ColumnsCount - 1 &&
-                    ScreenObj[key].DataObj[nextId] &&
-                    !ScreenObj[key].DataObj[nextId].image
-                ) {
-                    ScreenObj[key].posSub = Screens_SubBody;
-                    Screens_ChangeFocus(0, ScreenObj[key].posX + 1, key);
-                }
-                return;
-            }
-            // Up/Down keep the subtarget column through the ordinary vertical handlers below.
-        }
 
         switch (event.keyCode) {
             case KEY_MEDIA_REWIND:
@@ -39028,7 +38994,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                         Screens_RemoveAllFocus(key);
                         Navigation_Open(ScreenObj[key].key_fun, 'rail');
                     } else {
-                        ScreenObj[key].posSub = Screens_SubActions;
+                        ScreenObj[key].posSub = Screens_SubBody;
                         Screens_ChangeFocus(0, ScreenObj[key].posX - 1, key);
                     }
                     break;
@@ -39066,12 +39032,17 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 ScreenObj[key].key_play();
                 break;
             case KEY_ENTER:
-                // OK watches (or opens the focused Actions target) once, on key-down, in both remote
-                // modes: a slow press must not turn into the old hold-to-refresh. Repeats and the release
-                // stay suppressed until the physical key is released (the persistent key-up listener
-                // clears it). Refresh stays on the Refresh button and key 2.
-                UIFocus_SuppressedKeys[event.keyCode] = UIFocus_Stack[UIFocus_Stack.length - 1] || {};
-                ScreenObj[key].key_play();
+                // Tap watches on release; holding OK opens the item's options (the card's Actions affordance).
+                Main_removeEventListener('keydown', ScreenObj[key].key_fun);
+                Main_addEventListener('keyup', ScreenObj[key].key_up);
+                Screens_clear = false;
+                Screens_KeyEnterID = Main_setTimeout(
+                    function () {
+                        Screens_ThumbOptionStart(key, false);
+                    },
+                    Screens_KeyHoldTimeout,
+                    Screens_KeyEnterID
+                );
                 break;
             case KEY_MEDIA_NEXT:
             case KEY_NUMPAD_2:
@@ -45551,8 +45522,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         },
         clear_chat: {
             //Migrated to dialog
-            values: ['no', 'yes'],
-            defaultValue: 2
+            values: ['no', 'yes', 'grey'],
+            defaultValue: 3
         },
         show_chatters: {
             //Migrated to dialog
@@ -48310,7 +48281,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Settings_value.chat_line_animation.values = yes_no;
         Settings_value.chat_timestamp.values = yes_no;
         Settings_value.chat_showUserNotice.values = yes_no;
-        Settings_value.clear_chat.values = yes_no;
+        Settings_value.clear_chat.values = [STR_NO, STR_YES, STR_CHAT_CLEAR_MSG_GREY];
         Settings_value.show_chatters.values = [STR_DISABLED, STR_SHOW_IN_CHAT_CHATTERS, STR_SHOW_IN_CHAT_VIEWERS];
 
         var obj = {

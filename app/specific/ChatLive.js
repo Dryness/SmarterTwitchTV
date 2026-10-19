@@ -247,6 +247,7 @@ var ChatLive_Channel_Regex_Replace = [];
 var ChatLive_Custom_Nick_Color;
 var ChatLive_Show_TimeStamp;
 var ChatLive_ClearChat;
+var ChatLive_ClearChatGrey;
 var ChatLive_HideBots;
 var ChatLive_ShowBadges;
 var ChatLive_ShowBadgesMod;
@@ -284,7 +285,8 @@ function ChatLive_SetOptions(chat_number, Channel_id, selectedChannel) {
     chat_lineChatLive_Individual_Lines = Settings_value.individual_lines.defaultValue;
     ChatLive_Custom_Nick_Color = Settings_value.chat_nickcolor.defaultValue;
     ChatLive_Show_TimeStamp = Settings_value.chat_timestamp.defaultValue;
-    ChatLive_ClearChat = Settings_value.clear_chat.defaultValue;
+    ChatLive_ClearChat = Settings_value.clear_chat.defaultValue === 1;
+    ChatLive_ClearChatGrey = Settings_value.clear_chat.defaultValue === 2;
     ChatLive_HideBots = Settings_value.chat_bot.defaultValue;
     ChatLive_Individual_Background_flip[chat_number] = 0;
     ChatLive_ShowBadges = Settings_value.chat_show_badges.defaultValue;
@@ -2364,10 +2366,13 @@ function ChatLive_CleanUser(chat_number, message) {
             //Array.prototype maybe not supported by all browsers
             Array.prototype.forEach.call(array, function (el) {
                 if (el) {
-                    if (ChatLive_ClearChat) el.innerHTML = msg;
+                    if (ChatLive_ClearChatGrey) {
+                        //Keep the messages on screen, only fade the whole line
+                        Main_AddClassWithEle(el.parentElement, 'chat_deleted');
+                    } else if (ChatLive_ClearChat) el.innerHTML = msg;
                     else el.innerHTML += STR_BR + STR_BR + msg;
 
-                    Main_AddClassWithEle(el.parentElement, 'chat_purged');
+                    if (!ChatLive_ClearChatGrey) Main_AddClassWithEle(el.parentElement, 'chat_purged');
                     //Prevent duplicate removal
                     Main_RemoveClassWithEle(el, classId);
                 }
@@ -2397,10 +2402,13 @@ function ChatLive_CleanMessage(message) {
         var el = Main_getElementById(message.tags['target-msg-id']);
 
         if (el) {
-            if (ChatLive_ClearChat) el.innerHTML = STR_CHAT_MESSAGE_DELETED;
+            if (ChatLive_ClearChatGrey) {
+                //Keep the message on screen, only fade the whole line
+                Main_AddClassWithEle(el.parentElement, 'chat_deleted');
+            } else if (ChatLive_ClearChat) el.innerHTML = STR_CHAT_MESSAGE_DELETED;
             else el.innerHTML += STR_BR + STR_BR + STR_CHAT_MESSAGE_DELETED;
 
-            Main_AddClassWithEle(el.parentElement, 'chat_purged');
+            if (!ChatLive_ClearChatGrey) Main_AddClassWithEle(el.parentElement, 'chat_purged');
             //Prevent duplicate removal
             el.id = '_';
         }

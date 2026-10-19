@@ -24,8 +24,16 @@ var version = {
     publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
     WebVersion: 'October 19 2026',
-    WebTag: 754, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 755, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 19 2026 (Web 755)',
+            changes: [
+                'Chat: deleted messages can stay on screen greyed out instead of being replaced, via the chat clear option Keep greyed out (now the default)',
+                'Browse grid: Left and Right move straight to the previous or next card, hold OK to open the card options',
+                'Navigation rail: the expanded rail now covers the page title instead of showing through it'
+            ]
+        },
         {
             title: 'October 19 2026 (Web 754)',
             changes: [
