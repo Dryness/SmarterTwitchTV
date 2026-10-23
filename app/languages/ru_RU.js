@@ -226,7 +226,7 @@ function ru_RULang() {
     STR_PLACEHOLDER_PRESS_UP = 'Нажмите вверх для';
     STR_FOLLOW_GAMES = 'Отслеживаемые игры';
     STR_USER_GAMES_CHANGE = 'Смена между';
-    STR_GUIDE = 'Удерж. ОК';
+    STR_GUIDE = 'Удерж. вверх';
     STR_MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июнь', 'Июль', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     STR_DAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
     STR_STARTED = 'Запустил';

@@ -156,7 +156,16 @@ var Main_update_show_toast = false;
 var Main_IsOn_OSInterfaceVersion = '';
 var Main_ClockOffset = 0;
 var Main_IsOn_OSInterface = 0;
-var Main_randomImg = '?' + Math.random();
+var Main_randomImg = '?' + Main_imgCacheToken();
+
+//Cache buster appended to thumbnail urls. A new random value every minute changed
+//every url, so the webview cache could never serve a repeat and scrolling or
+//refreshing re-downloaded thumbnails the device already had. The value is
+//quantized in 5 minute steps so the url of an unchanged thumbnail stays stable
+//while browsing, previews still re-fetch as Twitch regenerates them.
+function Main_imgCacheToken() {
+    return Math.floor(Date.now() / (1000 * 60 * 5));
+}
 
 var Main_Scene1Doc;
 var Main_Scene2Doc;
@@ -1910,7 +1919,7 @@ function Main_updateClock() {
     Main_textContent('stream_clock', clock);
     Main_textContent('label_clock', clock);
 
-    Main_randomImg = '?' + parseInt(Math.random() * 100000);
+    Main_randomImg = '?' + Main_imgCacheToken();
 
     Screens_SetLastRefresh(Main_values.Main_Go);
     UserLiveFeedobj_SetLastRefresh(UserLiveFeed_FeedPosX);

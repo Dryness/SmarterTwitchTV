@@ -522,6 +522,9 @@ function ChannelContent_handleKeyUp(e) {
     if (e.keyCode === KEY_ENTER) {
         ChannelContent_handleKeyUpClear();
         if (!ChannelContent_clear) ChannelContent_keyEnter();
+    } else if (e.keyCode === KEY_UP) {
+        ChannelContent_handleKeyUpClear();
+        if (!ChannelContent_clear) ChannelContent_keyUpDown();
     }
 }
 
@@ -590,6 +593,12 @@ function ChannelContent_handleKeyDown(event) {
             }
             break;
         case KEY_UP:
+            // Hold Up refreshes the screen; a tap toggles the rows on release.
+            Main_removeEventListener('keydown', ChannelContent_handleKeyDown);
+            Main_addEventListener('keyup', ChannelContent_handleKeyUp);
+            ChannelContent_clear = false;
+            ChannelContent_KeyEnterID = Main_setTimeout(ChannelContent_KeyUpHold, Screens_KeyHoldTimeout, ChannelContent_KeyEnterID);
+            break;
         case KEY_DOWN:
             ChannelContent_keyUpDown();
             break;
@@ -622,6 +631,11 @@ function ChannelContent_handleKeyDown(event) {
         default:
             break;
     }
+}
+
+function ChannelContent_KeyUpHold() {
+    ChannelContent_clear = true;
+    ChannelContent_Refresh();
 }
 
 function ChannelContent_Refresh() {

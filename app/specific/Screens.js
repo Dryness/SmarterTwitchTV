@@ -2311,6 +2311,20 @@ function Screens_handleKeyUp(key, e) {
         if (!Screens_clear) {
             ScreenObj[key].key_play();
         }
+    } else if (e.keyCode === KEY_UP && !Screens_DirectInputMode()) {
+        Main_clearTimeout(Screens_KeyEnterID);
+        Main_removeEventListener('keyup', ScreenObj[key].key_up);
+        Main_addEventListener('keydown', ScreenObj[key].key_fun);
+
+        if (!Screens_clear && !Main_CantClick()) {
+            if (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) {
+                Screens_RemoveAllFocus(key);
+                Navigation_Open(ScreenObj[key].key_fun, 'tabs');
+            } else {
+                Main_keyClickDelayStart();
+                Screens_KeyUpDownClick(key, -1);
+            }
+        }
     } else if (e.keyCode === KEY_LEFT) {
         Screens_ThumbOptionCanKeyLeft = true;
 
@@ -2334,6 +2348,13 @@ function Screens_handleKeyUpClear(key) {
     Main_clearTimeout(Screens_KeyEnterID);
     Main_removeEventListener('keyup', ScreenObj[key].key_up);
     Main_addEventListener('keydown', ScreenObj[key].key_fun);
+}
+
+/* Hold Up refreshes the current screen; key-down stays disarmed until the key is released so
+ * auto-repeat cannot leak into the reloading screen. */
+function Screens_KeyUpHold(key) {
+    Screens_clear = true;
+    if (key === Main_values.Main_Go) Main_ReloadScreen();
 }
 
 function Screens_handleKeyUpAnimationFast() {
@@ -2400,6 +2421,20 @@ function Screens_handleKeyDown(key, event) {
         !Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
     )
         ScreenObj[key].posSub = Screens_SubBody;
+    // Legacy: UP acts on release so holding it can refresh the screen; Direct keeps scrolling on key-down.
+    if (event.keyCode === KEY_UP && !Screens_DirectInputMode() && !Main_CantClick()) {
+        Screens_clear = false;
+        Main_removeEventListener('keydown', ScreenObj[key].key_fun);
+        Main_addEventListener('keyup', ScreenObj[key].key_up);
+        Screens_KeyEnterID = Main_setTimeout(
+            function () {
+                Screens_KeyUpHold(key);
+            },
+            Screens_KeyHoldTimeout,
+            Screens_KeyEnterID
+        );
+        return;
+    }
     if (event.keyCode === KEY_UP && (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) && !Main_CantClick()) {
         Screens_RemoveAllFocus(key);
         Navigation_Open(ScreenObj[key].key_fun, 'tabs');

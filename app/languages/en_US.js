@@ -276,7 +276,7 @@ function en_USLang() {
     STR_PLACEHOLDER_PRESS_UP = 'Press Up to';
     STR_FOLLOW_GAMES = 'Followed Live Games';
     STR_USER_GAMES_CHANGE = 'Change between';
-    STR_GUIDE = 'Hold enter';
+    STR_GUIDE = 'Hold up';
     STR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
     STR_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     STR_STARTED = 'Started';

@@ -227,7 +227,7 @@ function fr_FRLang() {
     STR_PLACEHOLDER_PRESS_UP = 'Appuyez sur Haut pour';
     STR_FOLLOW_GAMES = 'Jeux en live suivis';
     STR_USER_GAMES_CHANGE = 'Alterner entre';
-    STR_GUIDE = 'Maintenez OK';
+    STR_GUIDE = 'Maintenez haut';
     STR_MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
     STR_DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
     STR_STARTED = 'Commencé';

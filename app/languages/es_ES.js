@@ -188,7 +188,7 @@ function es_ESLang() {
     STR_GAME_CONT = 'Contenido del juego';
     STR_YES = 'Si';
 
-    STR_GUIDE = 'Mantenga pulsado enter';
+    STR_GUIDE = 'Mantenga pulsado arriba';
     STR_MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dec'];
     STR_DAYS = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
 

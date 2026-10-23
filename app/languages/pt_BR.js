@@ -221,7 +221,7 @@ function pt_BRLang() {
     STR_PLACEHOLDER_PRESS_UP = 'Pressione até';
     STR_FOLLOW_GAMES = 'Jogos Seguidos Ao Vivo';
     STR_USER_GAMES_CHANGE = 'Mudar entre';
-    STR_GUIDE = 'Segure enter';
+    STR_GUIDE = 'Segure para cima';
     STR_MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Maio', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     STR_DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     STR_STARTED = 'Iniciou';

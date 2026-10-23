@@ -23,9 +23,21 @@ var version = {
     VersionBase: '3.0',
     publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
-    WebVersion: 'October 19 2026',
-    WebTag: 757, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebVersion: 'October 23 2026',
+    WebTag: 759, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 23 2026 (Web 759)',
+            changes: [
+                'Performance: the cache buster on thumbnails now changes every 5 minutes instead of every minute, so scrolling and screen refreshes reuse cached previews instead of re-downloading them every time — less bandwidth and smoother browsing on slower TVs'
+            ]
+        },
+        {
+            title: 'October 22 2026 (Web 758)',
+            changes: [
+                'Browsing: hold Up to refresh the current screen — same as key 2; handy because a screen you stay on never refreshes on its own, only the ones in the background do'
+            ]
+        },
         {
             title: 'October 19 2026 (Web 757)',
             changes: [

@@ -1686,7 +1686,7 @@
         STR_PLACEHOLDER_PRESS_UP = 'Press Up to';
         STR_FOLLOW_GAMES = 'Followed Live Games';
         STR_USER_GAMES_CHANGE = 'Change between';
-        STR_GUIDE = 'Hold enter';
+        STR_GUIDE = 'Hold up';
         STR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
         STR_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         STR_STARTED = 'Started';
@@ -2655,7 +2655,7 @@
         STR_GAME_CONT = 'Contenido del juego';
         STR_YES = 'Si';
 
-        STR_GUIDE = 'Mantenga pulsado enter';
+        STR_GUIDE = 'Mantenga pulsado arriba';
         STR_MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dec'];
         STR_DAYS = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
 
@@ -3340,7 +3340,7 @@
         STR_PLACEHOLDER_PRESS_UP = 'Appuyez sur Haut pour';
         STR_FOLLOW_GAMES = 'Jeux en live suivis';
         STR_USER_GAMES_CHANGE = 'Alterner entre';
-        STR_GUIDE = 'Maintenez OK';
+        STR_GUIDE = 'Maintenez haut';
         STR_MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
         STR_DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
         STR_STARTED = 'Commencé';
@@ -4321,7 +4321,7 @@
         STR_PLACEHOLDER_PRESS_UP = 'Pressione até';
         STR_FOLLOW_GAMES = 'Jogos Seguidos Ao Vivo';
         STR_USER_GAMES_CHANGE = 'Mudar entre';
-        STR_GUIDE = 'Segure enter';
+        STR_GUIDE = 'Segure para cima';
         STR_MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Maio', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         STR_DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         STR_STARTED = 'Iniciou';
@@ -5280,7 +5280,7 @@
         STR_PLACEHOLDER_PRESS_UP = 'Нажмите вверх для';
         STR_FOLLOW_GAMES = 'Отслеживаемые игры';
         STR_USER_GAMES_CHANGE = 'Смена между';
-        STR_GUIDE = 'Удерж. ОК';
+        STR_GUIDE = 'Удерж. вверх';
         STR_MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июнь', 'Июль', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
         STR_DAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         STR_STARTED = 'Запустил';
@@ -6271,7 +6271,7 @@
         STR_PLACEHOLDER_PRESS_UP = 'Şunun için Yukarı tuşuna basın';
         STR_FOLLOW_GAMES = 'Takip Edilen Canlı Oyunlar';
         STR_USER_GAMES_CHANGE = 'Arasında geçiş yap';
-        STR_GUIDE = 'Enter tuşuna basılı tut';
+        STR_GUIDE = 'Yukarı tuşuna basılı tut';
         STR_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
         STR_DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
         STR_STARTED = 'Başladı';
@@ -7254,7 +7254,7 @@
         STR_PLACEHOLDER_PRESS_UP = 'Натисніть вгору, щоб';
         STR_FOLLOW_GAMES = 'Улюблені трансляції ігор';
         STR_USER_GAMES_CHANGE = 'Перемикання між';
-        STR_GUIDE = ' утримуйте OK';
+        STR_GUIDE = ' утримуйте вгору';
         STR_MONTHS = ['Січ', 'Лют', 'Бер', 'Квіт', 'Трав', 'Черв', 'Лип', 'Серп', 'Вер', 'Жовт', 'Лист', 'Груд'];
         STR_DAYS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         STR_STARTED = 'Розпочато';
@@ -8359,9 +8359,21 @@
         VersionBase: '3.0',
         publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
-        WebVersion: 'October 19 2026',
-        WebTag: 757, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebVersion: 'October 23 2026',
+        WebTag: 759, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 23 2026 (Web 759)',
+                changes: [
+                    'Performance: the cache buster on thumbnails now changes every 5 minutes instead of every minute, so scrolling and screen refreshes reuse cached previews instead of re-downloading them every time — less bandwidth and smoother browsing on slower TVs'
+                ]
+            },
+            {
+                title: 'October 22 2026 (Web 758)',
+                changes: [
+                    'Browsing: hold Up to refresh the current screen — same as key 2; handy because a screen you stay on never refreshes on its own, only the ones in the background do'
+                ]
+            },
             {
                 title: 'October 19 2026 (Web 757)',
                 changes: [
@@ -12678,6 +12690,9 @@
         if (e.keyCode === KEY_ENTER) {
             ChannelContent_handleKeyUpClear();
             if (!ChannelContent_clear) ChannelContent_keyEnter();
+        } else if (e.keyCode === KEY_UP) {
+            ChannelContent_handleKeyUpClear();
+            if (!ChannelContent_clear) ChannelContent_keyUpDown();
         }
     }
 
@@ -12746,6 +12761,12 @@
                 }
                 break;
             case KEY_UP:
+                // Hold Up refreshes the screen; a tap toggles the rows on release.
+                Main_removeEventListener('keydown', ChannelContent_handleKeyDown);
+                Main_addEventListener('keyup', ChannelContent_handleKeyUp);
+                ChannelContent_clear = false;
+                ChannelContent_KeyEnterID = Main_setTimeout(ChannelContent_KeyUpHold, Screens_KeyHoldTimeout, ChannelContent_KeyEnterID);
+                break;
             case KEY_DOWN:
                 ChannelContent_keyUpDown();
                 break;
@@ -12778,6 +12799,11 @@
             default:
                 break;
         }
+    }
+
+    function ChannelContent_KeyUpHold() {
+        ChannelContent_clear = true;
+        ChannelContent_Refresh();
     }
 
     function ChannelContent_Refresh() {
@@ -17510,7 +17536,16 @@
     var Main_IsOn_OSInterfaceVersion = '';
     var Main_ClockOffset = 0;
     var Main_IsOn_OSInterface = 0;
-    var Main_randomImg = '?' + Math.random();
+    var Main_randomImg = '?' + Main_imgCacheToken();
+
+    //Cache buster appended to thumbnail urls. A new random value every minute changed
+    //every url, so the webview cache could never serve a repeat and scrolling or
+    //refreshing re-downloaded thumbnails the device already had. The value is
+    //quantized in 5 minute steps so the url of an unchanged thumbnail stays stable
+    //while browsing, previews still re-fetch as Twitch regenerates them.
+    function Main_imgCacheToken() {
+        return Math.floor(Date.now() / (1000 * 60 * 5));
+    }
 
     var Main_Scene1Doc;
     var Main_Scene2Doc;
@@ -19266,7 +19301,7 @@
         Main_textContent('stream_clock', clock);
         Main_textContent('label_clock', clock);
 
-        Main_randomImg = '?' + parseInt(Math.random() * 100000);
+        Main_randomImg = '?' + Main_imgCacheToken();
 
         Screens_SetLastRefresh(Main_values.Main_Go);
         UserLiveFeedobj_SetLastRefresh(UserLiveFeed_FeedPosX);
@@ -39153,6 +39188,20 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             if (!Screens_clear) {
                 ScreenObj[key].key_play();
             }
+        } else if (e.keyCode === KEY_UP && !Screens_DirectInputMode()) {
+            Main_clearTimeout(Screens_KeyEnterID);
+            Main_removeEventListener('keyup', ScreenObj[key].key_up);
+            Main_addEventListener('keydown', ScreenObj[key].key_fun);
+
+            if (!Screens_clear && !Main_CantClick()) {
+                if (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) {
+                    Screens_RemoveAllFocus(key);
+                    Navigation_Open(ScreenObj[key].key_fun, 'tabs');
+                } else {
+                    Main_keyClickDelayStart();
+                    Screens_KeyUpDownClick(key, -1);
+                }
+            }
         } else if (e.keyCode === KEY_LEFT) {
             Screens_ThumbOptionCanKeyLeft = true;
 
@@ -39176,6 +39225,13 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_clearTimeout(Screens_KeyEnterID);
         Main_removeEventListener('keyup', ScreenObj[key].key_up);
         Main_addEventListener('keydown', ScreenObj[key].key_fun);
+    }
+
+    /* Hold Up refreshes the current screen; key-down stays disarmed until the key is released so
+     * auto-repeat cannot leak into the reloading screen. */
+    function Screens_KeyUpHold(key) {
+        Screens_clear = true;
+        if (key === Main_values.Main_Go) Main_ReloadScreen();
     }
 
     function Screens_handleKeyUpAnimationFast() {
@@ -39242,6 +39298,20 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             !Screens_HasActionsTarget(key, ScreenObj[key].posY + '_' + ScreenObj[key].posX)
         )
             ScreenObj[key].posSub = Screens_SubBody;
+        // Legacy: UP acts on release so holding it can refresh the screen; Direct keeps scrolling on key-down.
+        if (event.keyCode === KEY_UP && !Screens_DirectInputMode() && !Main_CantClick()) {
+            Screens_clear = false;
+            Main_removeEventListener('keydown', ScreenObj[key].key_fun);
+            Main_addEventListener('keyup', ScreenObj[key].key_up);
+            Screens_KeyEnterID = Main_setTimeout(
+                function () {
+                    Screens_KeyUpHold(key);
+                },
+                Screens_KeyHoldTimeout,
+                Screens_KeyEnterID
+            );
+            return;
+        }
         if (event.keyCode === KEY_UP && (ScreenObj[key].posY < 0 || (!ScreenObj[key].HasSwitches && !ScreenObj[key].posY)) && !Main_CantClick()) {
             Screens_RemoveAllFocus(key);
             Navigation_Open(ScreenObj[key].key_fun, 'tabs');

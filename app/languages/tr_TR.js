@@ -229,7 +229,7 @@ function tr_TRLang() {
     STR_PLACEHOLDER_PRESS_UP = 'Şunun için Yukarı tuşuna basın';
     STR_FOLLOW_GAMES = 'Takip Edilen Canlı Oyunlar';
     STR_USER_GAMES_CHANGE = 'Arasında geçiş yap';
-    STR_GUIDE = 'Enter tuşuna basılı tut';
+    STR_GUIDE = 'Yukarı tuşuna basılı tut';
     STR_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
     STR_DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
     STR_STARTED = 'Başladı';
