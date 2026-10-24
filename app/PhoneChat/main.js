@@ -67,11 +67,27 @@ SPTVPhoneChat.App = (function () {
         deleted: 'message deleted',
         sentMark: 'submitted',
         localName: 'You',
-        pickerChunks: 'Showing %n of %t emotes'
+        pickerChunks: 'Showing %n of %t emotes',
+        muteAction: 'Mute %s',
+        unmuteAction: 'Unmute %s',
+        mute: 'Mute',
+        unmute: 'Unmute',
+        cancel: 'Cancel',
+        mutedButton: 'Muted (%n)',
+        mutedEmpty: 'No muted users. Long-press a message to mute its author.'
     };
 
     var ProviderLabels = {twitch: 'Twitch', bttv: 'BTTV', ffz: 'FFZ', seven_tv: '7TV'};
     var PickerChunkSize = 60;
+
+    //Muted users are device state, not chat-session state: the list lives
+    //outside S so channel changes and disconnects never clear it
+    var MutedKey = 'sptv_phone_muted';
+    var MutedLimit = 500;
+    //Consecutive identical messages from the same user inside this window merge into one row with a (xN) counter
+    var SpamWindowMs = 15000;
+    var mutedLogins = loadMuted();
+    var rowMenuLogin = null;
 
     var S = {
         channel: null,
@@ -86,6 +102,7 @@ SPTVPhoneChat.App = (function () {
         ownBadges: null,
         store: null,
         localEchoes: [],
+        spam: null, //last appended chat row {login, text, time, count, row, countEl}, the merge target for repeats
         slowMode: 0,
         lastSendTime: 0,
         composing: false,
@@ -983,6 +1000,16 @@ SPTVPhoneChat.App = (function () {
     function onChatMessage(message) {
         if (!message || !message.text) return;
 
+        var login = String(message.login || '').toLowerCase();
+
+        //Muted users are invisible on this phone; their ids are still recorded
+        //so a replay after an unmute cannot resurrect dropped messages
+        if (login && isMuted(login)) {
+            if (!S.store) S.store = Render.createStore(Render.HistoryLimit);
+            if (message.id) S.store.append({id: message.id, userId: message.tags ? message.tags['user-id'] : null});
+            return;
+        }
+
         //Deduplicate by message id
         if (!S.store) S.store = Render.createStore(Render.HistoryLimit);
         if (message.id && (S.store.has(message.id) || el('pc-messages').querySelector('[data-id="' + cssEscape(message.id) + '"]'))) return;
@@ -1003,18 +1030,44 @@ SPTVPhoneChat.App = (function () {
 
         if (message.id) S.store.append({id: message.id, userId: message.tags ? message.tags['user-id'] : null});
 
+        //Collapse a repeat of the last row from the same user into that row
+        //with a growing count, so copy-paste spam cannot flood the feed
+        var receivedAt = message.receivedAt || Date.now(),
+            spam = S.spam;
+
+        if (
+            spam &&
+            login &&
+            spam.login === login &&
+            spam.text === message.text &&
+            receivedAt - spam.time < SpamWindowMs &&
+            spam.row.parentNode
+        ) {
+            spam.count++;
+            spam.time = receivedAt;
+            spam.countEl.textContent = ' (x' + spam.count + ')';
+            if (nearBottom()) scrollToBottom(); //the row grew, keep the newest content in view
+            return;
+        }
+
         var roles = Render.messageRoles(message.badges, message.login),
             resolver = S.resolver,
             segments = Render.buildSegments(message.text, message.emotes, resolver),
             row = document.createElement('div'),
             nameSpan = document.createElement('span'),
-            textSpan = document.createElement('span');
+            textSpan = document.createElement('span'),
+            countSpan = document.createElement('span');
 
         row.className = 'pc-msg' + (message.action ? ' pc-action' : '') + (roles.partner ? ' pc-partner' : '');
         row.setAttribute('data-priority', String(roles.priority));
-        row.setAttribute('data-time', String(message.receivedAt || Date.now()));
+        row.setAttribute('data-time', String(receivedAt));
         if (message.id) row.setAttribute('data-id', message.id);
         if (message.tags && message.tags['user-id']) row.setAttribute('data-user-id', message.tags['user-id']);
+        //The mute action sheet and row cleanup on mute both key on the login
+        if (login) {
+            row.setAttribute('data-login', login);
+            row.setAttribute('data-name', message.displayName || login);
+        }
 
         appendBadges(row, message.badges);
 
@@ -1025,10 +1078,15 @@ SPTVPhoneChat.App = (function () {
         textSpan.className = 'pc-text';
         textSpan.appendChild(SPTVPhoneChat.Dom.buildMessageContent(segments, document));
 
+        countSpan.className = 'pc-count';
+
         row.appendChild(nameSpan);
         row.appendChild(textSpan);
+        row.appendChild(countSpan);
 
         appendRow(row);
+
+        S.spam = {login: login, text: message.text, time: receivedAt, count: 1, row: row, countEl: countSpan};
     }
 
     function appendBadges(row, badgesTag) {
@@ -1182,6 +1240,7 @@ SPTVPhoneChat.App = (function () {
         row.setAttribute('data-time', String(Date.now()));
         //Echoes are this account's messages: targeted CLEARCHAT must find them
         if (S.session.userId) row.setAttribute('data-user-id', S.session.userId);
+        if (S.session.login) row.setAttribute('data-login', S.session.login);
 
         nameSpan.className = 'pc-user';
         nameSpan.textContent = (S.session.login || Strings.localName) + ': ';
@@ -1663,6 +1722,158 @@ SPTVPhoneChat.App = (function () {
         input.focus();
     }
 
+    /* ---------- muted users ---------- */
+
+    /*
+     * A client-side ignore list: muted logins are hidden on this phone in
+     * every tab and never rendered (message ids are still recorded so a
+     * replay after an unmute cannot resurrect old rows). Persisted in
+     * localStorage across visits; known bots can be muted here without an
+     * app update, the static bot list in Render only trims the priority tab.
+     */
+    function loadMuted() {
+        var raw = null,
+            list,
+            i,
+            seen = {},
+            out = [];
+
+        try {
+            raw = window.localStorage.getItem(MutedKey);
+            list = raw ? JSON.parse(raw) : null;
+        } catch (ignore) {
+            /* Storage blocked or corrupt: keep the list in memory for this visit only. */
+        }
+        if (!Array.isArray(list)) return out;
+
+        for (i = 0; i < list.length && out.length < MutedLimit; i++) {
+            //Logins are the only thing ever stored: strict shape check on load
+            if (typeof list[i] === 'string' && /^[a-z0-9_]{3,25}$/.test(list[i]) && !seen[list[i]]) {
+                seen[list[i]] = true;
+                out.push(list[i]);
+            }
+        }
+        return out;
+    }
+
+    function saveMuted() {
+        try {
+            window.localStorage.setItem(MutedKey, JSON.stringify(mutedLogins));
+        } catch (ignore) {
+            /* Storage blocked: the in-memory list still works this visit. */
+        }
+    }
+
+    function isMuted(login) {
+        return typeof login === 'string' && mutedLogins.indexOf(login.toLowerCase()) !== -1;
+    }
+
+    function removeRowsForLogin(login) {
+        var rows = el('pc-messages').querySelectorAll('[data-login="' + cssEscape(login) + '"]'),
+            i;
+
+        for (i = 0; i < rows.length; i++) {
+            if (rows[i].parentNode) rows[i].parentNode.removeChild(rows[i]);
+        }
+        updateChatEmpty();
+    }
+
+    function setMuted(login, muted) {
+        var index = mutedLogins.indexOf(login);
+
+        if (muted) {
+            if (index === -1) {
+                mutedLogins.push(login);
+                if (mutedLogins.length > MutedLimit) mutedLogins.shift();
+                saveMuted();
+            }
+            removeRowsForLogin(login);
+        } else if (index !== -1) {
+            mutedLogins.splice(index, 1);
+            saveMuted();
+        }
+
+        updateMutedButton();
+    }
+
+    function updateMutedButton() {
+        var button = el('pc-muted-button');
+
+        button.textContent = Strings.mutedButton.replace('%n', String(mutedLogins.length));
+        button.hidden = mutedLogins.length === 0;
+    }
+
+    //Long-press (mobile) or right-click (desktop) on a chat message row
+    function rowFromEventTarget(target) {
+        var node = target,
+            box = el('pc-messages');
+
+        while (node && node !== box) {
+            if (node.getAttribute && node.getAttribute('data-login')) return node;
+            node = node.parentNode;
+        }
+        return null;
+    }
+
+    function openRowMenu(row) {
+        var login = row.getAttribute('data-login'),
+            name = row.getAttribute('data-name') || login,
+            muted = isMuted(login);
+
+        rowMenuLogin = login;
+        el('pc-row-menu-title').textContent = (muted ? Strings.unmuteAction : Strings.muteAction).replace('%s', name);
+        el('pc-row-menu-mute').textContent = muted ? Strings.unmute : Strings.mute;
+        el('pc-row-menu').hidden = false;
+    }
+
+    function closeRowMenu() {
+        el('pc-row-menu').hidden = true;
+        rowMenuLogin = null;
+    }
+
+    function openMutedPanel() {
+        renderMutedList();
+        el('pc-muted-panel').hidden = false;
+    }
+
+    function closeMutedPanel() {
+        el('pc-muted-panel').hidden = true;
+    }
+
+    function renderMutedList() {
+        var list = el('pc-muted-list'),
+            i,
+            row,
+            name,
+            button;
+
+        while (list.firstChild) list.removeChild(list.firstChild);
+
+        if (!mutedLogins.length) {
+            list.appendChild(document.createTextNode(Strings.mutedEmpty));
+            return;
+        }
+
+        for (i = 0; i < mutedLogins.length; i++) {
+            row = document.createElement('div');
+            row.className = 'pc-muted-row';
+
+            name = document.createElement('span');
+            name.className = 'pc-muted-name';
+            name.textContent = mutedLogins[i];
+
+            button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'pc-button pc-muted-unmute';
+            button.textContent = Strings.unmute;
+            button.setAttribute('data-unmute', mutedLogins[i]);
+
+            row.appendChild(name);
+            row.appendChild(button);
+            list.appendChild(row);
+        }
+    }
+
     /* ---------- account button ---------- */
 
     function updateAccountButton() {
@@ -1753,6 +1964,40 @@ SPTVPhoneChat.App = (function () {
         });
 
         el('pc-jump-latest').addEventListener('click', scrollToBottom);
+
+        updateMutedButton();
+
+        el('pc-muted-button').addEventListener('click', openMutedPanel);
+        el('pc-muted-close').addEventListener('click', closeMutedPanel);
+        el('pc-muted-panel').addEventListener('click', function (event) {
+            //Backdrop tap closes; taps inside the card belong to its controls
+            if (event.target === el('pc-muted-panel')) closeMutedPanel();
+        });
+        el('pc-muted-list').addEventListener('click', function (event) {
+            var login = event.target && event.target.getAttribute ? event.target.getAttribute('data-unmute') : null;
+
+            if (!login) return;
+            setMuted(login, false);
+            renderMutedList();
+        });
+
+        el('pc-messages').addEventListener('contextmenu', function (event) {
+            var row = rowFromEventTarget(event.target);
+
+            if (!row) return;
+            //Message rows own the long-press: no native callout. Own rows have no action.
+            event.preventDefault();
+            if (S.session && row.getAttribute('data-login') === S.session.login) return;
+            openRowMenu(row);
+        });
+        el('pc-row-menu-mute').addEventListener('click', function () {
+            if (rowMenuLogin) setMuted(rowMenuLogin, !isMuted(rowMenuLogin));
+            closeRowMenu();
+        });
+        el('pc-row-menu-cancel').addEventListener('click', closeRowMenu);
+        el('pc-row-menu').addEventListener('click', function (event) {
+            if (event.target === el('pc-row-menu')) closeRowMenu();
+        });
 
         el('pc-chat-all').addEventListener('click', function () {
             selectChatTab('all');

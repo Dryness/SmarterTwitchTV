@@ -807,15 +807,18 @@ var Play_AdBlockReloadSuppressUntil = 0;
 function Play_AdBlockReload() {
     //Called only by JAVA when the ad filter can no longer hide a midroll from the playback;
     //reloads the current stream rotating the player type each round (the probe alone cannot be
-    //trusted, a variant can look clean while the played one carries the ads). When every type
-    //served ads the reloads stop for a while, the ad break plays out and playback continues
+    //trusted, a variant can look clean while the played one carries the ads, and some breaks
+    //get stitched into fresh sessions of every player type). The rounds follow each other fast
+    //so the whole ladder is tried within a single ad break; when every type served ads the
+    //reloads stop for a while, the apk freezes the frame on the last live segment and playback
+    //continues normally once the break is over
     var now = new Date().getTime();
 
     if (now < Play_AdBlockReloadSuppressUntil) return;
 
     if (!Play_isOn || Play_data.data.length < 7 || Play_isEndDialogVisible() || !PlayHLS_AdFilterOn()) return;
 
-    if (now - Play_AdBlockReloadLast <= 60000) return;
+    if (now - Play_AdBlockReloadLast <= 15000) return;
 
     //A previous ad break is long over, start from the first player type again
     if (now - Play_AdBlockReloadLast > 180000) Play_AdBlockReloadRound = 0;
@@ -1383,6 +1386,7 @@ function Play_shutdownStream() {
         Play_PreshutdownStream(true);
         PlayRaid_Close();
         Main_values.Play_WasPlaying = 0;
+        PlayVod_previews_clear();
         Play_exitMain();
         Play_data = JSON.parse(JSON.stringify(Play_data_base));
     }
@@ -1466,6 +1470,7 @@ function Play_ClearPlay(clearChat) {
     //Stream replacement/shutdown: close the phone chat dialog without
     //reattaching player input (this path removes that listener right after)
     PhoneChat_Cleanup();
+    PlayVod_previews_clear();
 
     Play_Playing = false;
     Main_removeEventListener('keydown', Play_handleKeyDown);
@@ -2249,6 +2254,7 @@ function Play_handleKeyUpClear() {
 
 function Play_Exit() {
     PhoneChat_Cleanup();
+    PlayVod_previews_clear();
     Play_CleanHideExit();
     Play_hideChat();
     PlayExtra_ClearExtra();

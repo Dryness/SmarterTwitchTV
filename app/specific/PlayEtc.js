@@ -997,7 +997,7 @@ function Play_StayCheckLiveResult(response) {
         var responseObj = JSON.parse(response);
 
         if (responseObj.checkResult > 0 && responseObj.checkResult === Play_loadDataId) {
-            Play_StayCheckLiveResultEnd(JSON.parse(response));
+            Play_StayCheckLiveResultEnd(responseObj);
         }
     }
 }
@@ -1480,6 +1480,9 @@ function Play_GetAudioIcon(pos) {
     return STR_SPACE_HTML + '<i class="icon-' + icon + ' strokicon_title" ></i>';
 }
 
+//Last icon written per element id, Play_SetAudioIcon runs on every key press in multi mode
+var Play_SetAudioIconCache = {};
+
 function Play_SetAudioIcon() {
     var i = 0,
         icon;
@@ -1490,15 +1493,27 @@ function Play_SetAudioIcon() {
         for (i; i < 4; i++) {
             icon = Play_MultiArray[i].data.length > 0 ? Play_GetAudioIcon(i) : '';
 
-            Main_innerHTML('stream_info_multi_audio_' + extraText + i, STR_SPACE_HTML + icon);
+            var elementId = 'stream_info_multi_audio_' + extraText + i;
+            if (Play_SetAudioIconCache[elementId] !== icon) {
+                Play_SetAudioIconCache[elementId] = icon;
+                Main_innerHTML(elementId, STR_SPACE_HTML + icon);
+            }
         }
     } else if (PlayExtra_PicturePicture) {
         for (i; i < 2; i++) {
             icon = Play_GetAudioIcon(i);
 
-            Main_innerHTML('chat_container_sound_icon' + i, icon);
+            var ppElementId = 'chat_container_sound_icon' + i;
+            if (Play_SetAudioIconCache[ppElementId] !== icon) {
+                Play_SetAudioIconCache[ppElementId] = icon;
+                Main_innerHTML(ppElementId, icon);
+            }
 
-            Main_innerHTML('stream_info_pp_audio_' + i, icon);
+            ppElementId = 'stream_info_pp_audio_' + i;
+            if (Play_SetAudioIconCache[ppElementId] !== icon) {
+                Play_SetAudioIconCache[ppElementId] = icon;
+                Main_innerHTML(ppElementId, icon);
+            }
         }
     } else {
         Main_innerHTML('stream_info_audio', Play_GetAudioIcon(0));

@@ -297,19 +297,19 @@ function PlayHLS_AdFilterOn() {
 }
 
 /**
- * Probes the first and last variants of the just fetched master playlist for ad content,
- * asynchronously; returns true when the caller must wait for the probe (the flow continues
- * from PlayHLS_AdProbeResult), false when playback can proceed with the current result.
+ * Probes every variant of the just fetched master playlist for ad content, asynchronously;
+ * returns true when the caller must wait for the probe (the flow continues from
+ * PlayHLS_AdProbeResult), false when playback can proceed with the current result.
  *
- * Ads are stitched per variant, so a single variant can temporarily look clean while the one
- * being played carries ads; probing both ends of the variant list catches that.
+ * Ads are stitched per variant and any subset of them can carry the break while the others
+ * look clean, so the whole variant list has to be checked, not only the one to be played.
  */
 function PlayHLS_AdCheckOrRetry(result, checkResult, check_1, check_3, check_5, callBackSuccess) {
     var responseObj = JSON.parse(result);
     var variants = PlayHLS_VariantUrls(responseObj.responseText);
     var state = PlayHLS_AdRetryStates[checkResult];
 
-    if (!variants.first) {
+    if (!variants.length) {
         if (state) delete PlayHLS_AdRetryStates[checkResult];
 
         return false;
@@ -319,12 +319,10 @@ function PlayHLS_AdCheckOrRetry(result, checkResult, check_1, check_3, check_5, 
         state = PlayHLS_AdRetryStates[checkResult] = {
             original: result,
             attempt: 0,
-            current: result,
-            lastVariant: variants.last
+            current: result
         };
     } else {
         state.current = result;
-        state.lastVariant = variants.last;
     }
 
     //The autoplay (360p) escape is the last resort, accept its playlist without probing and
@@ -339,10 +337,12 @@ function PlayHLS_AdCheckOrRetry(result, checkResult, check_1, check_3, check_5, 
         return true;
     }
 
-    PlayHLS_AdLog('probing for ads, player type attempt ' + state.attempt);
+    state.variants = variants;
+
+    PlayHLS_AdLog('probing for ads, player type attempt ' + state.attempt + ' (' + variants.length + ' variants)');
 
     OSInterface_XmlHttpGetFull(
-        variants.first, //String urlString
+        variants[0], //String urlString
         DefaultHttpGetTimeout, //int timeout
         null, //String postMessage
         null, //String Method
@@ -350,9 +350,9 @@ function PlayHLS_AdCheckOrRetry(result, checkResult, check_1, check_3, check_5, 
         'PlayHLS_AdProbeResult', //String callback
         checkResult, //long checkResult
         check_1, //String check_1 isLive
-        '0', //String check_2 useProxy (the retry never uses a proxy)
+        '0', //String check_2 useProxy (the probe never uses a proxy)
         check_3, //String check_3 channel
-        '1', //String check_4 probe slot (1 first variant, 2 last variant)
+        '1', //String check_4 probe slot (1-based variant index)
         check_5, //String check_5 CheckId_x
         callBackSuccess, //String callBackSuccess
         null //String callBackError
@@ -365,7 +365,11 @@ function PlayHLS_AdProbeResult(result, checkResult, check_1, check_2, check_3, c
     var state = PlayHLS_AdRetryStates[checkResult];
 
     //Not a probe of this flow (stale or marked otherwise), ignore it
-    if (!state || (check_4 !== '1' && check_4 !== '2')) return;
+    if (typeof state === 'undefined' || state === null) return;
+
+    var slot = parseInt(check_4, 10);
+
+    if (isNaN(slot) || slot < 1) return;
 
     var live = check_1 === '1' && check_2 !== '1';
     var status = 0;
@@ -380,33 +384,27 @@ function PlayHLS_AdProbeResult(result, checkResult, check_1, check_2, check_3, c
         hasAds = false;
     }
 
-    PlayHLS_AdLog('probe slot ' + check_4 + ' http ' + status + (hasAds ? ' found ads' : ' no ads'));
+    PlayHLS_AdLog('probe variant ' + slot + '/' + state.variants.length + ' http ' + status + (hasAds ? ' found ads' : ' no ads'));
 
-    if (!hasAds && check_4 === '1' && state.lastVariant && state.lastVariant !== '') {
-        var responseObj = JSON.parse(state.current);
-        var variants = PlayHLS_VariantUrls(responseObj.responseText);
+    if (!hasAds && slot < state.variants.length) {
+        OSInterface_XmlHttpGetFull(
+            state.variants[slot], //String urlString (slot is 1-based)
+            DefaultHttpGetTimeout, //int timeout
+            null, //String postMessage
+            null, //String Method
+            null, //String JsonHeadersArray
+            'PlayHLS_AdProbeResult', //String callback
+            checkResult, //long checkResult
+            check_1, //String check_1 isLive
+            '0', //String check_2 useProxy (the probe never uses a proxy)
+            check_3, //String check_3 channel
+            String(slot + 1), //String check_4 next probe slot
+            check_5, //String check_5 CheckId_x
+            callBackSuccess, //String callBackSuccess
+            null //String callBackError
+        );
 
-        //Only probe the last variant when it is a different playlist
-        if (variants.last && variants.last !== variants.first) {
-            OSInterface_XmlHttpGetFull(
-                variants.last, //String urlString
-                DefaultHttpGetTimeout, //int timeout
-                null, //String postMessage
-                null, //String Method
-                null, //String JsonHeadersArray
-                'PlayHLS_AdProbeResult', //String callback
-                checkResult, //long checkResult
-                check_1, //String check_1 isLive
-                check_2, //String check_2 useProxy
-                check_3, //String check_3 channel
-                '2', //String check_4 probe slot 2 (last variant)
-                check_5, //String check_5 CheckId_x
-                callBackSuccess, //String callBackSuccess
-                null //String callBackError
-            );
-
-            return;
-        }
+        return;
     }
 
     if (!hasAds) {
@@ -496,25 +494,19 @@ function PlayHLS_AdRetryFinish(result, CheckId_x, CheckId_y, callBackSuccess) {
     );
 }
 
-//The first and last variant urls of a master playlist
+//All variant urls of a master playlist, in master order and without duplicates. Ads can be
+//stitched into any subset of the variants, so every one of them has to be checked
 function PlayHLS_VariantUrls(playlist) {
     var lines = playlist.split('\n');
-    var first = null;
-    var last = null;
+    var urls = [];
 
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
 
-        if (line.indexOf('http') === 0) {
-            if (first === null) first = line;
-            last = line;
-        }
+        if (line.indexOf('http') === 0 && urls.indexOf(line) === -1) urls.push(line);
     }
 
-    return {
-        first: first,
-        last: last
-    };
+    return urls;
 }
 
 function PlayHLS_CheckProxyResultFail(responseText) {

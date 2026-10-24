@@ -60,6 +60,9 @@ public class SyncChannelJobService extends JobService {
                 Tools.recordException(TAG, "UpdateChannels e ", e);
             }
 
+            //Quit the thread, a new one is created per job run, without this they accumulate
+            updateThread.quitSafely();
+
             new Handler(Looper.getMainLooper()).post(() -> jobFinished(jobParameters, false));
         });
     }

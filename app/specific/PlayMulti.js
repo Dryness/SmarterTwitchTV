@@ -333,6 +333,27 @@ function Play_MultiResult(response, pos) {
     }
 }
 
+//Extract a slot's qualities once per playlist, MainBig left/right used to re-parse
+//the whole playlist on every key press
+function Play_MultiSlotQualities(pos) {
+    var slot = Play_MultiArray[pos];
+
+    if (!slot.qualities || !slot.qualities.length) slot.qualities = Play_extractQualities(slot.playlist);
+    return slot.qualities;
+}
+
+//Clone a slot into Play_data without copying the big playlist string twice,
+//strings are immutable so sharing the reference is safe
+function Play_MultiCloneSlot(pos) {
+    var slot = Play_MultiArray[pos],
+        playlist = slot.playlist;
+
+    slot.playlist = null;
+    Play_data = JSON.parse(JSON.stringify(slot));
+    Play_data.playlist = playlist;
+    slot.playlist = playlist;
+}
+
 function Play_MultiStartFail(pos, display_name, string_fail_reason) {
     Play_showWarningMiddleDialog(string_fail_reason ? string_fail_reason : display_name + ' ' + STR_LIVE + STR_IS_OFFLINE, 2000);
     Play_HideBufferDialog();
@@ -370,7 +391,9 @@ function Play_MultiStartQualitySuccess(pos, theUrl, playlist, PreventCleanQualit
 
     if (isFull) UserLiveFeed_Hide(PreventCleanQualities);
 
+    //A new playlist invalidates the slot's extracted qualities cache
     Play_MultiArray[pos].playlist = playlist;
+    Play_MultiArray[pos].qualities = [];
 
     Play_MultiSetInfo(
         pos,
@@ -388,9 +411,9 @@ function Play_MultiStartQualitySuccess(pos, theUrl, playlist, PreventCleanQualit
 
     //reset chat and follow icon if pos 0 changed
     if (!pos && Play_data.data[14] !== Play_MultiArray[pos].data[14]) {
-        Play_data = JSON.parse(JSON.stringify(Play_MultiArray[pos]));
+        Play_MultiCloneSlot(pos);
         Play_MultiUpdateMain();
-        Play_SetExternalQualities(Play_extractQualities(Play_data.playlist), 0, Play_data.data[1]);
+        Play_SetExternalQualities(Play_MultiSlotQualities(pos), 0, Play_data.data[1]);
     }
 
     Play_updateVodInfo(Play_MultiArray[pos].data[14], Play_MultiArray[pos].data[7], Play_MultiArray[pos].data[0]);
@@ -429,34 +452,41 @@ function Play_MultiEnableKeyRightLeft(adder) {
             OSInterface_EnableMultiStream(Play_Multi_MainBig, Play_MultiEnableKeyRightLeft_Offset);
 
             Play_showWarningMiddleDialog(STR_MAIN_WINDOW + STR_SPACE_HTML + Play_MultiArray[0].data[1], 2000);
-            Play_data = JSON.parse(JSON.stringify(Play_MultiArray[0]));
-            Play_SetExternalQualities(Play_extractQualities(Play_data.playlist), 0, Play_data.data[1]);
+            Play_MultiCloneSlot(0);
+            Play_SetExternalQualities(Play_MultiSlotQualities(0), 0, Play_data.data[1]);
             Play_MultiUpdateInfoMainBig('_big');
             Play_MultiUpdateMain();
         } else {
-            Play_MultiEnableKeyRightLeft(adder);
+            //Slot 0 empty, try the next one but stop after a full cycle instead of recursing forever
+            if (Math.abs(Play_MultiEnableKeyRightLeft_Offset) < 4) Play_MultiEnableKeyRightLeft(adder);
+            else Play_MultiEnableKeyRightLeft_Offset = 0;
 
             return;
         }
 
         Play_MultiEnableKeyRightLeft_Offset = 0;
     } else {
-        var pos = Play_AudioGetFirst() + adder;
+        var pos = Play_AudioGetFirst() + adder,
+            tries = 0;
 
-        if (pos > 3) pos = 0;
-        else if (pos < 0) pos = 3;
+        //Cycle at most one full lap, all slots empty must not recurse forever
+        while (tries < Play_MultiArray_length) {
+            if (pos > 3) pos = 0;
+            else if (pos < 0) pos = 3;
 
-        Play_audio_enable = [0, 0, 0, 0];
-        Play_audio_enable[pos] = 1;
+            Play_audio_enable = [0, 0, 0, 0];
+            Play_audio_enable[pos] = 1;
 
-        if (!Play_MultiArray[pos].data.length) {
-            Play_MultiEnableKeyRightLeft(adder);
-            return;
+            if (Play_MultiArray[pos].data.length) {
+                Play_AudioReset(pos);
+
+                Play_showWarningMiddleDialog(STR_AUDIO_SOURCE + STR_SPACE_HTML + Play_MultiArray[pos].data[1], 2000);
+                break;
+            }
+
+            pos += adder;
+            tries++;
         }
-
-        Play_AudioReset(pos);
-
-        Play_showWarningMiddleDialog(STR_AUDIO_SOURCE + STR_SPACE_HTML + Play_MultiArray[pos].data[1], 2000);
     }
 
     Play_SetAudioIcon();
@@ -651,7 +681,7 @@ function Play_MultiUpdateInfo(pos, game, views, title, extraText) {
     }
     streamTitleMulti[pos] = title;
 
-    if (extraChanged || streamTitleMulti[pos] !== game) {
+    if (extraChanged || streamGameMulti[pos] !== game) {
         Main_innerHTML('stream_info_multi_game' + extraText + pos, game === '' ? STR_SPACE_HTML : STR_PLAYING + game);
     }
     streamGameMulti[pos] = game;

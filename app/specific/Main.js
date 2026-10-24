@@ -342,10 +342,10 @@ function Main_initWindowsEnd() {
     Main_checkWebVersionId = Main_setInterval(Main_CheckUpdate, 1000 * 60 * 30, Main_checkWebVersionId); //Check it 60 min
 
     Main_setTimeout(Main_RunVODWorker, 50000);
-    Main_setInterval(Main_RunVODWorker, 1000 * 60 * 360); //Check it 6 hours
+    Main_RunVODWorkerId = Main_setInterval(Main_RunVODWorker, 1000 * 60 * 360, Main_RunVODWorkerId); //Check it 6 hours
 
     Main_setTimeout(Main_RunClipWorker, 80000);
-    Main_setInterval(Main_RunClipWorker, 1000 * 60 * 370); //Check it 6 hours
+    Main_RunClipWorkerId = Main_setInterval(Main_RunClipWorker, 1000 * 60 * 370, Main_RunClipWorkerId); //Check it 6 hours
 
     Main_setTimeout(AddUser_UpdateUserAllUsers, 30000);
 
@@ -1041,7 +1041,8 @@ function Main_SaveValuesWithTimeout() {
 
 function Main_SaveValues(backup) {
     Main_setItem('Main_values', JSON.stringify(Main_values));
-    Main_setItem('Play_data', JSON.stringify(Play_data));
+    //The playlist is a big string always refetched before playback, don't persist it
+    Main_setItem('Play_data', JSON.stringify(Screens_assign({}, Play_data, { playlist: null })));
 
     if (backup) {
         GDriveBackup();
@@ -2051,7 +2052,14 @@ function Main_ReloadScreen() {
 }
 
 function Main_setItem(item, value) {
-    localStorage.setItem(item, value);
+    try {
+        localStorage.setItem(item, value);
+        return true;
+    } catch (e) {
+        //Quota exceeded or storage unavailable, callers can react instead of crashing
+        Main_Log('Main_setItem failed for ' + item + '\n' + e);
+        return false;
+    }
 }
 
 function Main_getItemInt(item, default_value) {
@@ -2513,6 +2521,12 @@ function Main_HistoryClean() {
                 Main_trimObject(obj[key].deleted[innerKey], limit);
             }
         }
+
+        //Trim block/unblock tombstones too, they are never removed otherwise
+        if (obj.hasOwnProperty(key) && obj[key].blocked && obj[key].blocked.deleted) {
+            if (obj[key].blocked.deleted.game) Main_trimObject(obj[key].blocked.deleted.game, limit);
+            if (obj[key].blocked.deleted.channel) Main_trimObject(obj[key].blocked.deleted.channel, limit);
+        }
     }
 }
 
@@ -2537,9 +2551,33 @@ function Main_setHistoryItem(time) {
 
 function Main_SaveHistoryItem() {
     var string = JSON.stringify(Main_values_History_data);
-    Main_setItem(Main_values_History_data_ItemName, string);
+
+    if (!Main_setItem(Main_values_History_data_ItemName, string)) {
+        //Quota exceeded, halve the history and retry once before giving up
+        Main_Log('History save failed, trimming and retrying');
+        Main_HistoryTrimTo(1000);
+        string = JSON.stringify(Main_values_History_data);
+        Main_setItem(Main_values_History_data_ItemName, string);
+    }
 
     Main_UpdateBlockedHomeScreen();
+}
+
+//Cut every user history array to maxKeep newest entries, used to recover from storage quota errors
+function Main_HistoryTrimTo(maxKeep) {
+    for (var userId in Main_values_History_data) {
+        if (!Main_values_History_data.hasOwnProperty(userId)) continue;
+
+        for (var type in Main_values_History_data[userId]) {
+            var entries = Main_values_History_data[userId][type];
+            if (entries && entries.length && entries.length > maxKeep && typeof entries.sort === 'function') {
+                entries.sort(function (a, b) {
+                    return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+                });
+                Main_values_History_data[userId][type] = entries.slice(entries.length - maxKeep);
+            }
+        }
+    }
 }
 
 function Main_UpdateBlockedHomeScreen() {
@@ -2602,6 +2640,7 @@ function Main_SetWorker() {
     );
 
     Main_ImageLoaderWorker = new Worker(blobURL);
+    URL.revokeObjectURL(blobURL);
 }
 
 function Main_A_includes_B(A, B) {
@@ -2769,6 +2808,7 @@ function Main_SetHistoryworker() {
     );
 
     BradcastCheckerWorker = new Worker(blobURL);
+    URL.revokeObjectURL(blobURL);
 
     BradcastCheckerWorker.addEventListener('message', function (event) {
         //Minor delay to not block Main tread when the workers return values
@@ -2828,6 +2868,8 @@ function Main_SetHistoryworker() {
 }
 
 var Main_StartHistoryworkerId;
+var Main_RunVODWorkerId;
+var Main_RunClipWorkerId;
 
 //Check if a live in history has become a VOD
 function Main_StartHistoryworker() {
@@ -3051,6 +3093,8 @@ function Main_CheckStop() {
     Main_clearInterval(Main_updateClockId);
     Main_clearInterval(Main_StartHistoryworkerId);
     Main_clearInterval(Main_checkWebVersionId);
+    Main_clearInterval(Main_RunVODWorkerId);
+    Main_clearInterval(Main_RunClipWorkerId);
     Main_clearTimeout(Main_checkWebVersionResumeId);
     Main_clearTimeout(Screens_CheckRefreshAfterResumeId);
     Main_clearTimeout(Main_CheckResumeFeedId);
@@ -3782,6 +3826,15 @@ function Main_trimObject(obj, sizeLimit) {
     }
 
     return obj;
+}
+
+//Max per game backups kept per screen/feed, the oldest visited game is evicted first
+var Main_backupGameLimit = 5;
+
+function Main_trimBackupData(backupData, sizeLimit) {
+    for (var key in backupData) {
+        if (backupData.hasOwnProperty(key) && backupData[key]) Main_trimObject(backupData[key], sizeLimit);
+    }
 }
 
 function Main_removeMissingProps(obj, referenceArray) {

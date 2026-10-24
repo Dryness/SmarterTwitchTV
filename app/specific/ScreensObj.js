@@ -267,20 +267,27 @@ function ScreensObj_StartAllVars() {
             this.BackupData.ContentLang[game] = Main_ContentLang;
             this.BackupData.Lang[game] = Settings_AppLang;
             this.BackupData.offsettopFontsize[game] = this.offsettopFontsize ? this.offsettopFontsize : Settings_Obj_default('global_font_offset');
+
+            //Keep only the last games, each sub-object holds one entry per visited game
+            Main_trimBackupData(this.BackupData, Main_backupGameLimit);
         },
         eraseBackupData: function (game) {
             //make sure game is always a string to avoid issues withe backup obj
             game = game + '';
 
             if (this.BackupData) {
-                this.BackupData.data[game] = null;
-                this.BackupData.ContentLang[game] = null;
-                this.BackupData.Lang[game] = null;
-                this.BackupData.lastScreenRefresh[game] = 0;
+                //Delete so a later set re-inserts the game as the newest key for the trim
+                delete this.BackupData.data[game];
+                delete this.BackupData.lastScreenRefresh[game];
+                delete this.BackupData.responseObj[game];
+                delete this.BackupData.ContentLang[game];
+                delete this.BackupData.Lang[game];
+                delete this.BackupData.enable_mature[game];
+                delete this.BackupData.offsettopFontsize[game];
             }
 
             if (this.ScreenBackup) {
-                this.ScreenBackup[game] = null;
+                delete this.ScreenBackup[game];
             }
         },
         CheckBackupData: function (game) {
@@ -332,6 +339,9 @@ function ScreensObj_StartAllVars() {
                 this.ScreenBackup = {};
             }
 
+            //Delete so a later backup re-inserts the game as the newest key for the trim
+            delete this.ScreenBackup[game];
+
             this.ScreenBackup[game] = {};
 
             if (!this.data || !this.data.length) {
@@ -360,6 +370,8 @@ function ScreensObj_StartAllVars() {
             this.ScreenBackup[game].data_cursor = this.data_cursor;
             this.ScreenBackup[game].dataEnded = this.dataEnded;
             this.ScreenBackup[game].BannerCreated = this.BannerCreated;
+
+            Main_trimObject(this.ScreenBackup, Main_backupGameLimit);
         },
         RestoreBackupScreen: function (game) {
             //make sure game is always a string to avoid issues withe backup obj
@@ -3396,10 +3408,27 @@ function ScreensObj_ThumbInfoUpdate(obj, checkResult, check_1, check_2, check_3)
     }
 }
 
+//Short lived per user fetch timestamps, moving focus back and forth over the same
+//cells doesn't need a fresh streams request on every focus change
+var ScreensObj_getStreamInfoCache = {};
+
 function ScreensObj_getStreamInfo(userId, checkResult, check_1, check_2, check_3, check_4, check_5, callBackSuccess, callBackError) {
     if (!userId) {
         return;
     }
+
+    var now = new Date().getTime(),
+        lastFetch = ScreensObj_getStreamInfoCache[userId];
+
+    if (lastFetch && now - lastFetch < 15000) {
+        return;
+    }
+
+    if (!lastFetch && Object.keys(ScreensObj_getStreamInfoCache).length > 500) {
+        ScreensObj_getStreamInfoCache = {};
+    }
+
+    ScreensObj_getStreamInfoCache[userId] = now;
 
     var theUrl = Main_helix_api + 'streams?user_id=' + userId;
 

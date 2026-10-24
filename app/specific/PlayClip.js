@@ -307,7 +307,8 @@ function PlayClip_loadDataError() {
     Play_showWarningDialog(STR_410_ERROR, 2000);
 
     Main_setTimeout(function () {
-        Play_PlayEndStart(3);
+        //The user may have exited within the timeout, don't force the end dialog then
+        if (PlayClip_isOn) Play_PlayEndStart(3);
     }, 2000);
 }
 
@@ -441,6 +442,7 @@ function PlayClip_shutdownStream() {
         PlayClip_All = false;
         PlayClip_PreshutdownStream(true);
         Play_CleanHideExit();
+        PlayVod_previews_clear();
         Play_exitMain();
         PlayClip_loadDataRequestId = 0;
     }
@@ -954,8 +956,7 @@ function PlayClip_handleKeyDown(e) {
         case KEY_2:
             if (UserLiveFeed_isPreviewShowing() && (!Play_EndFocus || !Play_isEndDialogVisible())) {
                 UserLiveFeed_FeedRefresh();
-            }
-            PlayVod_NumberKey_QuickJump(e.keyCode);
+            } else PlayVod_NumberKey_QuickJump(e.keyCode);
             break;
         case KEY_C:
         case KEY_NUMPAD_5:

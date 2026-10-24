@@ -45,7 +45,9 @@ function makeSandbox() {
     const s = {
         WebSocket: FakeSocket,
         //globals read by the module
-        Settings_value: {raid_switch: {defaultValue: 2}},
+        //raid_switch defaultValue mirrors the post-Settings_SetDefaults runtime value:
+        //Settings_SetDefaults loads (stored = index + 1) and subtracts 1, so 'auto' (index 1) is 1 at runtime
+        Settings_value: {raid_switch: {defaultValue: 1}},
         AddUser_UserHasToken: () => s._hasToken,
         _hasToken: true,
         AddUser_UsernameArray: [{access_token: 'user-token'}],
@@ -222,7 +224,7 @@ function raidEvent(from, toLogin, toName) {
     checkEqual(s._warnings.length, 2, 'only one raid is handled per stream (duplicate ignored)');
     checkEqual(s._openStreamCount(), 0, 'empty stream response does not switch');
 
-    s.Settings_value.raid_switch.defaultValue = 1;
+    s.Settings_value.raid_switch.defaultValue = 0;
     s.PlayRaid_SetChannel('333');
     checkEqual(s._sockets.length, 1, 'setting off never opens a socket');
 }
@@ -327,6 +329,56 @@ function raidEvent(from, toLogin, toName) {
     s.PlayRaid_SetChannel('333');
     s.PlayRaid_SubscribeError();
     checkEqual(s.timerCount(), 1, 'new channel resets the retry budget');
+}
+
+//10. Enabled follows the runtime settings convention: 'auto' is 1, never the pre-load literal 2
+{
+    const s = makeSandbox();
+    loadModule(s);
+    checkEqual(s.PlayRaid_Enabled(), true, 'runtime value 1 (auto) enables the follower');
+    s.Settings_value.raid_switch.defaultValue = 0;
+    checkEqual(s.PlayRaid_Enabled(), false, 'runtime value 0 (no) disables the follower');
+    s.Settings_value.raid_switch.defaultValue = 2;
+    checkEqual(s.PlayRaid_Enabled(), false, 'the pre-load literal 2 must not read as enabled');
+}
+
+//11. Same-channel reload (ad escape) keeps a working subscription, retries a missing one
+{
+    const s = makeSandbox();
+    loadModule(s);
+    welcomeAndSubscribe(s);
+    const sub = lastHttp(s, 'full');
+    sub.success({status: 202, responseText: JSON.stringify({data: [{id: 'sub-1', condition: {from_broadcaster_user_id: '111'}}]})});
+    s._http.length = 0;
+    s.PlayRaid_SetChannel('111');
+    checkEqual(s._http.length, 0, 'same-channel reload with a live subscription does no subscribe churn');
+
+    const s2 = makeSandbox();
+    loadModule(s2);
+    welcomeAndSubscribe(s2); //subscription response never arrived
+    s2._http.length = 0;
+    s2.PlayRaid_SetChannel('111');
+    const retrySub = lastHttp(s2, 'full');
+    check(retrySub && retrySub.method === 'POST', 'same-channel reload without a subscription retries the subscribe');
+}
+
+//12. Connection failures exhaust retries; a new stream start gets a fresh budget
+{
+    const s = makeSandbox();
+    loadModule(s);
+    s.PlayRaid_SetChannel('111');
+    for (let i = 0; i < 6; i++) {
+        s._sockets[s._sockets.length - 1].close();
+        s.runTimers();
+    }
+    checkEqual(s.PlayRaid_Active, false, 'six connection failures deactivate the follower');
+    checkEqual(s._sockets.length, 6, 'no connect attempt beyond the retry cap');
+
+    s.PlayRaid_SetChannel('111');
+    checkEqual(s.PlayRaid_Active, true, 'a new stream start reactivates the follower');
+    checkEqual(s._sockets.length, 7, 'a new stream start reconnects');
+    s._sockets[s._sockets.length - 1].close();
+    checkEqual(s.timerCount(), 1, 'the retry budget was reset for the new stream');
 }
 
 console.log(passed + ' raid follower checks passed');

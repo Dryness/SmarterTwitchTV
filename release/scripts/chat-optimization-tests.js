@@ -159,12 +159,36 @@ for (const rate of [20, 100]) for (const delay of [0, 5000, 30000]) {
     s.ChatLive_Init(0, true);
     stale();
     check(s.Chat_Id[0] !== oldId && s.ChatLive_Delayed[0] === null && h.rendered.length === 0, 'SkipClear initialization releases queued objects and replaces generation');
-    s.Chat_div = [{innerHTML: 'first'}, {innerHTML: 'second'}];
-    const logged = [{innerHTML: 'first'}, {innerHTML: 'second'}];
-    s.Main_getElementById = id => logged[Number(id.slice(-1))];
+    const mockDiv = () => {
+        const el = {children: [], parentNode: null, isFragment: false};
+        Object.defineProperty(el, 'firstChild', {get: () => el.children[0] || null});
+        el.appendChild = child => {
+            const adopt = c => {
+                if (c.parentNode) c.parentNode.children.splice(c.parentNode.children.indexOf(c), 1);
+                c.parentNode = el;
+                el.children.push(c);
+            };
+            //appending a document fragment inserts its children and empties it
+            if (child.isFragment) {
+                child.children.slice().forEach(adopt);
+                child.children.length = 0;
+            } else adopt(child);
+        };
+        return el;
+    };
+    s.document = {createDocumentFragment: () => Object.assign(mockDiv(), {isFragment: true})};
+    const chat0 = mockDiv(), chat1 = mockDiv(), logged0 = mockDiv(), logged1 = mockDiv();
+    const lineA = mockDiv(), lineB = mockDiv(), nameA = mockDiv(), nameB = mockDiv();
+    chat0.appendChild(lineA); chat1.appendChild(lineB);
+    logged0.appendChild(nameA); logged1.appendChild(nameB);
+    s.Chat_div = [chat0, chat1];
+    s.Main_getElementById = id => (id === 'chat_loggedin0' ? logged0 : logged1);
     s.ChatLive_LineAddCheckDelay(0, message('switch0')); s.ChatLive_LineAddCheckDelay(1, message('switch1', 1));
     s.ChatLive_Switch(); h.advance(10000);
     check(h.timers.size === 0 && h.rendered.length === 0, 'switch releases both scheduler queues');
+    check(chat0.firstChild === lineB && chat1.firstChild === lineA, 'switch moves the line nodes between chats');
+    check(logged0.firstChild === nameB && logged1.firstChild === nameA, 'switch moves the logged in labels');
+    check(s.ChatLive_SpamLast[0] === null && s.ChatLive_SpamLast[1] === null, 'switch resets the spam trackers');
     s.extraEmotes[0] = {fixture: {}};
     s.ChatLive_Clear(0);
     check(Object.keys(s.extraEmotes[0]).length === 0 && Object.keys(s.ChatLive_CachePins[0]).length === 0, 'clear releases active emotes and pins');
@@ -200,6 +224,133 @@ for (const rate of [20, 100]) for (const delay of [0, 5000, 30000]) {
     s.AddUser_UsernameArray[0].id = 'third-account';
     s.ChatLive_loadChannelEmotes(0, 1);
     check(s.userEmote['third-account'].FixtureEmote.id === 'FixtureEmote42', 'eviction reload account switch preserves picker');
+}
+{
+    //Consecutive identical messages merge into the last line with a (xN) counter
+    const h = sandbox(), {s} = h;
+    const makeEl = () => {
+        const el = {
+            children: [],
+            parentNode: null,
+            className: '',
+            textContent: '',
+            appendChild(c) {
+                c.parentNode = this;
+                this.children.push(c);
+            },
+            get lastChild() {
+                return this.children[this.children.length - 1] || null;
+            }
+        };
+        return el;
+    };
+    s.document = {createElement: () => makeEl()};
+    s.ChatLive_ElementAdd = msg => {
+        msg.element = makeEl();
+        makeEl().appendChild(msg.element); //holder that keeps the line attached, as Chat_div does
+        h.rendered.push({text: msg.text, nick: msg.nick, time: h.now()});
+    };
+    const spam = (text, nick, extra) => s.ChatLive_LineAddCheckDelay(0, Object.assign({message: text, text: text, nick: nick, chat_number: 0}, extra));
+
+    spam('hello', 'a');
+    h.advance(6000); //sandbox default 5s chat delay
+    check(h.rendered.length === 1, 'spam: first message renders');
+    spam('hello', 'a');
+    spam('hello', 'a');
+    h.advance(11000);
+    check(h.rendered.length === 1, 'spam: repeats delivered inside the window merge into the first line');
+    check(s.ChatLive_SpamLast[0].count === 3, 'spam: counter grew to 3');
+    const span = s.ChatLive_SpamLast[0].el.lastChild;
+    check(span.className === 'chat_spam_count' && span.textContent === ' (x3)', 'spam: counter span created and updated');
+
+    spam('hello', 'b');
+    h.advance(16000);
+    check(h.rendered.length === 2, 'spam: same text from another user is a new line');
+    spam('hello', 'a');
+    h.advance(21000);
+    check(h.rendered.length === 3 && s.ChatLive_SpamLast[0].count === 1, 'spam: a line in between breaks the streak');
+
+    h.advance(60000);
+    spam('hello', 'a');
+    h.advance(65000);
+    check(h.rendered.length === 4 && s.ChatLive_SpamLast[0].count === 1, 'spam: repeat after the window is a new line');
+
+    //History prepends and system lines never merge and reset the tracker
+    spam('prepend', 'a', {addToStart: true});
+    check(h.rendered.length === 5 && s.ChatLive_SpamLast[0] === null, 'spam: history prepend renders and resets the tracker');
+    s.ChatLive_LineAddCheckDelay(0, {message: 'system', chat_number: 0});
+    h.advance(71000);
+    check(h.rendered.length === 6 && s.ChatLive_SpamLast[0] === null, 'spam: system line renders and resets the tracker');
+    spam('hello', 'a');
+    h.advance(76000);
+    check(h.rendered.length === 7, 'spam: repeat after a system line is a new line');
+
+    //Chat_Clean removed the tracked line, further repeats must not merge into the detached node
+    s.ChatLive_SpamLast[0].el.parentNode = null;
+    spam('hello', 'a');
+    h.advance(82000);
+    check(h.rendered.length === 8 && s.ChatLive_SpamLast[0].count === 1, 'spam: detached tracked line starts a new visible line');
+
+    //A channel switch/restart clears the tracker, no merge across chats
+    spam('hello', 'a');
+    h.advance(88000);
+    check(s.ChatLive_SpamLast[0].count === 2, 'spam: still merges while attached');
+    s.ChatLive_DelayClear(0);
+    check(s.ChatLive_SpamLast[0] === null, 'spam: channel switch clears the tracker');
+    spam('hello', 'a');
+    h.advance(94000);
+    check(h.rendered.length === 9 && s.ChatLive_SpamLast[0].count === 1, 'spam: identical message after switch is a new line');
+}
+{
+    //A burst drain is split into batches so one task never appends every line
+    const h = sandbox(), {s} = h;
+    s.Play_ChatDelayPosition = 5000;
+    s.ChatLive_DelayDrainBatch = 2;
+    for (let i = 0; i < 4; i++) s.ChatLive_LineAddCheckDelay(0, message(i));
+    const fire = () => {
+        const next = [...h.timers.entries()].sort((a, b) => a[1].due - b[1].due)[0];
+        h.timers.delete(next[0]);
+        next[1].fn();
+    };
+    //make everything due without moving the fake clock past the deadlines
+    s.ChatLive_Delayed[0].queue.forEach(e => (e.due = 0));
+    [...h.timers.values()][0].due = 0;
+    fire();
+    check(h.rendered.length === 2 && h.timers.size === 1, 'drain delivers at most one batch per task');
+    fire();
+    check(h.rendered.length === 4 && h.timers.size === 0, 'remaining batch is delivered on the next task');
+}
+{
+    //The line entry animation is skipped above ChatLive_AniRateMax lines per second
+    const h = sandbox(), {s} = h;
+    s.Play_ChatEnable = true;
+    s.ChatLive_chat_line_class = 'chat_line_animation chat_line_holder';
+    let animated = 0;
+    for (let i = 0; i < 15; i++) if (s.ChatLive_AniClassName(0) === s.ChatLive_chat_line_class) animated++;
+    check(animated === 10, 'animation applies up to the per second limit');
+    s.Play_ChatEnable = false;
+    check(s.ChatLive_AniClassName(0) === 'chat_line_holder', 'hidden chat never animates');
+    s.Play_ChatEnable = true;
+    h.advance(h.now() + 2000);
+    check(s.ChatLive_AniClassName(0) === s.ChatLive_chat_line_class, 'limit resets on the next second');
+}
+{
+    //twemoji: non ASCII text without emoji code units skips the emoji scan
+    const s = {};
+    vm.createContext(s);
+    vm.runInContext(fs.readFileSync('app/thirdparty/twemoji.js', 'utf8'), s);
+    check(s.twemoji.parse('hello') === 'hello', 'twemoji: ascii fast path unchanged');
+    check(s.twemoji.parse('Привет мир') === 'Привет мир', 'twemoji: cyrillic skips the scan');
+    check(s.twemoji.parse('Καλημέρα') === 'Καλημέρα', 'twemoji: greek skips the scan');
+    check(s.twemoji.parse('こんにちは') === 'こんにちは', 'twemoji: CJK skips the scan');
+    check(s.twemoji.parse('مرحبا') === 'مرحبا', 'twemoji: arabic skips the scan');
+    check(s.twemoji.parse('Привет <мир>') === 'Привет &lt;мир&gt;', 'twemoji: fast path keeps the html escape');
+    check(s.twemoji.parse('😀').indexOf('<img') === 0 && s.twemoji.parse('😀').indexOf('1f600') !== -1, 'twemoji: emoji still parsed');
+    check(s.twemoji.parse('hi 😀 there').indexOf('<img') !== -1, 'twemoji: emoji inside text still parsed');
+    check(s.twemoji.parse('❤️').indexOf('2764') !== -1, 'twemoji: variation selector emoji still parsed');
+    check(s.twemoji.parse('©️').indexOf('a9') !== -1, 'twemoji: single code unit emoji still parsed');
+    check(s.twemoji.parse('㊗️').indexOf('<img') !== -1, 'twemoji: block edge emoji still parsed');
+    check(s.twemoji.parse('👨‍👩‍👧').indexOf('1f468-200d-1f469-200d-1f467') !== -1, 'twemoji: zwj family still parsed');
 }
 console.log(checks + ' TV scheduler/cache checks passed');
 module.exports = {sandbox, message};

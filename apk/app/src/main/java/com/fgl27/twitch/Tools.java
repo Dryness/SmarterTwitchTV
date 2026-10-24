@@ -32,6 +32,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -789,6 +790,24 @@ public final class Tools {
         } catch (Exception e) {
             recordException(TAG, "deleteCache e ", e);
         }
+    }
+
+    //Standard power of two inSampleSize for a bounds decode, see BitmapFactory.Options.inSampleSize
+    public static int CalculateInSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+
+        if (height > reqHeight || width > reqWidth) {
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+
+        return inSampleSize;
     }
 
     private static boolean deleteDir(File dir) {

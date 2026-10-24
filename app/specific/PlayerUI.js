@@ -1,5 +1,5 @@
 /* Player presentation adapter. Playback objects and their original callbacks remain authoritative. */
-var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, timelineTimer: null, paused: false};
+var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, timelineTimer: null, paused: false, barPaused: null};
 
 function PlayerUI_Mode() {
     return Play_isOn ? 1 : PlayVod_isOn ? 2 : PlayClip_isOn ? 3 : 0;
@@ -292,7 +292,6 @@ function PlayerUI_Render() {
         control,
         keys,
         node;
-    Main_emptyWithEle(bar);
     Main_emptyWithEle(menu);
     PlayerUI_TimelineClass();
     // Reuse the actual control DOM; there is no invisible duplicate strip behind the drawers.
@@ -306,20 +305,25 @@ function PlayerUI_Render() {
             more: 'options',
             channels: 'feed'
         };
-    for (i = 0; i < barGroups.length; i++) {
-        key = barGroups[i];
-        node = Navigation_Button(
-            bar,
-            'player-ui-bar-' + i,
-            key === 'pause' ? (PlayerUI_State.paused ? STR_UI.play : STR_UI.pause) : key === 'channels' ? STR_UI.channels : labels[key],
-            PlayerUI_ActivateBar.bind(null, i),
-            barIcons[key]
-        );
-        node.onfocus = PlayerUI_SetIndex.bind(null, i, 'bar');
-        if (!i) {
-            node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
-            node.className += ' player-ui-bar-primary';
-        } else if (key === 'more') node.className += ' player-ui-bar-end';
+    //The bar only depends on the paused state, keep the built nodes between renders
+    if (PlayerUI_State.barPaused !== PlayerUI_State.paused || !bar.firstChild) {
+        PlayerUI_State.barPaused = PlayerUI_State.paused;
+        Main_emptyWithEle(bar);
+        for (i = 0; i < barGroups.length; i++) {
+            key = barGroups[i];
+            node = Navigation_Button(
+                bar,
+                'player-ui-bar-' + i,
+                key === 'pause' ? (PlayerUI_State.paused ? STR_UI.play : STR_UI.pause) : key === 'channels' ? STR_UI.channels : labels[key],
+                PlayerUI_ActivateBar.bind(null, i),
+                barIcons[key]
+            );
+            node.onfocus = PlayerUI_SetIndex.bind(null, i, 'bar');
+            if (!i) {
+                node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
+                node.className += ' player-ui-bar-primary';
+            } else if (key === 'more') node.className += ' player-ui-bar-end';
+        }
     }
     Main_textContent(
         'player-ui-name',
@@ -509,7 +513,10 @@ function PlayerUI_Handle(event, up) {
         code = event.keyCode;
     if (code === 9) return false;
     if (!frame) return false;
-    if (frame.group !== 'bar' && frame.group !== 'more') PlayerUI_Render();
+    //Only the quality drawer needs a refresh on plain input, its list loads
+    //asynchronously; other drawers re-render on the action itself, rebuilding
+    //them on every focus move is wasted work on key repeat
+    if (frame.group === 'quality') PlayerUI_Render();
     if (code === KEY_RETURN || code === KEY_KEYBOARD_BACKSPACE || code === 27) PlayerUI_Back();
     else if (code === KEY_ENTER) {
         if (frame.group === 'bar') PlayerUI_ActivateBar(frame.index);

@@ -237,6 +237,7 @@ public class PlayerActivity extends Activity {
     private Handler ToastHandler;
     private Handler ChannelHandler;
     private Handler DeleteHandler;
+    private HandlerThread BackGroundThread;
 
     private Process PingProcess;
     private Runtime PingRuntime;
@@ -420,9 +421,9 @@ public class PlayerActivity extends Activity {
             }
 
             //BackGroundThread Etc threads that may or may not use delay to start
-            HandlerThread backGroundThread = new HandlerThread("BGT");
-            backGroundThread.start();
-            Looper BackGroundThreadLooper = backGroundThread.getLooper();
+            BackGroundThread = new HandlerThread("BGT");
+            BackGroundThread.start();
+            Looper BackGroundThreadLooper = BackGroundThread.getLooper();
 
             NotificationHandler = new Handler(BackGroundThreadLooper);
             ToastHandler = new Handler(BackGroundThreadLooper);
@@ -1272,6 +1273,10 @@ public class PlayerActivity extends Activity {
     private void NetworkCheck() {
         MainThreadHandler.postDelayed(
             () -> {
+                if (IsStopped) {
+                    HideWarningText();
+                    return;
+                }
                 if (Tools.isConnected(this)) {
                     HideWarningText();
                     initializeWebViewEnd();
@@ -1646,6 +1651,7 @@ public class PlayerActivity extends Activity {
     @Override
     public void onDestroy() {
         requests.close();
+        AdPlaylistFilter.setAdReloadListener(null);
         super.onDestroy();
         synchronized (this) {
             if (phoneChatServer != null) phoneChatServer.close();
@@ -1662,8 +1668,41 @@ public class PlayerActivity extends Activity {
 
         Clear_PreviewPlayer();
 
+        ClearHandlersAndThreads();
+
+        DestroyWebViews();
+
         if (BuildConfig.DEBUG) {
             Log.i(TAG, "onDestroy");
+        }
+    }
+
+    //Release pending messages that capture the Activity and quit the HandlerThreads,
+    //without this every player restart leaks the handlers, their threads and the Activity
+    private void ClearHandlersAndThreads() {
+        if (MainThreadHandler != null) MainThreadHandler.removeCallbacksAndMessages(null);
+        if (CurrentPositionHandler[0] != null) CurrentPositionHandler[0].removeCallbacksAndMessages(null);
+        if (CurrentPositionHandler[1] != null) CurrentPositionHandler[1].removeCallbacksAndMessages(null);
+        if (ChannelHandler != null) ChannelHandler.removeCallbacksAndMessages(null);
+        if (DeleteHandler != null) DeleteHandler.removeCallbacksAndMessages(null);
+        if (SaveBackupJsonHandler != null) SaveBackupJsonHandler.removeCallbacksAndMessages(null);
+        for (int i = 0; i < RuntimeHandler.length; i++) {
+            if (RuntimeHandler[i] != null) {
+                RuntimeHandler[i].removeCallbacksAndMessages(null);
+                RuntimeHandler[i].getLooper().quitSafely();
+            }
+        }
+        if (BackGroundThread != null) BackGroundThread.quitSafely();
+    }
+
+    private void DestroyWebViews() {
+        if (mWebView != null) {
+            mWebView.destroy();
+            mWebView = null;
+        }
+        if (mWebViewKey != null) {
+            mWebViewKey.destroy();
+            mWebViewKey = null;
         }
     }
 
@@ -2612,7 +2651,16 @@ public class PlayerActivity extends Activity {
             if (id != null) {
                 appPreferences.put(id + Constants.PREF_ACCESS_TOKEN, access_token);
 
-                ChannelsUtils.UpdateAllChannels(mWebViewContext, appPreferences, Constants.CHANNELS_NAMES);
+                //The full channel sync does network and TV provider writes for seconds,
+                //posting it keeps the shared JS bridge thread free instead of blocking
+                //every other bridge call behind it
+                ChannelHandler.post(() -> {
+                    try {
+                        ChannelsUtils.UpdateAllChannels(mWebViewContext, appPreferences, Constants.CHANNELS_NAMES);
+                    } catch (Exception e) {
+                        Tools.recordException(TAG, "UpdateUserId channels Exception ", e);
+                    }
+                });
             }
 
             if (id == null) {

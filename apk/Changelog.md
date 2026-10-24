@@ -17,6 +17,23 @@ October 16 2026 (3.0.391)
 * Phone chat: batch history maintenance and scrolling while preserving moderation and twenty-minute priority history.
 * Android: bound waiting network requests and prevent stale responses or APK installer callbacks after activity destruction.
 
+October 23 2026 (3.0.392)
+==============
+
+* Memory: VOD seek preview images are released when the player closes; game screen and live feed backups are capped at the last 5 games.
+* Storage: history saves recover from storage quota errors by trimming old entries; the stream playlist is no longer saved to storage.
+* Fix: the phone chat background sync keeps running after the player closes; it now stops cleanly.
+* Fix: the first notification run saved an empty live list, causing a burst of "went live" toasts on the next check; avatars past the first 100 follows never loaded; avatar fetches had no timeouts and could stall notifications forever.
+* Android: fix leaks on player restart — the ad reload listener held the destroyed activity, handler threads and pending handlers were never released, WebViews were never destroyed.
+* Android: notification logos are downsampled before decode, downloaded once with timeouts, and cached; TV channel thumbnails no longer carry a cache buster that forced a re-download every sync; user switch no longer blocks the app bridge for seconds; the phone chat server backs off instead of hot-spinning when accepts fail.
+
+October 24 2026 (3.0.393)
+==============
+
+* Ad breaks that can no longer be hidden now freeze the picture on the last live frame until the break is over, instead of playing the ad — some breaks are stitched into every fresh stream session and simply cannot be escaped.
+* The escape reloads rotate the fallback stream types much faster (15 seconds instead of 60), so every type is tried within a single ad break.
+* The pre-playback ad probe checks every stream quality instead of only the first and last, so ads stitched into a single quality can no longer slip into playback.
+
 October 11 2026 (3.0.390)
 ==============
 

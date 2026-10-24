@@ -520,6 +520,7 @@ function PlayVod_shutdownStream(SkipSaveOffset) {
         PlayVod_PreshutdownStream(!SkipSaveOffset);
         PlayVod_qualities = [];
         PlayVod_playlist = null;
+        PlayVod_previews_clear();
         Play_exitMain();
     }
 }
@@ -1642,6 +1643,9 @@ function PlayVod_previews_clear() {
     Main_clearTimeout(PlayVod_previews_tmp_imagesId);
     PlayVod_previews_obj.images = [];
     PlayVod_previews_images_pos = -1;
+    //Release the preloaded sprite images, they pin decoded bitmaps until the next VOD otherwise
+    PlayVod_previews_tmp_images = [];
+    PlayVod_previews_tmp_images_pos = 0;
     PlayVod_previews_clear_img();
 }
 

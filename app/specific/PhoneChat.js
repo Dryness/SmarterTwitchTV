@@ -263,7 +263,16 @@ function PhoneChat_HandleKeyDown(e) {
 //replacement; never reattaches player input after the player went away
 function PhoneChat_Cleanup() {
     PhoneChat_Hide(true);
-    if (PhoneChat_PublishTimer) OSInterface_SetPhoneChatChannel('');
+
+    //Only touch the native side when phone chat was actually in use
+    if (PhoneChat_PublishTimer || PhoneChat_HistorySocket) {
+        if (PhoneChat_PublishTimer) {
+            clearInterval(PhoneChat_PublishTimer);
+            PhoneChat_PublishTimer = null;
+        }
+        OSInterface_SetPhoneChatChannel('');
+        PhoneChat_Collect(null);
+    }
 }
 
 //Independent anonymous connection: continues collecting when TV chat is hidden.

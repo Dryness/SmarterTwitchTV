@@ -1050,7 +1050,10 @@ function makeDom() {
         'pc-jump-latest': true,
         'pc-picker': true,
         'pc-emote-button': true,
-        'pc-send': true
+        'pc-send': true,
+        'pc-muted-button': true,
+        'pc-row-menu': true,
+        'pc-muted-panel': true
     };
 
     const doc = {
@@ -1807,6 +1810,77 @@ asyncSections.push(async () => {
     app.App().disconnect();
 });
 
+asyncSections.push(async () => {
+    /* ---------- 7i. consecutive duplicate messages collapse into one counted row ---------- */
+    const app = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+        //Shiftable clock so the merge window can be crossed without waiting
+        const RealDate = Date;
+        let skewMs = 0;
+        sandbox.Date = class extends RealDate {
+            static now() {
+                return RealDate.now() + skewMs;
+            }
+        };
+        sandbox.__skewClock = ms => {
+            skewMs = ms;
+        };
+        sandbox.sessionStorage.setItem(
+            'sptv_phone_chat_session',
+            JSON.stringify({token: 'goodtoken', login: 'myuser', userId: 'u1', scopes: validateOk.scopes, expiresAt: RealDate.now() + 3600000})
+        );
+    });
+    await flushAsync();
+
+    const ids = app.ids;
+    const feed = ids.get('pc-messages');
+    const socket = app.ws[0];
+    socket.readyState = 1;
+    socket.onopen();
+    socket.onmessage({data: ':tmi.twitch.tv 001 myuser :Welcome, GLHF!\r\n'});
+    socket.onmessage({data: ':myuser!myuser@myuser.tmi.twitch.tv JOIN #twitchdev\r\n'});
+
+    const spamMsg = (id, text) => ({
+        data:
+            '@id=' +
+            id +
+            ';user-id=other1;badges=;color=#FF0000;display-name=Spammer;emotes=;login=spammer :spammer!spammer@spammer.tmi.twitch.tv PRIVMSG #twitchdev :' +
+            text +
+            '\r\n'
+    });
+
+    socket.onmessage(spamMsg('s1', 'https://spam.link'));
+    socket.onmessage(spamMsg('s2', 'https://spam.link'));
+    socket.onmessage(spamMsg('s3', 'https://spam.link'));
+    eq(feed.childElementCount, 1, 'spam: three identical messages render one row');
+    ok(feed.textContent.indexOf('https://spam.link (x3)') > -1, 'spam: counter shows x3');
+
+    //A different message in between breaks the streak
+    socket.onmessage(spamMsg('s4', 'different'));
+    socket.onmessage(spamMsg('s5', 'https://spam.link'));
+    eq(feed.childElementCount, 3, 'spam: repeat after a break is its own row');
+    eq(feed.querySelectorAll('[data-id="s5"]').length, 1, 'spam: broken-streak repeat fully rendered');
+    ok(feed.textContent.indexOf('(x4)') === -1, 'spam: counter does not grow across the break');
+
+    //Crossing the window also breaks the streak
+    app.sandbox.__skewClock(30000);
+    socket.onmessage(spamMsg('s6', 'https://spam.link'));
+    app.sandbox.__skewClock(0);
+    eq(feed.childElementCount, 4, 'spam: repeat after the window is its own row');
+
+    //A cleared row cannot absorb further repeats
+    socket.onmessage({data: '@target-user-id=other1 :tmi.twitch.tv CLEARCHAT #twitchdev :spammer\r\n'});
+    eq(feed.childElementCount, 0, 'spam: CLEARCHAT removes the collapsed rows');
+    socket.onmessage(spamMsg('s7', 'https://spam.link'));
+    eq(feed.childElementCount, 1, 'spam: post-timeout message is a fresh row');
+    ok(feed.textContent.indexOf('(x') === -1, 'spam: fresh row has no counter');
+
+    app.App().disconnect();
+    eq(feed.childElementCount, 0, 'spam: disconnect clears the feed');
+});
+
 /* ---------- Local pairing, channel following, and device login ---------- */
 asyncSections.push(async () => {
     let channel = 'twitchdev',
@@ -2333,6 +2407,161 @@ asyncSections.push(async () => {
     app.fireTimers(2000); await flushAsync();
     eq(feed.children.length, 0, 'batch: channel reset clears replay rows');
     app.sandbox.SPTVPhoneChat.Local.stop();
+});
+
+asyncSections.push(async () => {
+    /* ---------- 7m. muted users: long-press mute, persistence, unmute ---------- */
+
+    const storage = makeStorage();
+    const savedSession = () =>
+        JSON.stringify({
+            token: 'goodtoken',
+            login: 'myuser',
+            userId: 'u1',
+            scopes: ['chat:read', 'chat:edit', 'user:read:emotes'],
+            expiresAt: Date.now() + 3600000
+        });
+    const app = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+        sandbox.sessionStorage.setItem('sptv_phone_chat_session', savedSession());
+        sandbox.localStorage = storage; //shared with the "next visit" sandbox below
+    });
+    await flushAsync();
+    const ids = app.ids;
+    const socket = app.ws[0];
+    socket.readyState = 1;
+    socket.onopen();
+    socket.onmessage({data: ':tmi.twitch.tv 001 myuser :Welcome, GLHF!\r\n:myuser!myuser@myuser.tmi.twitch.tv JOIN #twitchdev\r\n'});
+
+    const feed = ids.get('pc-messages');
+    const click = id => ids.get(id).listeners.click[0]();
+    const contextmenu = row => ids.get('pc-messages').listeners.contextmenu[0]({target: row, preventDefault() {}});
+    const receive = (id, login) => {
+        socket.onmessage({
+            data:
+                '@id=' +
+                id +
+                ';user-id=' +
+                login +
+                ';badges=vip/1;display-name=' +
+                login +
+                ' :' +
+                login +
+                '!' +
+                login +
+                '@host PRIVMSG #twitchdev :message ' +
+                id +
+                '\r\n'
+        });
+        return feed.querySelector('[data-id="' + id + '"]');
+    };
+
+    eq(ids.get('pc-muted-button').hidden, true, 'mute: header button hidden while the list is empty');
+
+    //A channel bot with a VIP badge reaches the feed with its author recorded
+    socket.onmessage({
+        data: '@id=m1;user-id=soundalerts;badges=vip/1;display-name=SoundAlerts :soundalerts!soundalerts@host PRIVMSG #twitchdev :buy follows\r\n'
+    });
+    const botRow = feed.querySelector('[data-id="m1"]');
+    ok(botRow !== null, 'mute: bot message renders before muting');
+    eq(botRow.getAttribute('data-login'), 'soundalerts', 'mute: row carries the author login');
+    eq(botRow.getAttribute('data-name'), 'SoundAlerts', 'mute: row carries the author display name');
+
+    //Own rows never open the action sheet
+    ok(receive('own1', 'myuser') !== null, 'mute: own message rendered');
+    contextmenu(feed.querySelector('[data-id="own1"]'));
+    eq(ids.get('pc-row-menu').hidden, true, 'mute: long-press on own message opens nothing');
+
+    //Long-press the bot: the sheet offers Mute with the display name
+    contextmenu(botRow);
+    eq(ids.get('pc-row-menu').hidden, false, 'mute: long-press opens the action sheet');
+    eq(ids.get('pc-row-menu-title').textContent, 'Mute SoundAlerts', 'mute: sheet names the author');
+    eq(ids.get('pc-row-menu-mute').textContent, 'Mute', 'mute: sheet offers mute');
+
+    //Cancel keeps everything visible
+    click('pc-row-menu-cancel');
+    eq(ids.get('pc-row-menu').hidden, true, 'mute: cancel closes the sheet');
+    ok(feed.querySelector('[data-id="m1"]') !== null, 'mute: cancel leaves the message');
+
+    //Muting removes existing rows, flips the header button and saves the list
+    contextmenu(botRow);
+    click('pc-row-menu-mute');
+    eq(feed.querySelector('[data-id="m1"]'), null, 'mute: muting removes existing rows');
+    eq(ids.get('pc-muted-button').hidden, false, 'mute: header button appears');
+    eq(ids.get('pc-muted-button').textContent, 'Muted (1)', 'mute: header button counts entries');
+    deepEq(JSON.parse(storage.getItem('sptv_phone_muted') || '[]'), ['soundalerts'], 'mute: list saved to storage');
+
+    //New messages from the muted user are dropped; other users still render
+    eq(receive('m2', 'soundalerts'), null, 'mute: new muted messages are not rendered');
+    ok(receive('human1', 'somehuman') !== null, 'mute: other users still render');
+
+    //The muted panel lists the user and unmuting restores visibility
+    click('pc-muted-button');
+    eq(ids.get('pc-muted-panel').hidden, false, 'mute: panel opens from the header button');
+    const unmuteButton = ids.get('pc-muted-list').children[0].children[1];
+    eq(unmuteButton.getAttribute('data-unmute'), 'soundalerts', 'mute: panel lists the muted login');
+    ids.get('pc-muted-list').listeners.click[0]({target: unmuteButton});
+    eq(ids.get('pc-muted-button').hidden, true, 'mute: unmute empties the header button again');
+    deepEq(JSON.parse(storage.getItem('sptv_phone_muted') || '[]'), [], 'mute: unmute saved to storage');
+    click('pc-muted-close');
+    eq(ids.get('pc-muted-panel').hidden, true, 'mute: close button hides the panel');
+
+    //Ids dropped while muted stay deduplicated: no resurrection after unmute
+    socket.onmessage({
+        data: '@id=m2;user-id=soundalerts;badges=vip/1;display-name=SoundAlerts :soundalerts!soundalerts@host PRIVMSG #twitchdev :message m2\r\n'
+    });
+    eq(feed.querySelector('[data-id="m2"]'), null, 'mute: replayed dropped id stays dropped after unmute');
+    ok(receive('m3', 'soundalerts') !== null, 'mute: fresh messages render again after unmute');
+
+    //Mute again, then prove the list survives a full page reload
+    contextmenu(feed.querySelector('[data-id="m3"]'));
+    click('pc-row-menu-mute');
+    eq(ids.get('pc-muted-button').textContent, 'Muted (1)', 'mute: re-mute recorded');
+
+    const revisit = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+        sandbox.localStorage = storage;
+        sandbox.sessionStorage.setItem('sptv_phone_chat_session', savedSession());
+    });
+    await flushAsync();
+    const socket2 = revisit.ws[0];
+    socket2.readyState = 1;
+    socket2.onopen();
+    socket2.onmessage({data: ':tmi.twitch.tv 001 myuser :Welcome, GLHF!\r\n:myuser!myuser@myuser.tmi.twitch.tv JOIN #twitchdev\r\n'});
+    eq(revisit.ids.get('pc-muted-button').textContent, 'Muted (1)', 'mute: list restored on the next visit');
+    socket2.onmessage({
+        data: '@id=fresh1;user-id=soundalerts;badges=vip/1;display-name=SoundAlerts :soundalerts!soundalerts@host PRIVMSG #twitchdev :message fresh\r\n'
+    });
+    eq(revisit.ids.get('pc-messages').querySelector('[data-id="fresh1"]'), null, 'mute: muted user hidden on the next visit');
+});
+
+asyncSections.push(async () => {
+    /* ---------- 7n. muted users: a corrupt stored list cannot break boot ---------- */
+
+    const broken = makeStorage();
+    broken.setItem('sptv_phone_muted', '{not json');
+    const app = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+        sandbox.localStorage = broken;
+        sandbox.sessionStorage.setItem(
+            'sptv_phone_chat_session',
+            JSON.stringify({
+                token: 'goodtoken',
+                login: 'myuser',
+                userId: 'u1',
+                scopes: ['chat:read', 'chat:edit', 'user:read:emotes'],
+                expiresAt: Date.now() + 3600000
+            })
+        );
+    });
+    await flushAsync();
+    eq(app.ids.get('pc-muted-button').hidden, true, 'mute: corrupt stored list ignored at boot');
 });
 
 (async () => {

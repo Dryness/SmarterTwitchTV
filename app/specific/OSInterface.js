@@ -171,7 +171,7 @@ function OSInterface_XmlHttpGetFull(
         );
     } catch (e) {
         // prettier-ignore
-        eval(callbackSuccess)(// jshint ignore:line
+        eval(callBackSuccess)(// jshint ignore:line
             null
         );
     }

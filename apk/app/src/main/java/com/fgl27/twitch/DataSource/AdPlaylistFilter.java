@@ -27,7 +27,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.io.ByteStreams;
 
@@ -36,6 +38,13 @@ import com.google.common.io.ByteStreams;
  * player parses them. Twitch stitches ads directly into the *.ttvnw.net media playlists; the
  * playlist is filtered on every refresh so the player only ever sees the stream's own segments,
  * resuming at the live edge once the ad window is over.
+ *
+ * When the whole playlist window turns into ad content the filter freezes the picture instead:
+ * it serves a playlist that repeats the last live segment seen for that stream, so the player
+ * shows a frozen frame (and keeps buffering nothing new) until Twitch serves live content again.
+ * Only a window that is all ads from the very first fetch (a preroll on a brand new session,
+ * with no live segment ever seen) still fails open and plays the ad, because an empty playlist
+ * would end playback with a PlaylistStuckException.
  *
  * The filter is intentionally fail-open: on any parse error the original playlist is returned
  * unmodified so playback is never broken by the ad blocking itself.
@@ -75,8 +84,25 @@ public final class AdPlaylistFilter {
 
     //A midroll shorter than this is usually covered by the player buffer and never visible
     private static final long STRIP_GRACE_MS = 6000;
-    //Minimum time between reload requests, prevents reload loops when every token has ads
-    private static final long RELOAD_COOLDOWN_MS = 60000;
+    //Minimum time between reload requests. Ads surviving a reload mean the fresh session also
+    //carries the break, so the player type must rotate fast (the web side walks its
+    //embed/popout/autoplay ladder) to try every type within a single ad break
+    private static final long RELOAD_COOLDOWN_MS = 15000;
+
+    //Last seen live segment per media playlist url ({EXTINF line, segment uri}), the source of
+    //the freeze frame playlist when a window becomes all ad content. Keyed by playlist url so
+    //concurrent players (multi view, previews) never freeze on each other's content
+    private static final Map<String, String[]> LIVE_SEGMENTS = new HashMap<>();
+    //Sessions are few, a size cap with a full clear is enough to drop entries of ended sessions
+    private static final int LIVE_SEGMENTS_MAX = 16;
+    //Playlist level tags copied over to a freeze frame playlist; segment level tags and the ad
+    //DATERANGEs are deliberately left out
+    private static final String[] FREEZE_HEADER_TAGS = {
+        "#EXT-X-VERSION:",
+        "#EXT-X-TARGETDURATION:",
+        "#EXT-X-MEDIA-SEQUENCE:",
+        "#EXT-X-DISCONTINUITY-SEQUENCE:"
+    };
 
     private AdPlaylistFilter() {}
 
@@ -137,7 +163,7 @@ public final class AdPlaylistFilter {
         byte[] original = ByteStreams.toByteArray(inputStream);
 
         try {
-            FilterResult result = filter(original);
+            FilterResult result = filter(original, uri.toString());
 
             if (result == null) {
                 //No ad content, playback is clean
@@ -172,9 +198,10 @@ public final class AdPlaylistFilter {
     }
 
     /**
-     * Returns the filter outcome, or null when the playlist has no ad content.
+     * Returns the filter outcome, or null when the playlist has no ad content. The playlist url
+     * keys the live segment memory used to build freeze frame playlists.
      */
-    private static FilterResult filter(byte[] playlistBytes) {
+    private static FilterResult filter(byte[] playlistBytes, String playlistUrl) {
         String playlist = new String(playlistBytes, StandardCharsets.UTF_8);
 
         // Playlists are small, a simple split is cheaper than a streaming parser
@@ -185,6 +212,8 @@ public final class AdPlaylistFilter {
         int removedSegments = 0;
         int removedAtHead = 0;
         boolean seenKeptSegment = false;
+        String lastLiveExtInf = null;
+        String lastLiveUri = null;
 
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
@@ -234,6 +263,13 @@ public final class AdPlaylistFilter {
                 }
 
                 seenKeptSegment = true;
+
+                //Remember the newest live segment, it becomes the freeze frame when the whole
+                //window turns into ad content
+                if (segmentLine != -1) {
+                    lastLiveExtInf = line;
+                    lastLiveUri = lines[segmentLine].trim();
+                }
             } else if (!line.isEmpty() && !line.startsWith("#")) {
                 seenKeptSegment = true;
             } else if (line.startsWith("#EXT-X-TWITCH-PREFETCH:") && (inAdRegion || line.contains(MARKER_LEGACY_AD_URL))) {
@@ -244,13 +280,32 @@ public final class AdPlaylistFilter {
             out.add(line);
         }
 
+        if (lastLiveUri != null && playlistUrl != null) {
+            synchronized (LIVE_SEGMENTS) {
+                if (LIVE_SEGMENTS.size() >= LIVE_SEGMENTS_MAX) LIVE_SEGMENTS.clear();
+
+                LIVE_SEGMENTS.put(playlistUrl, new String[] {lastLiveExtInf, lastLiveUri});
+            }
+        }
+
         if (removedSegments == 0) return null;
 
         if (!seenKeptSegment) {
-            //The whole window is ad content (a preroll), serving the stripped result would give
-            //the player an empty playlist and end with a PlaylistStuckException error; better
-            //to let this ad run and continue normally once it is over
-            Log.i(TAG, "playlist is all ad content, letting it play");
+            //The whole window is ad content. Freeze on the last live segment seen for this
+            //playlist so the player shows a still frame instead of the ad and simply waits out
+            //the break; the escape reloads keep running underneath looking for a clean session
+            String[] liveSegment = playlistUrl != null ? getLiveSegment(playlistUrl) : null;
+
+            if (liveSegment != null) {
+                Log.i(TAG, "playlist is all ad content, freezing on the last live segment");
+
+                return new FilterResult(freezePlaylist(lines, liveSegment), true);
+            }
+
+            //Nothing live was ever seen for this playlist (a preroll on a brand new session),
+            //there is no segment to freeze on and serving an empty playlist would end with a
+            //PlaylistStuckException; better to let this ad run and continue normally after it
+            Log.i(TAG, "playlist is all ad content with no live segment to freeze on, letting it play");
 
             return new FilterResult(null, true);
         }
@@ -262,6 +317,40 @@ public final class AdPlaylistFilter {
         Log.i(TAG, "removed " + removedSegments + " ad segment(s)");
 
         return new FilterResult(joinLines(out), false);
+    }
+
+    private static String[] getLiveSegment(String playlistUrl) {
+        synchronized (LIVE_SEGMENTS) {
+            return LIVE_SEGMENTS.get(playlistUrl);
+        }
+    }
+
+    /**
+     * Builds the freeze frame playlist: the original's playlist level header tags followed by the
+     * last live segment, repeated on every refresh. The advancing media sequence keeps the player
+     * polling while the repeated segment leaves the decoder with already played content, so the
+     * picture freezes until the original playlist serves live content again.
+     */
+    private static byte[] freezePlaylist(String[] lines, String[] liveSegment) {
+        List<String> out = new ArrayList<>(FREEZE_HEADER_TAGS.length + 3);
+
+        out.add("#EXTM3U");
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+
+            for (String tag : FREEZE_HEADER_TAGS) {
+                if (trimmed.startsWith(tag)) {
+                    out.add(trimmed);
+                    break;
+                }
+            }
+        }
+
+        out.add(liveSegment[0]);
+        out.add(liveSegment[1]);
+
+        return joinLines(out);
     }
 
     /**

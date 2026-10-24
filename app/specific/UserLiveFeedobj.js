@@ -1767,9 +1767,18 @@ function UserLiveFeedobj_loadDataBaseLiveSuccessEnd(response, total, pos, itemsC
 }
 
 function UserLiveFeedobj_backupStartObj(pos, game) {
-    if (!UserLiveFeed_obj[pos].backup[game]) {
-        UserLiveFeed_obj[pos].backup[game] = {};
+    var backup = UserLiveFeed_obj[pos].backup,
+        existing = backup[game];
+
+    if (existing) {
+        //Re-insert so the game becomes the newest key for the trim, keeping its data
+        delete backup[game];
+        backup[game] = existing;
+    } else {
+        backup[game] = {};
     }
+
+    Main_trimObject(backup, Main_backupGameLimit);
 }
 
 function UserLiveFeedobj_loadDataBaseLiveBackup(pos, game) {

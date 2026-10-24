@@ -8357,11 +8357,55 @@
     //Spacing for release maker not trow errors from jshint
     var version = {
         VersionBase: '3.0',
-        publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
-        WebVersion: 'October 23 2026',
-        WebTag: 759, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        publishVersionCode: 393, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/393/SmarterPurpleTV_3_0_393.apk',
+        WebVersion: 'October 24 2026',
+        WebTag: 764, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 24 2026 (Web 764)',
+                changes: [
+                    'Chat: the same message repeated by the same user in a row now merges into one line with a growing "(xN)" counter — link and emoji spam floods no longer bury the chat (works in the TV chat and on the phone chat page)',
+                    'Chat: fix the merge — a repeat no longer disappears when its line already scrolled out of the chat window, and the merge never carries over from the previous channel',
+                    'Chat: performance pass for very busy chats — the line entry animation turns itself off during message floods, the chat delay delivers big bursts in small batches instead of one long freeze, and switching the multi view chat no longer re-parses every line',
+                    'Chat: non-Latin text (Cyrillic, Greek, CJK, Arabic…) renders faster — plain words skip the emoji scan entirely'
+                ]
+            },
+            {
+                title: 'October 24 2026 (Web 763 / APK 393)',
+                changes: [
+                    'Ad blocking: ad breaks that can no longer be hidden now freeze the picture on the last live frame until the break is over, instead of playing the ad — some breaks are stitched into every fresh stream session and simply cannot be escaped',
+                    'Ad blocking: the escape reloads rotate the fallback stream types much faster (15 seconds instead of 60), so every type is tried within a single ad break',
+                    'Ad blocking: the pre-playback ad probe now checks every stream quality instead of only the first and last — ads stitched into a single quality can no longer slip into playback'
+                ]
+            },
+            {
+                title: 'October 23 2026 (Web 762 / APK 392)',
+                changes: [
+                    'Memory: VOD seek preview images are released when the player closes instead of staying in memory until the next VOD',
+                    'Memory: game screen and live feed backups are now capped at the last 5 games instead of growing with every game visited',
+                    'Storage: history saves recover from storage quota errors by trimming old entries; block/unblock leftovers are trimmed on load; the stream playlist is no longer saved to storage',
+                    'Fix: the phone chat background sync keeps running after the player closes; it now stops cleanly',
+                    'Fix: scrolling the side panel could cancel a pending watch history save — it now cancels the right timer',
+                    "Fix: the channel context was never restored when returning to a channel's videos/clips after a search; multi view rewrote the game line on every refresh and could stack-overflow cycling empty slots; number key 2 jumped the clip while the feed preview was open",
+                    'Performance: moving focus back and forth no longer re-requests the same stream info within 15 seconds; multi view stops rewriting unchanged text and audio icons; the player options drawers stop rebuilding their button bar on every key press and multi view main-window switching no longer re-copies and re-parses the stream playlist on each left/right',
+                    'APK: fix leaks on player restart (activity held by the ad reload listener, handler threads and pending handlers never released, WebViews never destroyed)',
+                    'APK: fix the first notification run saving an empty live list which caused a burst of "went live" toasts on the next check; avatars past the first 100 follows never loaded',
+                    'APK: notification logos are downsampled before decode, downloaded once with timeouts, and cached; TV channel thumbnails no longer carry a cache buster that forced a re-download every sync; user switch no longer blocks the app bridge for seconds'
+                ]
+            },
+            {
+                title: 'October 23 2026 (Web 761)',
+                changes: [
+                    'Phone chat: long-press a message to mute its author — messages from muted users are hidden on the phone and the list is remembered between visits; manage it with the Muted button in the header (bots not yet in the built-in list can be muted the same way)'
+                ]
+            },
+            {
+                title: 'October 23 2026 (Web 760)',
+                changes: [
+                    'Fix: follow raids never activated — a settings check compared against the wrong value so the raid listener was silently off for everyone; it now runs as intended (the setting and login requirement are unchanged)'
+                ]
+            },
             {
                 title: 'October 23 2026 (Web 759)',
                 changes: [
@@ -12673,15 +12717,21 @@
             ChannelContent_UserChannels: ChannelContent_UserChannels,
             'Main_values.Main_BeforeChannel': Main_values.Main_BeforeChannel
         };
+        ChannelContent_ChannelValueIsset = true;
     }
 
     function ChannelContent_RestoreChannelValue() {
-        Main_values.Main_selectedChannel_id = Main_values.Main_selectedChannel_id;
-        Main_values.Main_selectedChannelLogo = Main_values.Main_selectedChannelLogo;
-        Main_values.Main_selectedChannel = Main_values.Main_selectedChannel;
-        Main_values.Main_selectedChannelDisplayname = Main_values.Main_selectedChannelDisplayname;
+        //Nothing to restore, the snapshot is cleared after the first restore
+        if (!ChannelContent_ChannelValueIsset) return;
+
+        //Restore from the snapshot saved by ChannelContent_SetChannelValue, the
+        //values may have been overwritten by a search or another channel in between
+        Main_values.Main_selectedChannel_id = ChannelContent_ChannelValue['Main_values.Main_selectedChannel_id'];
+        Main_values.Main_selectedChannelLogo = ChannelContent_ChannelValue['Main_values.Main_selectedChannelLogo'];
+        Main_values.Main_selectedChannel = ChannelContent_ChannelValue['Main_values.Main_selectedChannel'];
+        Main_values.Main_selectedChannelDisplayname = ChannelContent_ChannelValue['Main_values.Main_selectedChannelDisplayname'];
         ChannelContent_UserChannels = ChannelContent_ChannelValue.ChannelContent_UserChannels;
-        Main_values.Main_BeforeChannel = Main_values.Main_BeforeChannel;
+        Main_values.Main_BeforeChannel = ChannelContent_ChannelValue['Main_values.Main_BeforeChannel'];
         ChannelContent_ChannelValue = {};
         ChannelContent_ChannelValueIsset = false;
     }
@@ -13170,17 +13220,22 @@
     }
 
     function ChatLive_Switch() {
-        var innerHTMLTemp = Chat_div[1].innerHTML;
+        //Move the nodes instead of an innerHTML round trip; serializing and
+        //re-parsing the image heavy lines is expensive and drops decoded images.
+        //The spam tracker below is reset by the following Init, so no tracked
+        //element can end up merged into a line that now belongs to the other chat
+        var fragment = document.createDocumentFragment();
 
-        Chat_div[1].innerHTML = Chat_div[0].innerHTML;
-        Chat_div[0].innerHTML = innerHTMLTemp;
+        while (Chat_div[1].firstChild) fragment.appendChild(Chat_div[1].firstChild);
+        while (Chat_div[0].firstChild) Chat_div[1].appendChild(Chat_div[0].firstChild);
+        Chat_div[0].appendChild(fragment);
 
         var logged0 = Main_getElementById('chat_loggedin0'),
             logged1 = Main_getElementById('chat_loggedin1');
 
-        innerHTMLTemp = logged1.innerHTML;
-        logged1.innerHTML = logged0.innerHTML;
-        logged0.innerHTML = innerHTMLTemp;
+        while (logged1.firstChild) fragment.appendChild(logged1.firstChild);
+        while (logged0.firstChild) logged1.appendChild(logged0.firstChild);
+        logged0.appendChild(fragment);
 
         for (var i = 0; i < 2; i++) {
             ChatLive_Close(i);
@@ -14848,6 +14903,8 @@
             return;
         }
 
+        var nickLower = tags['display-name'].toLowerCase();
+
         if (ChatLive_Highlight_Rewards && tags.hasOwnProperty('msg-id')) {
             //Stringfy to prevent crashes
             tags['msg-id'] = tags['msg-id'] + '';
@@ -14884,7 +14941,7 @@
 
         if (ChatLive_Highlight_AtStreamer && ChatLive_Channel_Regex_Search[chat_number].test(mmessage)) {
             atstreamer = true;
-        } else if (ChatLive_Highlight_FromStreamer && Main_A_equals_B(tags['display-name'].toLowerCase(), ChatLive_selectedChannel[chat_number])) {
+        } else if (ChatLive_Highlight_FromStreamer && Main_A_equals_B(nickLower, ChatLive_selectedChannel[chat_number])) {
             fromstreamer = true;
         } else if (ChatLive_Highlight_Mod && tags.mod && tags.mod !== '0') {
             mod = true;
@@ -14895,10 +14952,7 @@
             verified = true;
         } else if (ChatLive_Highlight_AtUser && ChatLive_User_Regex_Search.test(mmessage)) {
             atuser = true;
-        } else if (
-            ChatLive_Highlight_User_send &&
-            Main_A_equals_B(tags['display-name'].toLowerCase(), AddUser_UsernameArray[0].display_name.toLowerCase())
-        ) {
+        } else if (ChatLive_Highlight_User_send && Main_A_equals_B(nickLower, AddUser_UsernameArray[0].display_name.toLowerCase())) {
             atuser = true;
         }
 
@@ -14936,6 +14990,8 @@
         var messageObj = {
             chat_number: chat_number,
             message: div,
+            nick: nickLower,
+            text: mmessage,
             atstreamer: atstreamer,
             atuser: atuser,
             fromstreamer: fromstreamer,
@@ -14958,16 +15014,48 @@
 
     var ChatLive_Delayed = [];
     var ChatLive_Generation = 0;
+    var ChatLive_SpamLast = [];
+    //Consecutive identical messages from the same user inside this window merge into the last line with a (xN) counter
+    var ChatLive_SpamWindow = 15000;
 
     function ChatLive_DelayClear(chat_number) {
         var state = ChatLive_Delayed[chat_number];
         if (state) Main_clearTimeout(state.timer);
         ChatLive_Delayed[chat_number] = null;
+        //The spam tracker references a line of the previous channel/restart, drop it
+        ChatLive_SpamLast[chat_number] = null;
     }
 
     function ChatLive_DelayBefore(a, b) {
         return a.due < b.due || (a.due === b.due && a.sequence < b.sequence);
     }
+
+    //Remove and return the earliest entry of the delay min-heap
+    function ChatLive_DelayPop(state) {
+        var entry = state.queue[0],
+            last = state.queue.pop(),
+            index = 0,
+            child;
+
+        if (state.queue.length) {
+            state.queue[0] = last;
+
+            while ((child = index * 2 + 1) < state.queue.length) {
+                if (child + 1 < state.queue.length && ChatLive_DelayBefore(state.queue[child + 1], state.queue[child])) child++;
+                if (!ChatLive_DelayBefore(state.queue[child], last)) break;
+                state.queue[index] = state.queue[child];
+                index = child;
+            }
+
+            state.queue[index] = last;
+        }
+
+        return entry;
+    }
+
+    //Max due entries drained per timer task, a burst then yields to the renderer
+    //between batches instead of appending all lines in one long main thread block
+    var ChatLive_DelayDrainBatch = 20;
 
     function ChatLive_DelayArm(chat_number, state) {
         if (!state.queue.length || state.timer !== null) return;
@@ -14976,24 +15064,16 @@
             function () {
                 if (ChatLive_Delayed[chat_number] !== state) return;
                 state.timer = null;
+
+                var processed = 0;
+
                 while (state.queue.length && state.queue[0].due <= Date.now()) {
-                    var entry = state.queue[0],
-                        last = state.queue.pop(),
-                        index = 0,
-                        child;
-                    if (state.queue.length) {
-                        state.queue[0] = last;
-                        while ((child = index * 2 + 1) < state.queue.length) {
-                            if (child + 1 < state.queue.length && ChatLive_DelayBefore(state.queue[child + 1], state.queue[child])) child++;
-                            if (!ChatLive_DelayBefore(state.queue[child], last)) break;
-                            state.queue[index] = state.queue[child];
-                            index = child;
-                        }
-                        state.queue[index] = last;
-                    }
+                    var entry = ChatLive_DelayPop(state);
                     if (entry.generation === Chat_Id[chat_number]) ChatLive_LineAdd(entry.message);
                     if (ChatLive_Delayed[chat_number] !== state) return;
+                    if (++processed >= ChatLive_DelayDrainBatch) break;
                 }
+
                 ChatLive_DelayArm(chat_number, state);
             },
             Math.max(0, state.deadline - Date.now())
@@ -15139,7 +15219,10 @@
 
     function ChatLive_LineAdd(messageObj) {
         if (ChatLive_Playing) {
+            if (ChatLive_SpamMerge(messageObj)) return;
+
             ChatLive_ElementAdd(messageObj);
+            ChatLive_SpamTrack(messageObj);
 
             if (ChatLive_LineAddCounter[messageObj.chat_number]++ > Chat_CleanMax) {
                 ChatLive_LineAddCounter[messageObj.chat_number] = 0;
@@ -15155,6 +15238,49 @@
         }
     }
 
+    //Merge a repeated message into the line tracked by ChatLive_SpamTrack, only
+    //when it is consecutive (any other line in between breaks the streak)
+    function ChatLive_SpamMerge(messageObj) {
+        var last = ChatLive_SpamLast[messageObj.chat_number],
+            now = Date.now();
+
+        if (
+            !last ||
+            !last.el ||
+            !last.el.parentNode || //line removed by Chat_Clean, show a new one instead of merging into a detached node
+            messageObj.text === undefined ||
+            now - last.time > ChatLive_SpamWindow ||
+            last.nick !== messageObj.nick ||
+            last.text !== messageObj.text
+        ) {
+            return false;
+        }
+
+        last.count++;
+        last.time = now;
+
+        if (last.el) {
+            var count = last.el.lastChild;
+
+            if (!count || count.className !== 'chat_spam_count') {
+                count = document.createElement('span');
+                count.className = 'chat_spam_count';
+                last.el.appendChild(count);
+            }
+
+            count.textContent = ' (x' + last.count + ')';
+        }
+
+        return true;
+    }
+
+    function ChatLive_SpamTrack(messageObj) {
+        ChatLive_SpamLast[messageObj.chat_number] =
+            messageObj.text === undefined || messageObj.addToStart
+                ? null
+                : {nick: messageObj.nick, text: messageObj.text, count: 1, time: Date.now(), el: messageObj.element || null};
+    }
+
     //Full messageObj current is
     // messageObj = {
     //     chat_number: chat_number,
@@ -15167,6 +15293,25 @@
     //     sub: sub,
     //     skip_addline: skip_addline,
     // };
+
+    //Lines per second above which the line entry animation is skipped; at that
+    //speed lines scroll by too fast for the fade to be visible anyway
+    var ChatLive_AniRateMax = 10;
+    var ChatLive_AniRateCount = [];
+    var ChatLive_AniRateSecond = [];
+
+    function ChatLive_AniClassName(chat_number) {
+        if (!Play_ChatEnable) return 'chat_line_holder';
+
+        var second = Math.floor(Date.now() / 1000);
+
+        if (second !== ChatLive_AniRateSecond[chat_number]) {
+            ChatLive_AniRateSecond[chat_number] = second;
+            ChatLive_AniRateCount[chat_number] = 0;
+        }
+
+        return ++ChatLive_AniRateCount[chat_number] <= ChatLive_AniRateMax ? ChatLive_chat_line_class : 'chat_line_holder';
+    }
 
     function ChatLive_ElementAdd(messageObj) {
         var style = '',
@@ -15220,10 +15365,12 @@
 
         var chat_line_holder = document.createElement('div');
         chat_line_holder.innerHTML = chat_line;
+        messageObj.element = chat_line_holder.firstChild;
 
         if (!messageObj.addToStart) {
-            //skip animation if chat not showing to prevent animations when it shows
-            chat_line_holder.className = Play_ChatEnable ? ChatLive_chat_line_class : 'chat_line_holder';
+            //skip animation if chat not showing to prevent animations when it shows,
+            //and above ChatLive_AniRateMax lines per second to spare the renderer
+            chat_line_holder.className = ChatLive_AniClassName(messageObj.chat_number);
             ChatLive_ElementAddCheckExtra(messageObj);
             Chat_div[messageObj.chat_number].appendChild(chat_line_holder);
         } else {
@@ -17721,10 +17868,10 @@
         Main_checkWebVersionId = Main_setInterval(Main_CheckUpdate, 1000 * 60 * 30, Main_checkWebVersionId); //Check it 60 min
 
         Main_setTimeout(Main_RunVODWorker, 50000);
-        Main_setInterval(Main_RunVODWorker, 1000 * 60 * 360); //Check it 6 hours
+        Main_RunVODWorkerId = Main_setInterval(Main_RunVODWorker, 1000 * 60 * 360, Main_RunVODWorkerId); //Check it 6 hours
 
         Main_setTimeout(Main_RunClipWorker, 80000);
-        Main_setInterval(Main_RunClipWorker, 1000 * 60 * 370); //Check it 6 hours
+        Main_RunClipWorkerId = Main_setInterval(Main_RunClipWorker, 1000 * 60 * 370, Main_RunClipWorkerId); //Check it 6 hours
 
         Main_setTimeout(AddUser_UpdateUserAllUsers, 30000);
 
@@ -18423,7 +18570,8 @@
 
     function Main_SaveValues(backup) {
         Main_setItem('Main_values', JSON.stringify(Main_values));
-        Main_setItem('Play_data', JSON.stringify(Play_data));
+        //The playlist is a big string always refetched before playback, don't persist it
+        Main_setItem('Play_data', JSON.stringify(Screens_assign({}, Play_data, {playlist: null})));
 
         if (backup) {
             GDriveBackup();
@@ -19433,7 +19581,14 @@
     }
 
     function Main_setItem(item, value) {
-        localStorage.setItem(item, value);
+        try {
+            localStorage.setItem(item, value);
+            return true;
+        } catch (e) {
+            //Quota exceeded or storage unavailable, callers can react instead of crashing
+            Main_Log('Main_setItem failed for ' + item + '\n' + e);
+            return false;
+        }
     }
 
     function Main_getItemInt(item, default_value) {
@@ -19895,6 +20050,12 @@
                     Main_trimObject(obj[key].deleted[innerKey], limit);
                 }
             }
+
+            //Trim block/unblock tombstones too, they are never removed otherwise
+            if (obj.hasOwnProperty(key) && obj[key].blocked && obj[key].blocked.deleted) {
+                if (obj[key].blocked.deleted.game) Main_trimObject(obj[key].blocked.deleted.game, limit);
+                if (obj[key].blocked.deleted.channel) Main_trimObject(obj[key].blocked.deleted.channel, limit);
+            }
         }
     }
 
@@ -19919,9 +20080,33 @@
 
     function Main_SaveHistoryItem() {
         var string = JSON.stringify(Main_values_History_data);
-        Main_setItem(Main_values_History_data_ItemName, string);
+
+        if (!Main_setItem(Main_values_History_data_ItemName, string)) {
+            //Quota exceeded, halve the history and retry once before giving up
+            Main_Log('History save failed, trimming and retrying');
+            Main_HistoryTrimTo(1000);
+            string = JSON.stringify(Main_values_History_data);
+            Main_setItem(Main_values_History_data_ItemName, string);
+        }
 
         Main_UpdateBlockedHomeScreen();
+    }
+
+    //Cut every user history array to maxKeep newest entries, used to recover from storage quota errors
+    function Main_HistoryTrimTo(maxKeep) {
+        for (var userId in Main_values_History_data) {
+            if (!Main_values_History_data.hasOwnProperty(userId)) continue;
+
+            for (var type in Main_values_History_data[userId]) {
+                var entries = Main_values_History_data[userId][type];
+                if (entries && entries.length && entries.length > maxKeep && typeof entries.sort === 'function') {
+                    entries.sort(function (a, b) {
+                        return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+                    });
+                    Main_values_History_data[userId][type] = entries.slice(entries.length - maxKeep);
+                }
+            }
+        }
     }
 
     function Main_UpdateBlockedHomeScreen() {
@@ -19984,6 +20169,7 @@
         );
 
         Main_ImageLoaderWorker = new Worker(blobURL);
+        URL.revokeObjectURL(blobURL);
     }
 
     function Main_A_includes_B(A, B) {
@@ -20151,6 +20337,7 @@
         );
 
         BradcastCheckerWorker = new Worker(blobURL);
+        URL.revokeObjectURL(blobURL);
 
         BradcastCheckerWorker.addEventListener('message', function (event) {
             //Minor delay to not block Main tread when the workers return values
@@ -20219,6 +20406,8 @@
     }
 
     var Main_StartHistoryworkerId;
+    var Main_RunVODWorkerId;
+    var Main_RunClipWorkerId;
 
     //Check if a live in history has become a VOD
     function Main_StartHistoryworker() {
@@ -20442,6 +20631,8 @@
         Main_clearInterval(Main_updateClockId);
         Main_clearInterval(Main_StartHistoryworkerId);
         Main_clearInterval(Main_checkWebVersionId);
+        Main_clearInterval(Main_RunVODWorkerId);
+        Main_clearInterval(Main_RunClipWorkerId);
         Main_clearTimeout(Main_checkWebVersionResumeId);
         Main_clearTimeout(Screens_CheckRefreshAfterResumeId);
         Main_clearTimeout(Main_CheckResumeFeedId);
@@ -21175,6 +21366,15 @@
         }
 
         return obj;
+    }
+
+    //Max per game backups kept per screen/feed, the oldest visited game is evicted first
+    var Main_backupGameLimit = 5;
+
+    function Main_trimBackupData(backupData, sizeLimit) {
+        for (var key in backupData) {
+            if (backupData.hasOwnProperty(key) && backupData[key]) Main_trimObject(backupData[key], sizeLimit);
+        }
     }
 
     function Main_removeMissingProps(obj, referenceArray) {
@@ -22218,7 +22418,7 @@
             );
         } catch (e) {
             // prettier-ignore
-            eval(callbackSuccess)(// jshint ignore:line
+            eval(callBackSuccess)(// jshint ignore:line
             null
         );
         }
@@ -23785,7 +23985,16 @@
     //replacement; never reattaches player input after the player went away
     function PhoneChat_Cleanup() {
         PhoneChat_Hide(true);
-        if (PhoneChat_PublishTimer) OSInterface_SetPhoneChatChannel('');
+
+        //Only touch the native side when phone chat was actually in use
+        if (PhoneChat_PublishTimer || PhoneChat_HistorySocket) {
+            if (PhoneChat_PublishTimer) {
+                clearInterval(PhoneChat_PublishTimer);
+                PhoneChat_PublishTimer = null;
+            }
+            OSInterface_SetPhoneChatChannel('');
+            PhoneChat_Collect(null);
+        }
     }
 
     //Independent anonymous connection: continues collecting when TV chat is hidden.
@@ -24693,15 +24902,18 @@
     function Play_AdBlockReload() {
         //Called only by JAVA when the ad filter can no longer hide a midroll from the playback;
         //reloads the current stream rotating the player type each round (the probe alone cannot be
-        //trusted, a variant can look clean while the played one carries the ads). When every type
-        //served ads the reloads stop for a while, the ad break plays out and playback continues
+        //trusted, a variant can look clean while the played one carries the ads, and some breaks
+        //get stitched into fresh sessions of every player type). The rounds follow each other fast
+        //so the whole ladder is tried within a single ad break; when every type served ads the
+        //reloads stop for a while, the apk freezes the frame on the last live segment and playback
+        //continues normally once the break is over
         var now = new Date().getTime();
 
         if (now < Play_AdBlockReloadSuppressUntil) return;
 
         if (!Play_isOn || Play_data.data.length < 7 || Play_isEndDialogVisible() || !PlayHLS_AdFilterOn()) return;
 
-        if (now - Play_AdBlockReloadLast <= 60000) return;
+        if (now - Play_AdBlockReloadLast <= 15000) return;
 
         //A previous ad break is long over, start from the first player type again
         if (now - Play_AdBlockReloadLast > 180000) Play_AdBlockReloadRound = 0;
@@ -25270,6 +25482,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             Play_PreshutdownStream(true);
             PlayRaid_Close();
             Main_values.Play_WasPlaying = 0;
+            PlayVod_previews_clear();
             Play_exitMain();
             Play_data = JSON.parse(JSON.stringify(Play_data_base));
         }
@@ -25353,6 +25566,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         //Stream replacement/shutdown: close the phone chat dialog without
         //reattaching player input (this path removes that listener right after)
         PhoneChat_Cleanup();
+        PlayVod_previews_clear();
 
         Play_Playing = false;
         Main_removeEventListener('keydown', Play_handleKeyDown);
@@ -26137,6 +26351,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
     function Play_Exit() {
         PhoneChat_Cleanup();
+        PlayVod_previews_clear();
         Play_CleanHideExit();
         Play_hideChat();
         PlayExtra_ClearExtra();
@@ -26486,7 +26701,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Play_showWarningDialog(STR_410_ERROR, 2000);
 
         Main_setTimeout(function () {
-            Play_PlayEndStart(3);
+            //The user may have exited within the timeout, don't force the end dialog then
+            if (PlayClip_isOn) Play_PlayEndStart(3);
         }, 2000);
     }
 
@@ -26620,6 +26836,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             PlayClip_All = false;
             PlayClip_PreshutdownStream(true);
             Play_CleanHideExit();
+            PlayVod_previews_clear();
             Play_exitMain();
             PlayClip_loadDataRequestId = 0;
         }
@@ -27136,8 +27353,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             case KEY_2:
                 if (UserLiveFeed_isPreviewShowing() && (!Play_EndFocus || !Play_isEndDialogVisible())) {
                     UserLiveFeed_FeedRefresh();
-                }
-                PlayVod_NumberKey_QuickJump(e.keyCode);
+                } else PlayVod_NumberKey_QuickJump(e.keyCode);
                 break;
             case KEY_C:
             case KEY_NUMPAD_5:
@@ -28293,7 +28509,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             var responseObj = JSON.parse(response);
 
             if (responseObj.checkResult > 0 && responseObj.checkResult === Play_loadDataId) {
-                Play_StayCheckLiveResultEnd(JSON.parse(response));
+                Play_StayCheckLiveResultEnd(responseObj);
             }
         }
     }
@@ -28776,6 +28992,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         return STR_SPACE_HTML + '<i class="icon-' + icon + ' strokicon_title" ></i>';
     }
 
+    //Last icon written per element id, Play_SetAudioIcon runs on every key press in multi mode
+    var Play_SetAudioIconCache = {};
+
     function Play_SetAudioIcon() {
         var i = 0,
             icon;
@@ -28786,15 +29005,27 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             for (i; i < 4; i++) {
                 icon = Play_MultiArray[i].data.length > 0 ? Play_GetAudioIcon(i) : '';
 
-                Main_innerHTML('stream_info_multi_audio_' + extraText + i, STR_SPACE_HTML + icon);
+                var elementId = 'stream_info_multi_audio_' + extraText + i;
+                if (Play_SetAudioIconCache[elementId] !== icon) {
+                    Play_SetAudioIconCache[elementId] = icon;
+                    Main_innerHTML(elementId, STR_SPACE_HTML + icon);
+                }
             }
         } else if (PlayExtra_PicturePicture) {
             for (i; i < 2; i++) {
                 icon = Play_GetAudioIcon(i);
 
-                Main_innerHTML('chat_container_sound_icon' + i, icon);
+                var ppElementId = 'chat_container_sound_icon' + i;
+                if (Play_SetAudioIconCache[ppElementId] !== icon) {
+                    Play_SetAudioIconCache[ppElementId] = icon;
+                    Main_innerHTML(ppElementId, icon);
+                }
 
-                Main_innerHTML('stream_info_pp_audio_' + i, icon);
+                ppElementId = 'stream_info_pp_audio_' + i;
+                if (Play_SetAudioIconCache[ppElementId] !== icon) {
+                    Play_SetAudioIconCache[ppElementId] = icon;
+                    Main_innerHTML(ppElementId, icon);
+                }
             }
         } else {
             Main_innerHTML('stream_info_audio', Play_GetAudioIcon(0));
@@ -32778,19 +33009,19 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     /**
-     * Probes the first and last variants of the just fetched master playlist for ad content,
-     * asynchronously; returns true when the caller must wait for the probe (the flow continues
-     * from PlayHLS_AdProbeResult), false when playback can proceed with the current result.
+     * Probes every variant of the just fetched master playlist for ad content, asynchronously;
+     * returns true when the caller must wait for the probe (the flow continues from
+     * PlayHLS_AdProbeResult), false when playback can proceed with the current result.
      *
-     * Ads are stitched per variant, so a single variant can temporarily look clean while the one
-     * being played carries ads; probing both ends of the variant list catches that.
+     * Ads are stitched per variant and any subset of them can carry the break while the others
+     * look clean, so the whole variant list has to be checked, not only the one to be played.
      */
     function PlayHLS_AdCheckOrRetry(result, checkResult, check_1, check_3, check_5, callBackSuccess) {
         var responseObj = JSON.parse(result);
         var variants = PlayHLS_VariantUrls(responseObj.responseText);
         var state = PlayHLS_AdRetryStates[checkResult];
 
-        if (!variants.first) {
+        if (!variants.length) {
             if (state) delete PlayHLS_AdRetryStates[checkResult];
 
             return false;
@@ -32800,12 +33031,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             state = PlayHLS_AdRetryStates[checkResult] = {
                 original: result,
                 attempt: 0,
-                current: result,
-                lastVariant: variants.last
+                current: result
             };
         } else {
             state.current = result;
-            state.lastVariant = variants.last;
         }
 
         //The autoplay (360p) escape is the last resort, accept its playlist without probing and
@@ -32820,10 +33049,12 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             return true;
         }
 
-        PlayHLS_AdLog('probing for ads, player type attempt ' + state.attempt);
+        state.variants = variants;
+
+        PlayHLS_AdLog('probing for ads, player type attempt ' + state.attempt + ' (' + variants.length + ' variants)');
 
         OSInterface_XmlHttpGetFull(
-            variants.first, //String urlString
+            variants[0], //String urlString
             DefaultHttpGetTimeout, //int timeout
             null, //String postMessage
             null, //String Method
@@ -32831,9 +33062,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             'PlayHLS_AdProbeResult', //String callback
             checkResult, //long checkResult
             check_1, //String check_1 isLive
-            '0', //String check_2 useProxy (the retry never uses a proxy)
+            '0', //String check_2 useProxy (the probe never uses a proxy)
             check_3, //String check_3 channel
-            '1', //String check_4 probe slot (1 first variant, 2 last variant)
+            '1', //String check_4 probe slot (1-based variant index)
             check_5, //String check_5 CheckId_x
             callBackSuccess, //String callBackSuccess
             null //String callBackError
@@ -32846,7 +33077,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         var state = PlayHLS_AdRetryStates[checkResult];
 
         //Not a probe of this flow (stale or marked otherwise), ignore it
-        if (!state || (check_4 !== '1' && check_4 !== '2')) return;
+        if (typeof state === 'undefined' || state === null) return;
+
+        var slot = parseInt(check_4, 10);
+
+        if (isNaN(slot) || slot < 1) return;
 
         var live = check_1 === '1' && check_2 !== '1';
         var status = 0;
@@ -32864,33 +33099,27 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             hasAds = false;
         }
 
-        PlayHLS_AdLog('probe slot ' + check_4 + ' http ' + status + (hasAds ? ' found ads' : ' no ads'));
+        PlayHLS_AdLog('probe variant ' + slot + '/' + state.variants.length + ' http ' + status + (hasAds ? ' found ads' : ' no ads'));
 
-        if (!hasAds && check_4 === '1' && state.lastVariant && state.lastVariant !== '') {
-            var responseObj = JSON.parse(state.current);
-            var variants = PlayHLS_VariantUrls(responseObj.responseText);
+        if (!hasAds && slot < state.variants.length) {
+            OSInterface_XmlHttpGetFull(
+                state.variants[slot], //String urlString (slot is 1-based)
+                DefaultHttpGetTimeout, //int timeout
+                null, //String postMessage
+                null, //String Method
+                null, //String JsonHeadersArray
+                'PlayHLS_AdProbeResult', //String callback
+                checkResult, //long checkResult
+                check_1, //String check_1 isLive
+                '0', //String check_2 useProxy (the probe never uses a proxy)
+                check_3, //String check_3 channel
+                String(slot + 1), //String check_4 next probe slot
+                check_5, //String check_5 CheckId_x
+                callBackSuccess, //String callBackSuccess
+                null //String callBackError
+            );
 
-            //Only probe the last variant when it is a different playlist
-            if (variants.last && variants.last !== variants.first) {
-                OSInterface_XmlHttpGetFull(
-                    variants.last, //String urlString
-                    DefaultHttpGetTimeout, //int timeout
-                    null, //String postMessage
-                    null, //String Method
-                    null, //String JsonHeadersArray
-                    'PlayHLS_AdProbeResult', //String callback
-                    checkResult, //long checkResult
-                    check_1, //String check_1 isLive
-                    check_2, //String check_2 useProxy
-                    check_3, //String check_3 channel
-                    '2', //String check_4 probe slot 2 (last variant)
-                    check_5, //String check_5 CheckId_x
-                    callBackSuccess, //String callBackSuccess
-                    null //String callBackError
-                );
-
-                return;
-            }
+            return;
         }
 
         if (!hasAds) {
@@ -32977,25 +33206,19 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     );
     }
 
-    //The first and last variant urls of a master playlist
+    //All variant urls of a master playlist, in master order and without duplicates. Ads can be
+    //stitched into any subset of the variants, so every one of them has to be checked
     function PlayHLS_VariantUrls(playlist) {
         var lines = playlist.split('\n');
-        var first = null;
-        var last = null;
+        var urls = [];
 
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim();
 
-            if (line.indexOf('http') === 0) {
-                if (first === null) first = line;
-                last = line;
-            }
+            if (line.indexOf('http') === 0 && urls.indexOf(line) === -1) urls.push(line);
         }
 
-        return {
-            first: first,
-            last: last
-        };
+        return urls;
     }
 
     function PlayHLS_CheckProxyResultFail(responseText) {
@@ -33429,6 +33652,27 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
     }
 
+    //Extract a slot's qualities once per playlist, MainBig left/right used to re-parse
+    //the whole playlist on every key press
+    function Play_MultiSlotQualities(pos) {
+        var slot = Play_MultiArray[pos];
+
+        if (!slot.qualities || !slot.qualities.length) slot.qualities = Play_extractQualities(slot.playlist);
+        return slot.qualities;
+    }
+
+    //Clone a slot into Play_data without copying the big playlist string twice,
+    //strings are immutable so sharing the reference is safe
+    function Play_MultiCloneSlot(pos) {
+        var slot = Play_MultiArray[pos],
+            playlist = slot.playlist;
+
+        slot.playlist = null;
+        Play_data = JSON.parse(JSON.stringify(slot));
+        Play_data.playlist = playlist;
+        slot.playlist = playlist;
+    }
+
     function Play_MultiStartFail(pos, display_name, string_fail_reason) {
         Play_showWarningMiddleDialog(string_fail_reason ? string_fail_reason : display_name + ' ' + STR_LIVE + STR_IS_OFFLINE, 2000);
         Play_HideBufferDialog();
@@ -33466,7 +33710,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         if (isFull) UserLiveFeed_Hide(PreventCleanQualities);
 
+        //A new playlist invalidates the slot's extracted qualities cache
         Play_MultiArray[pos].playlist = playlist;
+        Play_MultiArray[pos].qualities = [];
 
         Play_MultiSetInfo(
             pos,
@@ -33484,9 +33730,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
         //reset chat and follow icon if pos 0 changed
         if (!pos && Play_data.data[14] !== Play_MultiArray[pos].data[14]) {
-            Play_data = JSON.parse(JSON.stringify(Play_MultiArray[pos]));
+            Play_MultiCloneSlot(pos);
             Play_MultiUpdateMain();
-            Play_SetExternalQualities(Play_extractQualities(Play_data.playlist), 0, Play_data.data[1]);
+            Play_SetExternalQualities(Play_MultiSlotQualities(pos), 0, Play_data.data[1]);
         }
 
         Play_updateVodInfo(Play_MultiArray[pos].data[14], Play_MultiArray[pos].data[7], Play_MultiArray[pos].data[0]);
@@ -33525,34 +33771,41 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 OSInterface_EnableMultiStream(Play_Multi_MainBig, Play_MultiEnableKeyRightLeft_Offset);
 
                 Play_showWarningMiddleDialog(STR_MAIN_WINDOW + STR_SPACE_HTML + Play_MultiArray[0].data[1], 2000);
-                Play_data = JSON.parse(JSON.stringify(Play_MultiArray[0]));
-                Play_SetExternalQualities(Play_extractQualities(Play_data.playlist), 0, Play_data.data[1]);
+                Play_MultiCloneSlot(0);
+                Play_SetExternalQualities(Play_MultiSlotQualities(0), 0, Play_data.data[1]);
                 Play_MultiUpdateInfoMainBig('_big');
                 Play_MultiUpdateMain();
             } else {
-                Play_MultiEnableKeyRightLeft(adder);
+                //Slot 0 empty, try the next one but stop after a full cycle instead of recursing forever
+                if (Math.abs(Play_MultiEnableKeyRightLeft_Offset) < 4) Play_MultiEnableKeyRightLeft(adder);
+                else Play_MultiEnableKeyRightLeft_Offset = 0;
 
                 return;
             }
 
             Play_MultiEnableKeyRightLeft_Offset = 0;
         } else {
-            var pos = Play_AudioGetFirst() + adder;
+            var pos = Play_AudioGetFirst() + adder,
+                tries = 0;
 
-            if (pos > 3) pos = 0;
-            else if (pos < 0) pos = 3;
+            //Cycle at most one full lap, all slots empty must not recurse forever
+            while (tries < Play_MultiArray_length) {
+                if (pos > 3) pos = 0;
+                else if (pos < 0) pos = 3;
 
-            Play_audio_enable = [0, 0, 0, 0];
-            Play_audio_enable[pos] = 1;
+                Play_audio_enable = [0, 0, 0, 0];
+                Play_audio_enable[pos] = 1;
 
-            if (!Play_MultiArray[pos].data.length) {
-                Play_MultiEnableKeyRightLeft(adder);
-                return;
+                if (Play_MultiArray[pos].data.length) {
+                    Play_AudioReset(pos);
+
+                    Play_showWarningMiddleDialog(STR_AUDIO_SOURCE + STR_SPACE_HTML + Play_MultiArray[pos].data[1], 2000);
+                    break;
+                }
+
+                pos += adder;
+                tries++;
             }
-
-            Play_AudioReset(pos);
-
-            Play_showWarningMiddleDialog(STR_AUDIO_SOURCE + STR_SPACE_HTML + Play_MultiArray[pos].data[1], 2000);
         }
 
         Play_SetAudioIcon();
@@ -33747,7 +34000,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
         streamTitleMulti[pos] = title;
 
-        if (extraChanged || streamTitleMulti[pos] !== game) {
+        if (extraChanged || streamGameMulti[pos] !== game) {
             Main_innerHTML('stream_info_multi_game' + extraText + pos, game === '' ? STR_SPACE_HTML : STR_PLAYING + game);
         }
         streamGameMulti[pos] = game;
@@ -34013,7 +34266,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     var PlayRaid_TargetName = '';
 
     function PlayRaid_Enabled() {
-        return Settings_value.raid_switch.defaultValue === 2;
+        //Settings_SetDefaults normalizes defaultValue to the 0-based index of values ['no', 'auto'],
+        //so at runtime 'auto' is 1 - never compare against the pre-load literal 2
+        return Settings_value.raid_switch.defaultValue === 1;
     }
 
     //Called every time the main player successfully loads a live stream
@@ -34033,9 +34288,13 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             return;
         }
 
+        //A reload of the current stream (ad escape) must not drop and re-create a working subscription
+        if (PlayRaid_SubscriptionId && PlayRaid_Socket && PlayRaid_Socket.readyState === 1 && PlayRaid_ChannelId === channelId + '') return;
+
         PlayRaid_ChannelId = channelId + '';
         PlayRaid_Active = true;
         PlayRaid_SubscribeRetries = 0;
+        PlayRaid_Retries = 0;
 
         if (PlayRaid_Socket && PlayRaid_Socket.readyState === 1) {
             //Connected, move the subscription to the new channel
@@ -34797,6 +35056,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             PlayVod_PreshutdownStream(!SkipSaveOffset);
             PlayVod_qualities = [];
             PlayVod_playlist = null;
+            PlayVod_previews_clear();
             Play_exitMain();
         }
     }
@@ -35936,6 +36196,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         Main_clearTimeout(PlayVod_previews_tmp_imagesId);
         PlayVod_previews_obj.images = [];
         PlayVod_previews_images_pos = -1;
+        //Release the preloaded sprite images, they pin decoded bitmaps until the next VOD otherwise
+        PlayVod_previews_tmp_images = [];
+        PlayVod_previews_tmp_images_pos = 0;
         PlayVod_previews_clear_img();
     }
 
@@ -36261,7 +36524,16 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     //     PlayVod_ProcessChapters(obj);
     // }
     /* Player presentation adapter. Playback objects and their original callbacks remain authoritative. */
-    var PlayerUI_State = {mode: 0, frames: [], suspended: false, closing: false, hiddenTimer: null, timelineTimer: null, paused: false};
+    var PlayerUI_State = {
+        mode: 0,
+        frames: [],
+        suspended: false,
+        closing: false,
+        hiddenTimer: null,
+        timelineTimer: null,
+        paused: false,
+        barPaused: null
+    };
 
     function PlayerUI_Mode() {
         return Play_isOn ? 1 : PlayVod_isOn ? 2 : PlayClip_isOn ? 3 : 0;
@@ -36554,7 +36826,6 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             control,
             keys,
             node;
-        Main_emptyWithEle(bar);
         Main_emptyWithEle(menu);
         PlayerUI_TimelineClass();
         // Reuse the actual control DOM; there is no invisible duplicate strip behind the drawers.
@@ -36568,20 +36839,25 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 more: 'options',
                 channels: 'feed'
             };
-        for (i = 0; i < barGroups.length; i++) {
-            key = barGroups[i];
-            node = Navigation_Button(
-                bar,
-                'player-ui-bar-' + i,
-                key === 'pause' ? (PlayerUI_State.paused ? STR_UI.play : STR_UI.pause) : key === 'channels' ? STR_UI.channels : labels[key],
-                PlayerUI_ActivateBar.bind(null, i),
-                barIcons[key]
-            );
-            node.onfocus = PlayerUI_SetIndex.bind(null, i, 'bar');
-            if (!i) {
-                node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
-                node.className += ' player-ui-bar-primary';
-            } else if (key === 'more') node.className += ' player-ui-bar-end';
+        //The bar only depends on the paused state, keep the built nodes between renders
+        if (PlayerUI_State.barPaused !== PlayerUI_State.paused || !bar.firstChild) {
+            PlayerUI_State.barPaused = PlayerUI_State.paused;
+            Main_emptyWithEle(bar);
+            for (i = 0; i < barGroups.length; i++) {
+                key = barGroups[i];
+                node = Navigation_Button(
+                    bar,
+                    'player-ui-bar-' + i,
+                    key === 'pause' ? (PlayerUI_State.paused ? STR_UI.play : STR_UI.pause) : key === 'channels' ? STR_UI.channels : labels[key],
+                    PlayerUI_ActivateBar.bind(null, i),
+                    barIcons[key]
+                );
+                node.onfocus = PlayerUI_SetIndex.bind(null, i, 'bar');
+                if (!i) {
+                    node.setAttribute('aria-pressed', String(PlayerUI_State.paused));
+                    node.className += ' player-ui-bar-primary';
+                } else if (key === 'more') node.className += ' player-ui-bar-end';
+            }
         }
         Main_textContent(
             'player-ui-name',
@@ -36771,7 +37047,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             code = event.keyCode;
         if (code === 9) return false;
         if (!frame) return false;
-        if (frame.group !== 'bar' && frame.group !== 'more') PlayerUI_Render();
+        //Only the quality drawer needs a refresh on plain input, its list loads
+        //asynchronously; other drawers re-render on the action itself, rebuilding
+        //them on every focus move is wasted work on key repeat
+        if (frame.group === 'quality') PlayerUI_Render();
         if (code === KEY_RETURN || code === KEY_KEYBOARD_BACKSPACE || code === 27) PlayerUI_Back();
         else if (code === KEY_ENTER) {
             if (frame.group === 'bar') PlayerUI_ActivateBar(frame.index);
@@ -41718,20 +41997,27 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 this.BackupData.offsettopFontsize[game] = this.offsettopFontsize
                     ? this.offsettopFontsize
                     : Settings_Obj_default('global_font_offset');
+
+                //Keep only the last games, each sub-object holds one entry per visited game
+                Main_trimBackupData(this.BackupData, Main_backupGameLimit);
             },
             eraseBackupData: function (game) {
                 //make sure game is always a string to avoid issues withe backup obj
                 game = game + '';
 
                 if (this.BackupData) {
-                    this.BackupData.data[game] = null;
-                    this.BackupData.ContentLang[game] = null;
-                    this.BackupData.Lang[game] = null;
-                    this.BackupData.lastScreenRefresh[game] = 0;
+                    //Delete so a later set re-inserts the game as the newest key for the trim
+                    delete this.BackupData.data[game];
+                    delete this.BackupData.lastScreenRefresh[game];
+                    delete this.BackupData.responseObj[game];
+                    delete this.BackupData.ContentLang[game];
+                    delete this.BackupData.Lang[game];
+                    delete this.BackupData.enable_mature[game];
+                    delete this.BackupData.offsettopFontsize[game];
                 }
 
                 if (this.ScreenBackup) {
-                    this.ScreenBackup[game] = null;
+                    delete this.ScreenBackup[game];
                 }
             },
             CheckBackupData: function (game) {
@@ -41783,6 +42069,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                     this.ScreenBackup = {};
                 }
 
+                //Delete so a later backup re-inserts the game as the newest key for the trim
+                delete this.ScreenBackup[game];
+
                 this.ScreenBackup[game] = {};
 
                 if (!this.data || !this.data.length) {
@@ -41811,6 +42100,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 this.ScreenBackup[game].data_cursor = this.data_cursor;
                 this.ScreenBackup[game].dataEnded = this.dataEnded;
                 this.ScreenBackup[game].BannerCreated = this.BannerCreated;
+
+                Main_trimObject(this.ScreenBackup, Main_backupGameLimit);
             },
             RestoreBackupScreen: function (game) {
                 //make sure game is always a string to avoid issues withe backup obj
@@ -44868,10 +45159,27 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
     }
 
+    //Short lived per user fetch timestamps, moving focus back and forth over the same
+    //cells doesn't need a fresh streams request on every focus change
+    var ScreensObj_getStreamInfoCache = {};
+
     function ScreensObj_getStreamInfo(userId, checkResult, check_1, check_2, check_3, check_4, check_5, callBackSuccess, callBackError) {
         if (!userId) {
             return;
         }
+
+        var now = new Date().getTime(),
+            lastFetch = ScreensObj_getStreamInfoCache[userId];
+
+        if (lastFetch && now - lastFetch < 15000) {
+            return;
+        }
+
+        if (!lastFetch && Object.keys(ScreensObj_getStreamInfoCache).length > 500) {
+            ScreensObj_getStreamInfoCache = {};
+        }
+
+        ScreensObj_getStreamInfoCache[userId] = now;
 
         var theUrl = Main_helix_api + 'streams?user_id=' + userId;
 
@@ -45540,7 +45848,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         remote_controls: {
             // Browsing press policy. Missing value (old backups) keeps Legacy semantics.
             values: ['legacy', 'direct'],
-            defaultValue: 0
+            defaultValue: 1
         },
         vod_dialog: {
             values: ['last', 'ask', 'start'],
@@ -46425,6 +46733,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             Settings_value[key].defaultValue = Main_getItemInt(key, Settings_value[key].defaultValue);
             Settings_value[key].defaultValue -= 1;
             if (Settings_value[key].defaultValue > Settings_Obj_length(key)) Settings_value[key].defaultValue = 0;
+            if (Settings_value[key].defaultValue < 0) Settings_value[key].defaultValue = 0;
         }
 
         Settings_ExtraCodecs(false);
@@ -48942,6 +49251,12 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     function Settings_DialogShow(obj, title, click, scroll) {
         Main_removeEventListener('keydown', Settings_handleKeyDown);
 
+        //keyenter rows append to the main key list, drop any leftover from the previous
+        //dialog so the list doesn't grow on every open
+        if (Settings_value_keys.length > Settings_positions_length) {
+            Settings_value_keys.length = Settings_positions_length;
+        }
+
         var dialogContent = title + STR_BR,
             dialogScroollHolder =
                 '<div id="settings_scroll_container" class="' +
@@ -50363,7 +50678,8 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function Sidepannel_HideWarningDialog() {
-        Main_clearTimeout(Main_setHistoryItemId);
+        //Cancel any pending auto-hide of this dialog, not the history save debounce
+        Main_clearTimeout(Sidepannel_showWarningDialogId);
         Main_HideElement('sidepannel_dialog_warning');
     }
 
@@ -54322,9 +54638,18 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     }
 
     function UserLiveFeedobj_backupStartObj(pos, game) {
-        if (!UserLiveFeed_obj[pos].backup[game]) {
-            UserLiveFeed_obj[pos].backup[game] = {};
+        var backup = UserLiveFeed_obj[pos].backup,
+            existing = backup[game];
+
+        if (existing) {
+            //Re-insert so the game becomes the newest key for the trim, keeping its data
+            delete backup[game];
+            backup[game] = existing;
+        } else {
+            backup[game] = {};
         }
+
+        Main_trimObject(backup, Main_backupGameLimit);
     }
 
     function UserLiveFeedobj_loadDataBaseLiveBackup(pos, game) {
@@ -58322,6 +58647,33 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             return r.join('-');
         }
 
+        //every alternative of the emoji re needs at least one surrogate or one code
+        //unit of the 0x2000-0x2BFF block, except for a few singles kept explicit
+        //below, so any other text (cyrillic, greek, CJK...) can skip the re scan
+        function mayContainEmoji(str) {
+            for (var i = 0; i < str.length; i++) {
+                var c = str.charCodeAt(i);
+
+                if (
+                    c >= 0xd800 ||
+                    (c >= 0x2000 && c <= 0x2bff) ||
+                    c === 0xa9 ||
+                    c === 0xae ||
+                    c === 0x3030 ||
+                    c === 0x303d ||
+                    c === 0x3297 ||
+                    c === 0x3299 ||
+                    c === 0xfe0f ||
+                    c === 0xfe0e ||
+                    c === 0xe50a
+                ) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         function parse(str, dontremove, emoticon) {
             if (!str || typeof str !== 'string') return str + '';
 
@@ -58338,6 +58690,11 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
 
             //Replace line break
             str = str.replace(newLineg, '');
+
+            //fast path for the remaining non ASCII text without any emoji possible
+            //code unit; the U000E0002 replace below needs surrogates, so it can be
+            //skipped as well
+            if (!mayContainEmoji(str)) return str;
 
             //related to issue #242
             str = str.replace(U000E0002g, U200D);

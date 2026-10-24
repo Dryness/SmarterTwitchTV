@@ -64,7 +64,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import net.grandcentrix.tray.AppPreferences;
 
@@ -73,6 +72,8 @@ public final class ChannelsUtils {
     private static final int JOB_ID = 1;
 
     private static final String TAG = "STTV_ChannelsUtils";
+
+    private static final Gson GSON = new Gson();
 
     private static final String[] TV_CONTRACT_ARRAY = { TvContractCompat.Channels._ID, TvContract.Channels.COLUMN_DISPLAY_NAME };
 
@@ -203,7 +204,6 @@ public final class ChannelsUtils {
         DeleteProgram(context, channelId);
 
         int channel_type = channel.type;
-        String randomImg = "?" + ThreadLocalRandom.current().nextInt(1, 1000000);
         List<ChannelContentObj> Content = channel.Content;
 
         if (Content != null) {
@@ -211,10 +211,10 @@ public final class ChannelsUtils {
             int weight = ContentSize;
 
             for (int i = 0; i < ContentSize; i++, --weight) {
-                PreviewProgramAdd(context, channelId, Content.get(i), weight, channel_type, randomImg);
+                PreviewProgramAdd(context, channelId, Content.get(i), weight, channel_type);
             }
         } else {
-            PreviewProgramAdd(context, channelId, emptyContent(context), 0, channel_type, randomImg);
+            PreviewProgramAdd(context, channelId, emptyContent(context), 0, channel_type);
         }
     }
 
@@ -230,18 +230,13 @@ public final class ChannelsUtils {
         );
     }
 
-    private static void PreviewProgramAdd(
-        Context context,
-        long channelId,
-        ChannelContentObj ContentObj,
-        int weight,
-        int channel_type,
-        String randomImg
-    ) {
+    private static void PreviewProgramAdd(Context context, long channelId, ChannelContentObj ContentObj, int weight, int channel_type) {
         PreviewProgram.Builder builder = new PreviewProgram.Builder()
             .setTitle(ContentObj.title)
             .setDescription(ContentObj.description)
-            .setPosterArtUri(Uri.parse(ContentObj.imgUrl + randomImg))
+            //The thumbnail urls are versioned upstream, no cache buster needed and one
+            //would make the TV home re-download every preview on each sync
+            .setPosterArtUri(Uri.parse(ContentObj.imgUrl))
             .setPosterArtAspectRatio(ContentObj.previewSize)
             .setIntent(createAppIntent(context, ContentObj.obj, channel_type))
             .setType(TvContractCompat.PreviewPrograms.TYPE_MOVIE)
@@ -265,7 +260,7 @@ public final class ChannelsUtils {
     private static Channel.Builder createChannelBuilder(String name, int channel_screen, Context context) {
         return new Channel.Builder()
             .setDisplayName(name)
-            .setAppLinkIntent(createAppIntent(context, new Gson().toJson(new PreviewObj(channel_screen, "SCREEN")), 0))
+            .setAppLinkIntent(createAppIntent(context, GSON.toJson(new PreviewObj(channel_screen, "SCREEN")), 0))
             .setType(TvContractCompat.Channels.TYPE_PREVIEW);
     }
 
@@ -535,7 +530,7 @@ public final class ChannelsUtils {
             "https://yofardev.github.io/SmarterTwitchTV/release/githubio/images/add_user.png",
             TvContractCompat.PreviewPrograms.ASPECT_RATIO_1_1,
             1,
-            new Gson().toJson(new PreviewObj(null, "USER", Constants.CHANNEL_TYPE_USER_LIVE)),
+            GSON.toJson(new PreviewObj(null, "USER", Constants.CHANNEL_TYPE_USER_LIVE)),
             false
         );
     }
@@ -764,7 +759,7 @@ public final class ChannelsUtils {
                                 preview != null ? preview.replace("{width}x{height}", "640x360") : Constants.VIDEO_404,
                                 TvContractCompat.PreviewPrograms.ASPECT_RATIO_16_9,
                                 viewers,
-                                new Gson().toJson(new PreviewObj(obj, "LIVE", screen)),
+                                GSON.toJson(new PreviewObj(obj, "LIVE", screen)),
                                 !obj.get("type").isJsonNull() && (obj.get("type").getAsString()).contains("live")
                             )
                         );
@@ -811,7 +806,7 @@ public final class ChannelsUtils {
                             box_art_url != null ? box_art_url.replace("{width}x{height}", "476x665") : Constants.GAME_404,
                             TvContractCompat.PreviewPrograms.ASPECT_RATIO_2_3,
                             0,
-                            new Gson().toJson(new PreviewObj(obj, "GAME", Constants.CHANNEL_TYPE_GAMES)),
+                            GSON.toJson(new PreviewObj(obj, "GAME", Constants.CHANNEL_TYPE_GAMES)),
                             false
                         )
                     );

@@ -37,7 +37,9 @@ var PlayRaid_SwitchCheckId = 0;
 var PlayRaid_TargetName = '';
 
 function PlayRaid_Enabled() {
-    return Settings_value.raid_switch.defaultValue === 2;
+    //Settings_SetDefaults normalizes defaultValue to the 0-based index of values ['no', 'auto'],
+    //so at runtime 'auto' is 1 - never compare against the pre-load literal 2
+    return Settings_value.raid_switch.defaultValue === 1;
 }
 
 //Called every time the main player successfully loads a live stream
@@ -57,9 +59,13 @@ function PlayRaid_SetChannel(channelId) {
         return;
     }
 
+    //A reload of the current stream (ad escape) must not drop and re-create a working subscription
+    if (PlayRaid_SubscriptionId && PlayRaid_Socket && PlayRaid_Socket.readyState === 1 && PlayRaid_ChannelId === channelId + '') return;
+
     PlayRaid_ChannelId = channelId + '';
     PlayRaid_Active = true;
     PlayRaid_SubscribeRetries = 0;
+    PlayRaid_Retries = 0;
 
     if (PlayRaid_Socket && PlayRaid_Socket.readyState === 1) {
         //Connected, move the subscription to the new channel

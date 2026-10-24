@@ -194,9 +194,20 @@ body {
     overflow-wrap: anywhere;
     line-height: 1.45;
     font-size: 15px;
+    /*Long-press belongs to the mute action sheet, not the system callout*/
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .pc-msg .pc-user {
+    font-weight: 700;
+}
+
+/*Repeat counter, filled in when a user repeats the same message*/
+.pc-msg .pc-count {
+    color: #b4a9cf;
+    font-size: 13px;
     font-weight: 700;
 }
 
@@ -468,4 +479,102 @@ body {
     align-items: center;
     text-decoration: none;
     margin-right: 8px;
+}
+
+/*Muted users + the long-press message action sheet (shared bottom-sheet pattern)*/
+
+#pc-muted-button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #b4a9cf;
+}
+
+#pc-row-menu,
+#pc-muted-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-color: rgba(11, 10, 14, 0.72);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    z-index: 50;
+    padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0));
+}
+
+#pc-row-menu-card,
+#pc-muted-card {
+    width: 100%;
+    max-width: 420px;
+    background-color: #15121c;
+    border: 1px solid #2b2438;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+#pc-row-menu-title {
+    font-size: 14px;
+    color: #b4a9cf;
+    margin: 2px 4px 10px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#pc-row-menu-mute,
+#pc-row-menu-cancel {
+    display: block;
+    width: 100%;
+    margin: 0 0 8px;
+}
+
+#pc-row-menu-cancel {
+    margin-bottom: 0;
+}
+
+#pc-muted-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+#pc-muted-title {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+#pc-muted-list {
+    max-height: 55vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    color: #c4b8dc;
+    font-size: 15px;
+}
+
+.pc-muted-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.pc-muted-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.pc-muted-unmute {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 13px;
 }

@@ -505,15 +505,21 @@ function ChannelContent_SetChannelValue() {
         ChannelContent_UserChannels: ChannelContent_UserChannels,
         'Main_values.Main_BeforeChannel': Main_values.Main_BeforeChannel
     };
+    ChannelContent_ChannelValueIsset = true;
 }
 
 function ChannelContent_RestoreChannelValue() {
-    Main_values.Main_selectedChannel_id = Main_values.Main_selectedChannel_id;
-    Main_values.Main_selectedChannelLogo = Main_values.Main_selectedChannelLogo;
-    Main_values.Main_selectedChannel = Main_values.Main_selectedChannel;
-    Main_values.Main_selectedChannelDisplayname = Main_values.Main_selectedChannelDisplayname;
+    //Nothing to restore, the snapshot is cleared after the first restore
+    if (!ChannelContent_ChannelValueIsset) return;
+
+    //Restore from the snapshot saved by ChannelContent_SetChannelValue, the
+    //values may have been overwritten by a search or another channel in between
+    Main_values.Main_selectedChannel_id = ChannelContent_ChannelValue['Main_values.Main_selectedChannel_id'];
+    Main_values.Main_selectedChannelLogo = ChannelContent_ChannelValue['Main_values.Main_selectedChannelLogo'];
+    Main_values.Main_selectedChannel = ChannelContent_ChannelValue['Main_values.Main_selectedChannel'];
+    Main_values.Main_selectedChannelDisplayname = ChannelContent_ChannelValue['Main_values.Main_selectedChannelDisplayname'];
     ChannelContent_UserChannels = ChannelContent_ChannelValue.ChannelContent_UserChannels;
-    Main_values.Main_BeforeChannel = Main_values.Main_BeforeChannel;
+    Main_values.Main_BeforeChannel = ChannelContent_ChannelValue['Main_values.Main_BeforeChannel'];
     ChannelContent_ChannelValue = {};
     ChannelContent_ChannelValueIsset = false;
 }

@@ -21,11 +21,55 @@
 //Spacing for release maker not trow errors from jshint
 var version = {
     VersionBase: '3.0',
-    publishVersionCode: 391, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/391/SmarterPurpleTV_3_0_391.apk',
-    WebVersion: 'October 23 2026',
-    WebTag: 759, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    publishVersionCode: 393, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/393/SmarterPurpleTV_3_0_393.apk',
+    WebVersion: 'October 24 2026',
+    WebTag: 764, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 24 2026 (Web 764)',
+            changes: [
+                'Chat: the same message repeated by the same user in a row now merges into one line with a growing "(xN)" counter — link and emoji spam floods no longer bury the chat (works in the TV chat and on the phone chat page)',
+                'Chat: fix the merge — a repeat no longer disappears when its line already scrolled out of the chat window, and the merge never carries over from the previous channel',
+                'Chat: performance pass for very busy chats — the line entry animation turns itself off during message floods, the chat delay delivers big bursts in small batches instead of one long freeze, and switching the multi view chat no longer re-parses every line',
+                'Chat: non-Latin text (Cyrillic, Greek, CJK, Arabic…) renders faster — plain words skip the emoji scan entirely'
+            ]
+        },
+        {
+            title: 'October 24 2026 (Web 763 / APK 393)',
+            changes: [
+                'Ad blocking: ad breaks that can no longer be hidden now freeze the picture on the last live frame until the break is over, instead of playing the ad — some breaks are stitched into every fresh stream session and simply cannot be escaped',
+                'Ad blocking: the escape reloads rotate the fallback stream types much faster (15 seconds instead of 60), so every type is tried within a single ad break',
+                'Ad blocking: the pre-playback ad probe now checks every stream quality instead of only the first and last — ads stitched into a single quality can no longer slip into playback'
+            ]
+        },
+        {
+            title: 'October 23 2026 (Web 762 / APK 392)',
+            changes: [
+                'Memory: VOD seek preview images are released when the player closes instead of staying in memory until the next VOD',
+                'Memory: game screen and live feed backups are now capped at the last 5 games instead of growing with every game visited',
+                'Storage: history saves recover from storage quota errors by trimming old entries; block/unblock leftovers are trimmed on load; the stream playlist is no longer saved to storage',
+                'Fix: the phone chat background sync keeps running after the player closes; it now stops cleanly',
+                'Fix: scrolling the side panel could cancel a pending watch history save — it now cancels the right timer',
+                'Fix: the channel context was never restored when returning to a channel\'s videos/clips after a search; multi view rewrote the game line on every refresh and could stack-overflow cycling empty slots; number key 2 jumped the clip while the feed preview was open',
+                'Performance: moving focus back and forth no longer re-requests the same stream info within 15 seconds; multi view stops rewriting unchanged text and audio icons; the player options drawers stop rebuilding their button bar on every key press and multi view main-window switching no longer re-copies and re-parses the stream playlist on each left/right',
+                'APK: fix leaks on player restart (activity held by the ad reload listener, handler threads and pending handlers never released, WebViews never destroyed)',
+                'APK: fix the first notification run saving an empty live list which caused a burst of "went live" toasts on the next check; avatars past the first 100 follows never loaded',
+                'APK: notification logos are downsampled before decode, downloaded once with timeouts, and cached; TV channel thumbnails no longer carry a cache buster that forced a re-download every sync; user switch no longer blocks the app bridge for seconds'
+            ]
+        },
+        {
+            title: 'October 23 2026 (Web 761)',
+            changes: [
+                'Phone chat: long-press a message to mute its author — messages from muted users are hidden on the phone and the list is remembered between visits; manage it with the Muted button in the header (bots not yet in the built-in list can be muted the same way)'
+            ]
+        },
+        {
+            title: 'October 23 2026 (Web 760)',
+            changes: [
+                'Fix: follow raids never activated — a settings check compared against the wrong value so the raid listener was silently off for everyone; it now runs as intended (the setting and login requirement are unchanged)'
+            ]
+        },
         {
             title: 'October 23 2026 (Web 759)',
             changes: [

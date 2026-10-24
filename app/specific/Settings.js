@@ -278,7 +278,7 @@ var Settings_value = {
     remote_controls: {
         // Browsing press policy. Missing value (old backups) keeps Legacy semantics.
         values: ['legacy', 'direct'],
-        defaultValue: 0
+        defaultValue: 1
     },
     vod_dialog: {
         values: ['last', 'ask', 'start'],
@@ -1158,6 +1158,7 @@ function Settings_SetDefaults() {
         Settings_value[key].defaultValue = Main_getItemInt(key, Settings_value[key].defaultValue);
         Settings_value[key].defaultValue -= 1;
         if (Settings_value[key].defaultValue > Settings_Obj_length(key)) Settings_value[key].defaultValue = 0;
+        if (Settings_value[key].defaultValue < 0) Settings_value[key].defaultValue = 0;
     }
 
     Settings_ExtraCodecs(false);
@@ -3673,6 +3674,12 @@ var Settings_DialogScrollCenter = 0;
 
 function Settings_DialogShow(obj, title, click, scroll) {
     Main_removeEventListener('keydown', Settings_handleKeyDown);
+
+    //keyenter rows append to the main key list, drop any leftover from the previous
+    //dialog so the list doesn't grow on every open
+    if (Settings_value_keys.length > Settings_positions_length) {
+        Settings_value_keys.length = Settings_positions_length;
+    }
 
     var dialogContent = title + STR_BR,
         dialogScroollHolder =

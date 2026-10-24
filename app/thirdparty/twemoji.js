@@ -175,6 +175,33 @@ var twemoji = (function () /*! Copyright Twitter Inc. and other contributors. Li
         return r.join('-');
     }
 
+    //every alternative of the emoji re needs at least one surrogate or one code
+    //unit of the 0x2000-0x2BFF block, except for a few singles kept explicit
+    //below, so any other text (cyrillic, greek, CJK...) can skip the re scan
+    function mayContainEmoji(str) {
+        for (var i = 0; i < str.length; i++) {
+            var c = str.charCodeAt(i);
+
+            if (
+                c >= 0xd800 ||
+                (c >= 0x2000 && c <= 0x2bff) ||
+                c === 0xa9 ||
+                c === 0xae ||
+                c === 0x3030 ||
+                c === 0x303d ||
+                c === 0x3297 ||
+                c === 0x3299 ||
+                c === 0xfe0f ||
+                c === 0xfe0e ||
+                c === 0xe50a
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     function parse(str, dontremove, emoticon) {
         if (!str || typeof str !== 'string') return str + '';
 
@@ -191,6 +218,11 @@ var twemoji = (function () /*! Copyright Twitter Inc. and other contributors. Li
 
         //Replace line break
         str = str.replace(newLineg, '');
+
+        //fast path for the remaining non ASCII text without any emoji possible
+        //code unit; the U000E0002 replace below needs surrogates, so it can be
+        //skipped as well
+        if (!mayContainEmoji(str)) return str;
 
         //related to issue #242
         str = str.replace(U000E0002g, U200D);

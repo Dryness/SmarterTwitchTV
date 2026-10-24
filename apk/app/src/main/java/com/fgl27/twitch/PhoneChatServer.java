@@ -143,9 +143,12 @@ public final class PhoneChatServer {
     }
 
     private void accept(ServerSocket listener, ThreadPoolExecutor executor) {
+        int consecutiveFailures = 0;
+
         while (!listener.isClosed()) {
             try {
                 Socket socket = listener.accept();
+                consecutiveFailures = 0;
                 clients.add(socket);
                 try { executor.execute(() -> {
                     try (Socket client = socket) { client.setSoTimeout(3000); handle(client); }
@@ -153,7 +156,21 @@ public final class PhoneChatServer {
                     finally { clients.remove(socket); }
                 }); }
                 catch (RuntimeException e) { socket.close(); clients.remove(socket); }
-            } catch (IOException e) { if (listener.isClosed()) return; }
+            } catch (IOException e) {
+                if (listener.isClosed()) return;
+
+                //Back off so a persistent accept failure (fd exhaustion, network
+                //stack errors) doesn't hot-spin the CPU
+                consecutiveFailures++;
+                if (consecutiveFailures >= 10) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
         }
     }
 

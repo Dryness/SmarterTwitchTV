@@ -105,6 +105,13 @@ public class NotificationService extends Service {
     public void onDestroy() {
         super.onDestroy();
         PauseService();
+        //Quit the thread so a service restart doesn't leak it, startService recreates it when null
+        if (NotificationThread != null) {
+            NotificationThread.quitSafely();
+            NotificationThread = null;
+            NotificationHandler = null;
+            ToastHandler = null;
+        }
     }
 
     @Override

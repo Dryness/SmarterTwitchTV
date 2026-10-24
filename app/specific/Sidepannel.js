@@ -355,7 +355,8 @@ function Sidepannel_showWarningDialog(text, timeout) {
 }
 
 function Sidepannel_HideWarningDialog() {
-    Main_clearTimeout(Main_setHistoryItemId);
+    //Cancel any pending auto-hide of this dialog, not the history save debounce
+    Main_clearTimeout(Sidepannel_showWarningDialogId);
     Main_HideElement('sidepannel_dialog_warning');
 }
 

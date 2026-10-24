@@ -54,10 +54,13 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -68,7 +71,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.ThreadLocalRandom;
 import net.grandcentrix.tray.AppPreferences;
 
 public final class NotificationUtils {
@@ -76,6 +78,9 @@ public final class NotificationUtils {
     private static final String TAG = "STTV_NotificationUtils";
 
     private static final Type MapStringType = new TypeToken<Map<String, StreamObj>>() {}.getType();
+
+    //Max pixel size the logo is decoded at, the toast image is at most ~8% of the screen width
+    private static final int MAX_LOGO_DECODE_SIZE = 512;
 
     private static final int[] ToastPositions = {
         Gravity.RIGHT | Gravity.TOP, //0
@@ -248,8 +253,6 @@ public final class NotificationUtils {
     ) {
         Map<String, LogoObj> logoMap = new HashMap<>();
 
-        String randomImg = "?" + ThreadLocalRandom.current().nextInt(1, 1000000);
-
         int StreamsSize = streams.size();
         int counter = 0;
         int status;
@@ -272,15 +275,17 @@ public final class NotificationUtils {
             channels.append("&id=").append(id);
             counter++;
 
-            if (counter == 100 || counter == StreamsSize) {
+            //Batch full or last stream, don't reuse StreamsSize as the batch trigger,
+            //it is the outer loop bound
+            if (counter == 100 || i == StreamsSize - 1) {
                 url = String.format(Locale.US, "https://api.twitch.tv/helix/users?first=100%s", channels);
                 channels = new StringBuilder();
-                StreamsSize = 0;
+                counter = 0;
 
                 for (int y = 0; y < 3; y++) {
                     response = Tools.Internal_MethodUrl(
                         url,
-                        Constants.DEFAULT_HTTP_TIMEOUT + (Constants.DEFAULT_HTTP_EXTRA_TIMEOUT * i),
+                        Constants.DEFAULT_HTTP_TIMEOUT + (Constants.DEFAULT_HTTP_EXTRA_TIMEOUT * y),
                         null,
                         null,
                         0,
@@ -295,9 +300,9 @@ public final class NotificationUtils {
 
                             if (obj.isJsonObject() && obj.has("data") && !obj.get("data").isJsonNull()) {
                                 TempStreams = obj.get("data").getAsJsonArray(); //Get the follows array
-                                StreamsSize = TempStreams.size();
+                                int UsersSize = TempStreams.size();
 
-                                for (int j = 0; j < StreamsSize; j++) {
+                                for (int j = 0; j < UsersSize; j++) {
                                     obj = TempStreams.get(j).getAsJsonObject(); //Get the position in the array
 
                                     if (obj.isJsonObject() && obj.has("profile_image_url") && !obj.get("profile_image_url").isJsonNull()) { //Prevent null img
@@ -305,7 +310,7 @@ public final class NotificationUtils {
                                         logoMap.put(
                                             id,
                                             new LogoObj(
-                                                obj.get("profile_image_url").getAsString() + randomImg,
+                                                obj.get("profile_image_url").getAsString(),
                                                 obj.has("display_name") ? obj.get("display_name").getAsString() : null
                                             )
                                         );
@@ -466,20 +471,22 @@ public final class NotificationUtils {
     private static void SetOldLiveList(JsonArray streams, String UserId, AppPreferences appPreferences) {
         Map<String, StreamObj> currentLive = new HashMap<>();
         JsonObject obj;
-        JsonObject ChannelObj;
+
         int StreamsSize = streams.size();
 
         try {
             for (int i = 0; i < StreamsSize; i++) {
-                //There is no need to check for obj.isJsonObject() && !obj.get("_id").isJsonNull() here as was already checked before reaching here
+                //There is no need to check for obj.isJsonObject() && !obj.get("id").isJsonNull() here as was already checked before reaching here
                 obj = streams.get(i).getAsJsonObject(); //Get the position in the follows array
-                ChannelObj = obj.get("channel").getAsJsonObject(); //Get the channel obj in position
 
+                //Helix streams format, key by broadcast id and read the top level
+                //fields exactly like GetStreamNotifications so the next sweep compares
+                //against the same entries instead of an empty list
                 currentLive.put(
-                    obj.get("_id").getAsString(),
+                    obj.get("id").getAsString(),
                     new StreamObj(
-                        !ChannelObj.get("game_name").isJsonNull() ? ChannelObj.get("game_name").getAsString() : "",
-                        !ChannelObj.get("title").isJsonNull() ? ChannelObj.get("title").getAsString() : ""
+                        !obj.get("game_name").isJsonNull() ? obj.get("game_name").getAsString() : "",
+                        !obj.get("title").isJsonNull() ? obj.get("title").getAsString() : ""
                     )
                 );
             }
@@ -503,9 +510,44 @@ public final class NotificationUtils {
         } catch (MalformedURLException ignored) {}
 
         if (newUrl != null) {
+            InputStream input = null;
             try {
-                bmp = BitmapFactory.decodeStream(newUrl.openConnection().getInputStream());
-            } catch (IOException ignored) {}
+                URLConnection connection = newUrl.openConnection();
+                //A stalled CDN must not block the notification sweep thread forever
+                connection.setConnectTimeout(Constants.DEFAULT_HTTP_TIMEOUT);
+                connection.setReadTimeout(Constants.DEFAULT_HTTP_TIMEOUT);
+
+                //Read the body once, the bounds pass and the sampled decode share it
+                ByteArrayOutputStream buffer = new ByteArrayOutputStream(16 * 1024);
+                byte[] chunk = new byte[4096];
+
+                input = connection.getInputStream();
+                int read;
+                while ((read = input.read(chunk)) > 0) {
+                    buffer.write(chunk, 0, read);
+                }
+                input.close();
+
+                byte[] bytes = buffer.toByteArray();
+
+                //Bounds decode first, then downsample: profile images can be huge,
+                //the notification toast only needs a small square
+                BitmapFactory.Options bounds = new BitmapFactory.Options();
+                bounds.inJustDecodeBounds = true;
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inSampleSize = Tools.CalculateInSampleSize(bounds, MAX_LOGO_DECODE_SIZE, MAX_LOGO_DECODE_SIZE);
+                options.inJustDecodeBounds = false;
+
+                bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+            } catch (IOException ignored) {} finally {
+                if (input != null) {
+                    try {
+                        input.close();
+                    } catch (IOException ignored) {}
+                }
+            }
         }
 
         return bmp;

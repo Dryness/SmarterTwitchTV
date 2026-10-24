@@ -203,17 +203,22 @@ function ChatLive_Init(chat_number, SkipClear) {
 }
 
 function ChatLive_Switch() {
-    var innerHTMLTemp = Chat_div[1].innerHTML;
+    //Move the nodes instead of an innerHTML round trip; serializing and
+    //re-parsing the image heavy lines is expensive and drops decoded images.
+    //The spam tracker below is reset by the following Init, so no tracked
+    //element can end up merged into a line that now belongs to the other chat
+    var fragment = document.createDocumentFragment();
 
-    Chat_div[1].innerHTML = Chat_div[0].innerHTML;
-    Chat_div[0].innerHTML = innerHTMLTemp;
+    while (Chat_div[1].firstChild) fragment.appendChild(Chat_div[1].firstChild);
+    while (Chat_div[0].firstChild) Chat_div[1].appendChild(Chat_div[0].firstChild);
+    Chat_div[0].appendChild(fragment);
 
     var logged0 = Main_getElementById('chat_loggedin0'),
         logged1 = Main_getElementById('chat_loggedin1');
 
-    innerHTMLTemp = logged1.innerHTML;
-    logged1.innerHTML = logged0.innerHTML;
-    logged0.innerHTML = innerHTMLTemp;
+    while (logged1.firstChild) fragment.appendChild(logged1.firstChild);
+    while (logged0.firstChild) logged1.appendChild(logged0.firstChild);
+    logged0.appendChild(fragment);
 
     for (var i = 0; i < 2; i++) {
         ChatLive_Close(i);
@@ -1868,6 +1873,8 @@ function ChatLive_loadChatSuccess(message, chat_number, addToStart) {
         return;
     }
 
+    var nickLower = tags['display-name'].toLowerCase();
+
     if (ChatLive_Highlight_Rewards && tags.hasOwnProperty('msg-id')) {
         //Stringfy to prevent crashes
         tags['msg-id'] = tags['msg-id'] + '';
@@ -1907,7 +1914,7 @@ function ChatLive_loadChatSuccess(message, chat_number, addToStart) {
 
     if (ChatLive_Highlight_AtStreamer && ChatLive_Channel_Regex_Search[chat_number].test(mmessage)) {
         atstreamer = true;
-    } else if (ChatLive_Highlight_FromStreamer && Main_A_equals_B(tags['display-name'].toLowerCase(), ChatLive_selectedChannel[chat_number])) {
+    } else if (ChatLive_Highlight_FromStreamer && Main_A_equals_B(nickLower, ChatLive_selectedChannel[chat_number])) {
         fromstreamer = true;
     } else if (ChatLive_Highlight_Mod && tags.mod && tags.mod !== '0') {
         mod = true;
@@ -1918,10 +1925,7 @@ function ChatLive_loadChatSuccess(message, chat_number, addToStart) {
         verified = true;
     } else if (ChatLive_Highlight_AtUser && ChatLive_User_Regex_Search.test(mmessage)) {
         atuser = true;
-    } else if (
-        ChatLive_Highlight_User_send &&
-        Main_A_equals_B(tags['display-name'].toLowerCase(), AddUser_UsernameArray[0].display_name.toLowerCase())
-    ) {
+    } else if (ChatLive_Highlight_User_send && Main_A_equals_B(nickLower, AddUser_UsernameArray[0].display_name.toLowerCase())) {
         atuser = true;
     }
 
@@ -1959,6 +1963,8 @@ function ChatLive_loadChatSuccess(message, chat_number, addToStart) {
     var messageObj = {
         chat_number: chat_number,
         message: div,
+        nick: nickLower,
+        text: mmessage,
         atstreamer: atstreamer,
         atuser: atuser,
         fromstreamer: fromstreamer,
@@ -1981,43 +1987,70 @@ function ChatLive_LineAddCheckDelay(chat_number, messageObj) {
 
 var ChatLive_Delayed = [];
 var ChatLive_Generation = 0;
+var ChatLive_SpamLast = [];
+//Consecutive identical messages from the same user inside this window merge into the last line with a (xN) counter
+var ChatLive_SpamWindow = 15000;
 
 function ChatLive_DelayClear(chat_number) {
     var state = ChatLive_Delayed[chat_number];
     if (state) Main_clearTimeout(state.timer);
     ChatLive_Delayed[chat_number] = null;
+    //The spam tracker references a line of the previous channel/restart, drop it
+    ChatLive_SpamLast[chat_number] = null;
 }
 
 function ChatLive_DelayBefore(a, b) {
     return a.due < b.due || (a.due === b.due && a.sequence < b.sequence);
 }
 
+//Remove and return the earliest entry of the delay min-heap
+function ChatLive_DelayPop(state) {
+    var entry = state.queue[0],
+        last = state.queue.pop(),
+        index = 0,
+        child;
+
+    if (state.queue.length) {
+        state.queue[0] = last;
+
+        while ((child = index * 2 + 1) < state.queue.length) {
+            if (child + 1 < state.queue.length && ChatLive_DelayBefore(state.queue[child + 1], state.queue[child])) child++;
+            if (!ChatLive_DelayBefore(state.queue[child], last)) break;
+            state.queue[index] = state.queue[child];
+            index = child;
+        }
+
+        state.queue[index] = last;
+    }
+
+    return entry;
+}
+
+//Max due entries drained per timer task, a burst then yields to the renderer
+//between batches instead of appending all lines in one long main thread block
+var ChatLive_DelayDrainBatch = 20;
+
 function ChatLive_DelayArm(chat_number, state) {
     if (!state.queue.length || state.timer !== null) return;
     state.deadline = state.queue[0].due;
-    state.timer = Main_setTimeout(function () {
-        if (ChatLive_Delayed[chat_number] !== state) return;
-        state.timer = null;
-        while (state.queue.length && state.queue[0].due <= Date.now()) {
-            var entry = state.queue[0],
-                last = state.queue.pop(),
-                index = 0,
-                child;
-            if (state.queue.length) {
-                state.queue[0] = last;
-                while ((child = index * 2 + 1) < state.queue.length) {
-                    if (child + 1 < state.queue.length && ChatLive_DelayBefore(state.queue[child + 1], state.queue[child])) child++;
-                    if (!ChatLive_DelayBefore(state.queue[child], last)) break;
-                    state.queue[index] = state.queue[child];
-                    index = child;
-                }
-                state.queue[index] = last;
-            }
-            if (entry.generation === Chat_Id[chat_number]) ChatLive_LineAdd(entry.message);
+    state.timer = Main_setTimeout(
+        function () {
             if (ChatLive_Delayed[chat_number] !== state) return;
-        }
-        ChatLive_DelayArm(chat_number, state);
-    }, Math.max(0, state.deadline - Date.now()));
+            state.timer = null;
+
+            var processed = 0;
+
+            while (state.queue.length && state.queue[0].due <= Date.now()) {
+                var entry = ChatLive_DelayPop(state);
+                if (entry.generation === Chat_Id[chat_number]) ChatLive_LineAdd(entry.message);
+                if (ChatLive_Delayed[chat_number] !== state) return;
+                if (++processed >= ChatLive_DelayDrainBatch) break;
+            }
+
+            ChatLive_DelayArm(chat_number, state);
+        },
+        Math.max(0, state.deadline - Date.now())
+    );
 }
 
 function ChatLive_LineAddDelay(chat_number, id, messageObj) {
@@ -2159,7 +2192,10 @@ function ChatLive_LineAddSimple(message) {
 
 function ChatLive_LineAdd(messageObj) {
     if (ChatLive_Playing) {
+        if (ChatLive_SpamMerge(messageObj)) return;
+
         ChatLive_ElementAdd(messageObj);
+        ChatLive_SpamTrack(messageObj);
 
         if (ChatLive_LineAddCounter[messageObj.chat_number]++ > Chat_CleanMax) {
             ChatLive_LineAddCounter[messageObj.chat_number] = 0;
@@ -2175,6 +2211,49 @@ function ChatLive_LineAdd(messageObj) {
     }
 }
 
+//Merge a repeated message into the line tracked by ChatLive_SpamTrack, only
+//when it is consecutive (any other line in between breaks the streak)
+function ChatLive_SpamMerge(messageObj) {
+    var last = ChatLive_SpamLast[messageObj.chat_number],
+        now = Date.now();
+
+    if (
+        !last ||
+        !last.el ||
+        !last.el.parentNode || //line removed by Chat_Clean, show a new one instead of merging into a detached node
+        messageObj.text === undefined ||
+        now - last.time > ChatLive_SpamWindow ||
+        last.nick !== messageObj.nick ||
+        last.text !== messageObj.text
+    ) {
+        return false;
+    }
+
+    last.count++;
+    last.time = now;
+
+    if (last.el) {
+        var count = last.el.lastChild;
+
+        if (!count || count.className !== 'chat_spam_count') {
+            count = document.createElement('span');
+            count.className = 'chat_spam_count';
+            last.el.appendChild(count);
+        }
+
+        count.textContent = ' (x' + last.count + ')';
+    }
+
+    return true;
+}
+
+function ChatLive_SpamTrack(messageObj) {
+    ChatLive_SpamLast[messageObj.chat_number] =
+        messageObj.text === undefined || messageObj.addToStart
+            ? null
+            : {nick: messageObj.nick, text: messageObj.text, count: 1, time: Date.now(), el: messageObj.element || null};
+}
+
 //Full messageObj current is
 // messageObj = {
 //     chat_number: chat_number,
@@ -2187,6 +2266,25 @@ function ChatLive_LineAdd(messageObj) {
 //     sub: sub,
 //     skip_addline: skip_addline,
 // };
+
+//Lines per second above which the line entry animation is skipped; at that
+//speed lines scroll by too fast for the fade to be visible anyway
+var ChatLive_AniRateMax = 10;
+var ChatLive_AniRateCount = [];
+var ChatLive_AniRateSecond = [];
+
+function ChatLive_AniClassName(chat_number) {
+    if (!Play_ChatEnable) return 'chat_line_holder';
+
+    var second = Math.floor(Date.now() / 1000);
+
+    if (second !== ChatLive_AniRateSecond[chat_number]) {
+        ChatLive_AniRateSecond[chat_number] = second;
+        ChatLive_AniRateCount[chat_number] = 0;
+    }
+
+    return ++ChatLive_AniRateCount[chat_number] <= ChatLive_AniRateMax ? ChatLive_chat_line_class : 'chat_line_holder';
+}
 
 function ChatLive_ElementAdd(messageObj) {
     var style = '',
@@ -2240,10 +2338,12 @@ function ChatLive_ElementAdd(messageObj) {
 
     var chat_line_holder = document.createElement('div');
     chat_line_holder.innerHTML = chat_line;
+    messageObj.element = chat_line_holder.firstChild;
 
     if (!messageObj.addToStart) {
-        //skip animation if chat not showing to prevent animations when it shows
-        chat_line_holder.className = Play_ChatEnable ? ChatLive_chat_line_class : 'chat_line_holder';
+        //skip animation if chat not showing to prevent animations when it shows,
+        //and above ChatLive_AniRateMax lines per second to spare the renderer
+        chat_line_holder.className = ChatLive_AniClassName(messageObj.chat_number);
         ChatLive_ElementAddCheckExtra(messageObj);
         Chat_div[messageObj.chat_number].appendChild(chat_line_holder);
     } else {
