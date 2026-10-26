@@ -39,8 +39,6 @@ index_release.html
 icon.png
 apk/app/src/main/assets/*
 release/scripts/testing.sh
-.firebase/*
-firebase-debug.log
 node_modules/*
 package-lock.json
 todo.txt

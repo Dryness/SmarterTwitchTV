@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Twitch client for Android TV / Smart TVs. This is YofarDev's fork of fgl27/SmartTwitchTV; the user-facing app name is **Smarter Purple TV** (short: SPTV), while the repo keeps the name SmarterTwitchTV. Two cooperating parts in one repo: a vanilla JS/HTML/CSS **web app** (the whole UI and most logic) and a Java **Android APK** (WebView host + native players). The built web app is deployed to GitHub Pages / Firebase Hosting and downloaded by the APK at startup, so web changes ship without a new APK.
+Twitch client for Android TV / Smart TVs. This is YofarDev's fork of fgl27/SmartTwitchTV; the user-facing app name is **Smarter Purple TV** (short: SPTV), while the repo keeps the name SmarterTwitchTV. Two cooperating parts in one repo: a vanilla JS/HTML/CSS **web app** (the whole UI and most logic) and a Java **Android APK** (WebView host + native players). The built web app is deployed to GitHub Pages and downloaded by the APK at startup, so web changes ship without a new APK.
 
 ## Directory map
 
@@ -47,7 +47,7 @@ Device and browser verification is also required (below). After a full build, co
 
 ### APK build
 
-Requires Android Studio with the `apk/` folder open **and** a clone of https://github.com/fgl27/media as a sibling `media/` folder (custom AndroidX Media3 — see `apk/Media3 changes.md`). Building also requires commenting out the Crashlytics/google-services lines because `google-services.json` is private (see commit b421b6a5). Debug builds use applicationId suffix `.debug`.
+Requires Android Studio with the `apk/` folder open **and** a clone of https://github.com/fgl27/media as a sibling `media/` folder (custom AndroidX Media3 — see `apk/Media3 changes.md`). Firebase / Crashlytics / google-services were removed from the build (Web 768), so a plain build works with no private keys. Debug builds use applicationId suffix `.debug`.
 
 ## Architecture: web ↔ APK bridge
 
