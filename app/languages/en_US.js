@@ -31,7 +31,7 @@ function en_USLang() {
         noAccount: 'No account',
         welcomeTitle: 'Your channels, together',
         welcomeCopy: 'Add an account to see who you follow, or browse live channels without one.',
-        browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold ← · Options    Back · Return',
+        browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold OK · Options    Back · Return',
         browseHelpDirect: 'OK · Watch    ↑ ↓ · Rows    ← → · Cards and Actions    Back · Return',
         actionsHelp: 'OK · Options    ← · Card    ↑ ↓ · Browse    Back · Card / Return',
         searchHelp: 'OK · Edit search / type    ← → · Choose type    ↑ ↓ · Form / results    Back · Return',
@@ -257,7 +257,7 @@ function en_USLang() {
     STR_IS_SUB_IS_SUB = 'You are a sub of this channel, but an unknown issue has prevented this from playing.';
     STR_OAUTH_FAIL = 'Failed authorization check with the provided key, please check and try again';
     STR_OAUTH_FAIL_USER = "The added key doesn't belong to the user";
-    STR_NOKEY = 'No user';
+    STR_NOKEY = 'Sign in';
     STR_NOKEY_WARN = 'You must set a user to follow or unfollow channels.';
     STR_FOLLOW_ISSUE =
         'Third-party apps can no longer follow or unfollow channels. The button will only appear if you are already following a channel.';
@@ -269,7 +269,7 @@ function en_USLang() {
     STR_NET_UP = 'Network connection restored';
     STR_FOLLOWERS = 'Followers';
     STR_FOLLOWER = 'Follower';
-    STR_CANT_FOLLOW = ", Can't follow or unfollow";
+    STR_CANT_FOLLOW = ' to follow or unfollow channels';
     STR_GAME_CONT = 'Game content';
     STR_YES = 'Yes';
     STR_REMOVE_USER = 'Are you sure you want to remove the user';
@@ -362,7 +362,7 @@ function en_USLang() {
     STR_CONTENT_LANG_SUMMARY = 'The language of the content on the screen, lives, VODs, clips.';
     STR_APP_LANG = 'Application language';
     STR_APP_LANG_SUMMARY = "The language of the app's text.";
-    STR_ENTER_TO_OPEN = 'Press enter to access';
+    STR_ENTER_TO_OPEN = '›';
     STR_LANG_ALL = 'All';
     STR_NO_GAME = "Can't get game from this";
     STR_EMPTY = 'Empty';

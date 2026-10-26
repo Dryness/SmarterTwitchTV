@@ -2564,6 +2564,245 @@ asyncSections.push(async () => {
     eq(app.ids.get('pc-muted-button').hidden, true, 'mute: corrupt stored list ignored at boot');
 });
 
+asyncSections.push(async () => {
+    /* ---------- 7o. muted users: touch long-press (iOS never fires contextmenu) ---------- */
+
+    const app = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+        sandbox.localStorage = makeStorage();
+        sandbox.sessionStorage.setItem(
+            'sptv_phone_chat_session',
+            JSON.stringify({
+                token: 'goodtoken',
+                login: 'myuser',
+                userId: 'u1',
+                scopes: ['chat:read', 'chat:edit', 'user:read:emotes'],
+                expiresAt: Date.now() + 3600000
+            })
+        );
+    });
+    await flushAsync();
+    const ids = app.ids;
+    const socket = app.ws[0];
+    socket.readyState = 1;
+    socket.onopen();
+    socket.onmessage({data: ':tmi.twitch.tv 001 myuser :Welcome, GLHF!\r\n:myuser!myuser@myuser.tmi.twitch.tv JOIN #twitchdev\r\n'});
+
+    const feed = ids.get('pc-messages');
+    const sheetHidden = () => ids.get('pc-row-menu').hidden;
+    const click = id => ids.get(id).listeners.click[0]();
+    const fire = (type, event) => {
+        for (const listener of feed.listeners[type] || []) listener(event);
+    };
+    //A touch event as the handlers read it: the pressed element plus the finger positions
+    const touch = (target, x, y, fingers) => ({
+        target: target,
+        touches: Array.from({length: fingers === undefined ? 1 : fingers}, () => ({clientX: x, clientY: y})),
+        prevented: false,
+        preventDefault() {
+            this.prevented = true;
+        }
+    });
+    const receive = (id, login) => {
+        socket.onmessage({
+            data:
+                '@id=' +
+                id +
+                ';user-id=' +
+                login +
+                ';badges=vip/1;display-name=' +
+                login +
+                ' :' +
+                login +
+                '!' +
+                login +
+                '@host PRIVMSG #twitchdev :message ' +
+                id +
+                '\r\n'
+        });
+        return feed.querySelector('[data-id="' + id + '"]');
+    };
+
+    ok(feed.listeners.touchstart && feed.listeners.touchend, 'touch: the feed listens for touches');
+
+    //iPhone: no contextmenu ever arrives, so holding a finger still must open the sheet by itself
+    const botRow = receive('m1', 'soundalerts');
+    fire('touchstart', touch(botRow, 100, 200));
+    eq(sheetHidden(), true, 'touch: a fresh press does not open the sheet yet');
+    app.fireTimers(500);
+    eq(sheetHidden(), false, 'touch: holding for the long-press delay opens the sheet');
+    eq(ids.get('pc-row-menu-title').textContent, 'Mute soundalerts', 'touch: the sheet names the pressed author');
+
+    //Android fires contextmenu for the very same press: the native menu stays suppressed and nothing re-opens
+    const native = {
+        target: botRow,
+        prevented: false,
+        preventDefault() {
+            this.prevented = true;
+        }
+    };
+    fire('contextmenu', native);
+    eq(native.prevented, true, 'touch: contextmenu for the same press is still suppressed');
+    eq(sheetHidden(), false, 'touch: contextmenu for the same press leaves the sheet open');
+
+    //Lifting the finger must not deliver a click to the backdrop, which would close the sheet
+    const release = touch(botRow, 100, 200, 0);
+    fire('touchend', release);
+    eq(release.prevented, true, 'touch: the release that ends a long-press is cancelled');
+    eq(sheetHidden(), false, 'touch: the sheet survives the release');
+    click('pc-row-menu-mute');
+    eq(feed.querySelector('[data-id="m1"]'), null, 'touch: muting from the sheet removes the messages');
+    eq(ids.get('pc-muted-button').textContent, 'Muted (1)', 'touch: the muted list updates');
+
+    const humanRow = receive('h1', 'somehuman');
+
+    //A quick tap releases before the delay: no sheet, and the tap keeps its click
+    fire('touchstart', touch(humanRow, 100, 200));
+    const tap = touch(humanRow, 100, 200, 0);
+    fire('touchend', tap);
+    app.fireTimers(500);
+    eq(sheetHidden(), true, 'touch: a quick tap never opens the sheet');
+    eq(tap.prevented, false, 'touch: a quick tap keeps its click');
+
+    //A finger that scrolls the feed is not a press
+    fire('touchstart', touch(humanRow, 100, 200));
+    fire('touchmove', touch(humanRow, 100, 260));
+    app.fireTimers(500);
+    eq(sheetHidden(), true, 'touch: scrolling cancels the long-press');
+    fire('touchend', touch(humanRow, 100, 260, 0));
+
+    //Jitter inside the slop still counts as holding still
+    fire('touchstart', touch(humanRow, 100, 200));
+    fire('touchmove', touch(humanRow, 104, 196));
+    app.fireTimers(500);
+    eq(sheetHidden(), false, 'touch: jitter inside the slop keeps the press alive');
+    eq(ids.get('pc-row-menu-title').textContent, 'Mute somehuman', 'touch: the sheet names the second author');
+    fire('touchend', touch(humanRow, 104, 196, 0));
+    click('pc-row-menu-cancel');
+    eq(sheetHidden(), true, 'touch: cancel closes the sheet');
+
+    //Two fingers are a pinch or a scroll, never a press
+    fire('touchstart', touch(humanRow, 100, 200, 2));
+    app.fireTimers(500);
+    eq(sheetHidden(), true, 'touch: a two-finger press is ignored');
+
+    //The system taking the gesture away drops the pending press
+    fire('touchstart', touch(humanRow, 100, 200));
+    fire('touchcancel', {});
+    app.fireTimers(500);
+    eq(sheetHidden(), true, 'touch: touchcancel drops the pending press');
+
+    //Own messages have no action from a touch either
+    const ownRow = receive('own1', 'myuser');
+    fire('touchstart', touch(ownRow, 100, 200));
+    app.fireTimers(500);
+    eq(sheetHidden(), true, 'touch: own messages open nothing');
+    const ownRelease = touch(ownRow, 100, 200, 0);
+    fire('touchend', ownRelease);
+    eq(ownRelease.prevented, false, 'touch: releasing an own message keeps its click');
+
+    //Android can fire its native contextmenu before the timer: it takes the press over, the timer
+    //must not re-open a sheet the user already dismissed, and the release still swallows its click
+    fire('touchstart', touch(humanRow, 100, 200));
+    fire('contextmenu', {target: humanRow, preventDefault() {}});
+    eq(sheetHidden(), false, 'touch: contextmenu during a press opens the sheet');
+    click('pc-row-menu-cancel');
+    app.fireTimers(500);
+    eq(sheetHidden(), true, 'touch: the timer taken over by contextmenu does not re-open the sheet');
+    const nativeRelease = touch(humanRow, 100, 200, 0);
+    fire('touchend', nativeRelease);
+    eq(nativeRelease.prevented, true, 'touch: the release after a native long-press is cancelled too');
+});
+
+asyncSections.push(async () => {
+    /* ---------- 7p. on-screen keyboard: the app follows the visual viewport ---------- */
+
+    //Stubbed visualViewport: the keyboard shrinks it while the layout viewport stays put
+    //(iOS behaviour; Android with interactive-widget=resizes-content shrinks both the same way)
+    const vv = {
+        height: 844,
+        offsetTop: 0,
+        listeners: {},
+        addEventListener(type, fn) {
+            (this.listeners[type] = this.listeners[type] || []).push(fn);
+        }
+    };
+    const fireVv = type => {
+        for (const listener of (vv.listeners[type] || []).slice()) listener({type: type});
+    };
+
+    const app = loadAppSandbox(sandbox => {
+        sandbox.visualViewport = vv;
+        sandbox.innerHeight = 844;
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+    });
+
+    await flushAsync();
+
+    const ids = app.ids;
+    const appEl = ids.get('pc-app');
+    const box = ids.get('pc-messages');
+    //The app's own scroll handler decides whether the reader is at the tail
+    const scrolled = () => box.listeners.scroll.forEach(listener => listener());
+
+    ok(vv.listeners.resize && vv.listeners.resize.length === 1, 'viewport: one resize listener registered');
+    ok(vv.listeners.scroll && vv.listeners.scroll.length === 1, 'viewport: one scroll listener registered');
+    eq(appEl.style.height, '844px', 'viewport: boot pins the app to the visible height');
+
+    //Keyboard opens while the reader is at the tail: pin the app, keep the newest message in view
+    box.scrollTop = box.scrollHeight - box.clientHeight;
+    scrolled();
+    vv.height = 500;
+    fireVv('resize');
+    eq(appEl.style.height, '500px', 'keyboard open: app shrinks to the visual viewport so the composer stays visible');
+    eq(appEl.style.transform, 'translateY(0px)', 'keyboard open: no offset while the visual viewport sits at the top');
+    eq(box.scrollTop, box.scrollHeight, 'keyboard open at the tail: the newest message is kept in view');
+    eq(ids.get('pc-jump-latest').hidden, true, 'keyboard open at the tail: no jump button');
+
+    //iOS scrolls the visual viewport under the keyboard: compensate the offset
+    vv.offsetTop = 32;
+    fireVv('scroll');
+    eq(appEl.style.transform, 'translateY(32px)', 'keyboard open: visual viewport offset compensated');
+
+    //Keyboard closed: back to the full height, offset cleared
+    vv.height = 844;
+    vv.offsetTop = 0;
+    fireVv('resize');
+    eq(appEl.style.height, '844px', 'keyboard closed: app back to the full height');
+    eq(appEl.style.transform, 'translateY(0px)', 'keyboard closed: offset cleared');
+
+    //Keyboard opens while the reader scrolled up: never yank them back to the tail
+    box.scrollTop = 100;
+    scrolled();
+    vv.height = 500;
+    fireVv('resize');
+    eq(box.scrollTop, 100, 'keyboard open while reading: the scroll position is left alone');
+    eq(appEl.style.height, '500px', 'keyboard open while reading: the app still follows the visible height');
+
+    //A small change (URL bar collapse) is not a keyboard: no forced scroll either
+    vv.height = 844;
+    fireVv('resize');
+    box.scrollTop = box.scrollHeight - box.clientHeight;
+    scrolled();
+    vv.height = 790;
+    fireVv('resize');
+    eq(box.scrollTop, box.scrollHeight - box.clientHeight, 'url bar: a small viewport change does not force a scroll');
+    eq(appEl.style.height, '790px', 'url bar: the app still follows the visible height');
+
+    //No visualViewport (old WebViews): boot must not touch the app element at all, CSS handles it
+    const legacy = loadAppSandbox(sandbox => {
+        sandbox.__configOverrides = {clientId: 'test_client_id'};
+        sandbox.__fetchRouter = fullSuccessRouter;
+        sandbox.location.search = '?channel=twitchdev';
+    });
+    await flushAsync();
+    eq(legacy.ids.has('pc-app'), false, 'no visualViewport: the app element is left to the stylesheet');
+});
+
 (async () => {
     for (const section of asyncSections) {
         try {

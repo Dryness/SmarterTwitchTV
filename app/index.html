@@ -55,7 +55,7 @@
                 bg-elevated  #15121c  dialogs, rail, cards, input bars
                 bg-surface   #1f1b29  pressed/hover row surfaces
                 edge         #2b2438  hairline borders
-                text         #ffffff primary / #b4a9cf secondary / #7d7396 meta
+                text         #ffffff primary / #b4a9cf secondary / #9a90b3 meta
                 accent       #7635fc  focus, progress, live accent (bright #a78bfa)
                 radius       0.15em chips / 0.25em cards and dialogs
                 Focus never scales or transforms the element: scroll math and
@@ -141,7 +141,7 @@
             }
 
             .phone_chat_note {
-                color: #7d7396;
+                color: #9a90b3;
                 font-size: 90%;
                 margin-top: 0.6vh;
             }
@@ -622,7 +622,7 @@
                 overflow: hidden;
                 font-size: 75%;
                 font-family: 'Roboto';
-                color: #7d7396;
+                color: #9a90b3;
             }
 
             .channel_live_icon {
@@ -1213,12 +1213,20 @@
                 caret-color: #a78bfa;
             }
 
+            /* The text field takes real DOM focus while typing: give it the shell's remote-focus
+             * outline so the caret's home is as visible as any other focused control. */
+            .input_class:focus {
+                outline: 0.08em solid #bca0ff;
+                outline-offset: 0.06em;
+                border-color: #bca0ff;
+            }
+
             .input_class::-webkit-input-placeholder {
-                color: #7d7396;
+                color: #9a90b3;
             }
 
             .input_class::placeholder {
-                color: #7d7396;
+                color: #9a90b3;
             }
             .button_search_container {
                 /* 101 to acount for the boarder of the input */
@@ -1252,8 +1260,11 @@
             .button_dialog:hover,
             .button_dialog_focused,
             .button_search_focused {
-                background-color: #1f1b29;
-                border-image: linear-gradient(to right, #15121c 6%, #7635fc, #15121c 94%) 1;
+                /* Shared remote-focus treatment (outline + fill), matching the shell. */
+                background-color: #30253f;
+                outline: 0.1em solid #bca0ff;
+                outline-offset: 0.06em;
+                border-image: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)) 1;
                 margin-bottom: 0 !important;
             }
 
@@ -1566,7 +1577,9 @@
             }
 
             .side_panel_fix {
-                transition: margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1) 0s;
+                /* The hide path offsets this rail with margin-left on purpose: the sibling's slide
+                 * is computed from the resulting layout. Not animated: a margin transition would
+                 * reflow every frame, and the sibling already carries the visible slide. */
                 z-index: 3;
                 height: 100%;
                 /* the icon rail is one uniform elevated surface in both states */
@@ -2031,8 +2044,12 @@
             }
 
             .settings_div_focus {
-                background-color: rgba(118, 53, 252, 0.16);
-                border-image: linear-gradient(to right, #15121c 20%, #7635fc, #15121c 80%) 1 !important;
+                /* Shared remote-focus treatment (outline + fill), matching the shell:
+                 * the legacy full-width purple banner read as a different focus language. */
+                outline: 0.13em solid #bca0ff;
+                outline-offset: 0.06em;
+                background: #30253f;
+                border-image: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)) 1 !important;
             }
 
             .hist_value,
@@ -2055,14 +2072,14 @@
             }
 
             .settings_value_focus {
-                background-color: rgba(118, 53, 252, 0.2);
-                border-image: linear-gradient(to right, #15121c 20%, #7635fc, #15121c 80%) 1 !important;
+                background: #30253f;
+                border-image: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)) 1 !important;
             }
 
             .settings_section {
                 font-size: 130%;
                 text-align: center;
-                color: #7d7396;
+                color: #9a90b3;
                 font-family: 'Roboto';
             }
 
@@ -2079,7 +2096,7 @@
                 font-size: 75%;
                 text-align: left;
                 font-family: 'Roboto';
-                color: #7d7396;
+                color: #9a90b3;
             }
 
             .hist_name,
@@ -2488,6 +2505,20 @@
             .chat_spam_count {
                 font-family: 'Roboto-Bold';
                 opacity: 0.7;
+            }
+
+            /* OS-level reduced motion: drop the movement (grid pans, rail slide, chat slide-in)
+             * while keeping instant state changes and the loading spinner, which is the only
+             * progress signal. The saved in-app animation preference keeps working beside this. */
+            @media (prefers-reduced-motion: reduce) {
+                * {
+                    transition: none !important;
+                    scroll-behavior: auto !important;
+                }
+
+                .chat_line_animation {
+                    animation: none !important;
+                }
             }
 
             .chat_line_animation {
@@ -3055,7 +3086,10 @@
                 bottom: 3.3%;
                 left: 9.2%;
                 right: 5%;
-                font-size: 66%;
+                /* The hint strings separate key groups with runs of spaces: preserve them
+                 * or the groups run together and the legend reads as one long sentence. */
+                white-space: pre-wrap;
+                font-size: 78%;
                 opacity: 0.85;
             }
             .navigation-status {
@@ -5256,6 +5290,7 @@
         <script src="specific/Play.js" defer></script>
         <script src="specific/PlayHLS.js" defer></script>
         <script src="specific/PlayMulti.js" defer></script>
+        <script src="specific/PlayRaid.js" defer></script>
         <script src="specific/PlayEtc.js" defer></script>
         <script src="specific/PlayExtra.js" defer></script>
         <script src="specific/PlayClip.js" defer></script>

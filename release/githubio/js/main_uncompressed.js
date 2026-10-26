@@ -894,7 +894,7 @@
     var STR_BR = '<br>';
     var STR_SPACE_HTML = '&nbsp;';
     var STR_SPACE = ' ';
-    var STR_ABOUT_EMAIL = 'fglfgl27@gmail.com';
+    var STR_ABOUT_EMAIL = 'yofardev@gmail.com';
     var STR_DOT = '<i  class="icon-circle class_bold" style="font-size: 50%; vertical-align: middle;"></i>' + '  ';
     var STR_DIV_TITLE = '<div class="about_text_title">';
     var STR_DIV_MIDLE_LEFT = '<div style="text-align: left;">';
@@ -918,8 +918,8 @@
     var STR_BITCOIN;
     var STR_BITCOIN_WALLET = '1DuhCT6L3VfBtFcS8FNfVXgBzE2rwCPx3x';
     var STR_APP_LAG = 'https://tinyurl.com/applag';
-    var STR_ABOUT_INFO_5 = 'https://github.com/fgl27/SmartTwitchTV';
-    var STR_ABOUT_INFO_20 = 'https://github.com/fgl27/SmartTwitchTV/releases';
+    var STR_ABOUT_INFO_5 = 'https://github.com/YofarDev/SmarterTwitchTV';
+    var STR_ABOUT_INFO_20 = 'https://github.com/YofarDev/SmarterTwitchTV/releases';
 
     // This function is called after the main language is loaded, the above are initialized empty so it doesn't cause loading exceptions
     function DefaultLang() {
@@ -1441,7 +1441,7 @@
             noAccount: 'No account',
             welcomeTitle: 'Your channels, together',
             welcomeCopy: 'Add an account to see who you follow, or browse live channels without one.',
-            browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold ← · Options    Back · Return',
+            browseHelp: 'OK · Watch    ↑ · Tabs    ← · Navigation    Hold OK · Options    Back · Return',
             browseHelpDirect: 'OK · Watch    ↑ ↓ · Rows    ← → · Cards and Actions    Back · Return',
             actionsHelp: 'OK · Options    ← · Card    ↑ ↓ · Browse    Back · Card / Return',
             searchHelp: 'OK · Edit search / type    ← → · Choose type    ↑ ↓ · Form / results    Back · Return',
@@ -1667,7 +1667,7 @@
         STR_IS_SUB_IS_SUB = 'You are a sub of this channel, but an unknown issue has prevented this from playing.';
         STR_OAUTH_FAIL = 'Failed authorization check with the provided key, please check and try again';
         STR_OAUTH_FAIL_USER = "The added key doesn't belong to the user";
-        STR_NOKEY = 'No user';
+        STR_NOKEY = 'Sign in';
         STR_NOKEY_WARN = 'You must set a user to follow or unfollow channels.';
         STR_FOLLOW_ISSUE =
             'Third-party apps can no longer follow or unfollow channels. The button will only appear if you are already following a channel.';
@@ -1679,7 +1679,7 @@
         STR_NET_UP = 'Network connection restored';
         STR_FOLLOWERS = 'Followers';
         STR_FOLLOWER = 'Follower';
-        STR_CANT_FOLLOW = ", Can't follow or unfollow";
+        STR_CANT_FOLLOW = ' to follow or unfollow channels';
         STR_GAME_CONT = 'Game content';
         STR_YES = 'Yes';
         STR_REMOVE_USER = 'Are you sure you want to remove the user';
@@ -1772,7 +1772,7 @@
         STR_CONTENT_LANG_SUMMARY = 'The language of the content on the screen, lives, VODs, clips.';
         STR_APP_LANG = 'Application language';
         STR_APP_LANG_SUMMARY = "The language of the app's text.";
-        STR_ENTER_TO_OPEN = 'Press enter to access';
+        STR_ENTER_TO_OPEN = '›';
         STR_LANG_ALL = 'All';
         STR_NO_GAME = "Can't get game from this";
         STR_EMPTY = 'Empty';
@@ -8357,11 +8357,39 @@
     //Spacing for release maker not trow errors from jshint
     var version = {
         VersionBase: '3.0',
-        publishVersionCode: 393, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/393/SmarterPurpleTV_3_0_393.apk',
-        WebVersion: 'October 24 2026',
-        WebTag: 764, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+        ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
+        WebVersion: 'October 26 2026',
+        WebTag: 767, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 26 2026 (Web 767)',
+                changes: [
+                    'Phone chat: the message box no longer hides behind the on-screen keyboard — the page follows the visible area when the keyboard opens (and the browser chrome moves), keeps the newest message in view if you were reading the tail, and long-press sheets stay inside the visible area'
+                ]
+            },
+            {
+                title: 'October 26 2026 (Web 766)',
+                changes: [
+                    'Player: More › Channel / content no longer shows "undefined" under Channel content and Game content — the drawer kept overwriting the labels the player had already filled in',
+                    'Fix: a screen whose refresh was interrupted (for example by closing a stream during startup) could stay behind the loading dialog forever; it now reloads instead of waiting for a request that is gone',
+                    'Hints: the remote legend at the bottom of browsing screens keeps its key groups apart again and is a step larger — it used to run together into one sentence; it now also says "Hold OK · Options", which is the gesture the cards actually use',
+                    'Search: a query with no results says "No search results found" instead of claiming a connection failure, and the empty banner no longer shows the upstream app name',
+                    'Interface: Settings rows, the card options dialog, search type buttons and dialog buttons now use the same outline focus as the rest of the app instead of the old purple banner; the search box shows the outline while you type',
+                    'Readability: secondary text (settings descriptions, metadata, placeholders) is brighter and now passes the accessibility contrast threshold on every surface',
+                    'Accessibility: when the device asks for reduced motion the grid, rail and chat slide animations are turned off (the loading spinner stays); the in-app animation setting keeps working as before',
+                    'Account: the follow-related rows read "Sign in" and "Sign in to follow or unfollow channels" instead of "No user, Can\'t follow or unfollow"; settings submenus show a › chevron instead of "Press enter to access"',
+                    'Links: the About dialog project and releases links point at this fork (github.com/YofarDev/SmarterTwitchTV)'
+                ]
+            },
+            {
+                title: 'October 25 2026 (Web 765 / APK 394)',
+                changes: [
+                    'Phone chat: fix muting on iPhone — long-pressing a message now opens the mute sheet on iOS browsers, which never report a long-press as a context menu (Android and desktop right-click are unchanged)',
+                    'Contact: the app email in the About and first-run welcome dialogs is now yofardev@gmail.com',
+                    'Fix: the browser/source build loads the raid module again — closing a restored stream during browser testing no longer freezes the app on a dead screen (TV playback was never affected)'
+                ]
+            },
             {
                 title: 'October 24 2026 (Web 764)',
                 changes: [
@@ -36912,7 +36940,10 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 // Same order as the descriptors' own updown: arrows (writes the raw value) before the label
                 // (which may format it, e.g. speed's "1x (Normal)").
                 if (control.bottomArrows) control.bottomArrows();
-                if (control.setLabel) control.setLabel();
+                // Only state-derived labels take a no-arg refresh here; the argument-driven ones
+                // (channel/game content, open live/vod, follow) stringify the argument, so a no-arg
+                // call would render "undefined" over the label the mode code already wrote.
+                if (control.setLabel && control.setLabel.length === 0) control.setLabel();
                 control.doc.style.display = '';
                 control.doc.className = 'player-ui-action';
                 control.doc.setAttribute('role', 'button');
@@ -37450,8 +37481,14 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         } else if (Screens_needsRefresh(key, preventRefresh)) {
             if (!ScreenObj[key].isRefreshing) {
                 Screens_StartLoad(key);
-            } else {
+            } else if (ScreenObj[key].loadingData) {
                 Main_showLoadDialog(); // the isRefreshing is running so just show the loading dialog prevent reload the screen
+            } else {
+                // The flagged refresh lost its request (aborted startup or an error mid-render):
+                // waiting for it would leave the screen behind the loading dialog forever.
+                ScreenObj[key].isRefreshing = false;
+                Screens_Some_Screen_Is_Refreshing = false;
+                Screens_StartLoad(key);
             }
         } else {
             ScreenObj[key].SetPreviewEnable();
@@ -37880,19 +37917,6 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
         }
         Navigation_UpdateDetails(key);
         if (key === Main_values.Main_Go) Navigation_UpdateHint(key);
-    }
-
-    /* Switch the current card's subtarget without changing the selected item: no preview restart,
-     * no metadata refetch and no data reload, exactly one visible focus treatment at a time. */
-    function Screens_FocusSub(key, sub) {
-        var obj = ScreenObj[key];
-        obj.posSub = sub;
-        if (obj.posY < 0 || !obj.itemsCount) return;
-        var id = obj.posY + '_' + obj.posX,
-            button = Main_getElementById(Screens_ActionsId(key, id));
-        if (button) Main_RemoveClassWithEle(button, Screens_ActionsClass);
-        Main_RemoveClass(obj.ids[0] + id, Main_classThumb);
-        Screens_ApplySubFocus(key, id);
     }
 
     /* The focused item can change or leave while its options menu is open; fall back to its body. */
@@ -42169,7 +42193,7 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 var bannerString = this.enable_mature ? refreshProblemString : STR_MATURE_DISABLED;
                 ScreensObj_addBanner(
                     {
-                        image: 'https://fgl27.github.io/SmartTwitchTV/apk/app/src/main/res/mipmap-nodpi/ic_splash.png',
+                        image: 'https://yofardev.github.io/SmarterTwitchTV/apk/app/src/main/res/mipmap-nodpi/ic_splash.png',
                         text: this.emptyContent_STR ? this.emptyContent_STR() : bannerString,
                         empty: true
                     },
@@ -42865,6 +42889,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 HeadersArray: Main_base_array_header,
                 ids: Screens_ScreenIds('SearchVod', key),
                 ScreenName: 'SearchVod',
+                emptyContent_STR: function () {
+                    return STR_SEARCH_RESULT_EMPTY;
+                },
                 table: 'stream_table_search_vod',
                 screen: key,
                 object: 'items',
@@ -43348,6 +43375,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 HeadersArray: Main_base_array_header,
                 ids: Screens_ScreenIds('SearchLive', key),
                 ScreenName: 'SearchLive',
+                emptyContent_STR: function () {
+                    return STR_SEARCH_RESULT_EMPTY;
+                },
                 table: 'stream_table_search_live',
                 screen: key,
                 object: 'items',
@@ -43913,6 +43943,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             {
                 ids: Screens_ScreenIds('SearchGames', key),
                 ScreenName: 'SearchGames',
+                emptyContent_STR: function () {
+                    return STR_SEARCH_RESULT_EMPTY;
+                },
                 table: 'stream_table_search_game',
                 screen: key,
                 isSearch: true,
@@ -44075,6 +44108,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
                 HeadersArray: Main_base_array_header,
                 ids: Screens_ScreenIds('SearchChannels', key),
                 ScreenName: 'SearchChannels',
+                emptyContent_STR: function () {
+                    return STR_SEARCH_RESULT_EMPTY;
+                },
                 table: 'stream_table_search_channel',
                 screen: key,
                 object: 'items',

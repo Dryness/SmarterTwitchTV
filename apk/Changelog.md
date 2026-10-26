@@ -34,6 +34,11 @@ October 24 2026 (3.0.393)
 * The escape reloads rotate the fallback stream types much faster (15 seconds instead of 60), so every type is tried within a single ad break.
 * The pre-playback ad probe checks every stream quality instead of only the first and last, so ads stitched into a single quality can no longer slip into playback.
 
+October 25 2026 (3.0.394)
+==============
+
+* Phone chat: fix muting on iPhone — long-pressing a message now opens the mute sheet on iOS browsers, which never report a long-press as a context menu (Android and desktop right-click are unchanged).
+
 October 11 2026 (3.0.390)
 ==============
 

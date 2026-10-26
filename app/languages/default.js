@@ -23,7 +23,7 @@ var LINK_COLOR = '#328df5';
 var STR_BR = '<br>';
 var STR_SPACE_HTML = '&nbsp;';
 var STR_SPACE = ' ';
-var STR_ABOUT_EMAIL = 'fglfgl27@gmail.com';
+var STR_ABOUT_EMAIL = 'yofardev@gmail.com';
 var STR_DOT = '<i  class="icon-circle class_bold" style="font-size: 50%; vertical-align: middle;"></i>' + '  ';
 var STR_DIV_TITLE = '<div class="about_text_title">';
 var STR_DIV_MIDLE_LEFT = '<div style="text-align: left;">';
@@ -47,8 +47,8 @@ var STR_PIX;
 var STR_BITCOIN;
 var STR_BITCOIN_WALLET = '1DuhCT6L3VfBtFcS8FNfVXgBzE2rwCPx3x';
 var STR_APP_LAG = 'https://tinyurl.com/applag';
-var STR_ABOUT_INFO_5 = 'https://github.com/fgl27/SmartTwitchTV';
-var STR_ABOUT_INFO_20 = 'https://github.com/fgl27/SmartTwitchTV/releases';
+var STR_ABOUT_INFO_5 = 'https://github.com/YofarDev/SmarterTwitchTV';
+var STR_ABOUT_INFO_20 = 'https://github.com/YofarDev/SmarterTwitchTV/releases';
 
 // This function is called after the main language is loaded, the above are initialized empty so it doesn't cause loading exceptions
 function DefaultLang() {

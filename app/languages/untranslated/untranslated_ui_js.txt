@@ -2,3 +2,4 @@ New UI strings in en_USLang: STR_UI object.
 Pending translations for es_ES, fr_FR, pt_BR, ru_RU, tr_TR, uk_UA.
 English is initialized first by Settings_SetAppLang and remains the fallback.
 Do not copy untranslated strings into translated language functions.
+Changed in en_US (2026-10-25, Web 765): STR_NOKEY ('No user' -> 'Sign in'), STR_CANT_FOLLOW (now ' to follow or unfollow channels', combines as 'Sign in to follow or unfollow channels'), STR_ENTER_TO_OPEN (now the language-neutral disclosure glyph '›'). Re-translate or sync these in es_ES, fr_FR, pt_BR, ru_RU, tr_TR, uk_UA.

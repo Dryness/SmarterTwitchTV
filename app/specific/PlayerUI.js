@@ -378,7 +378,10 @@ function PlayerUI_Render() {
             // Same order as the descriptors' own updown: arrows (writes the raw value) before the label
             // (which may format it, e.g. speed's "1x (Normal)").
             if (control.bottomArrows) control.bottomArrows();
-            if (control.setLabel) control.setLabel();
+            // Only state-derived labels take a no-arg refresh here; the argument-driven ones
+            // (channel/game content, open live/vod, follow) stringify the argument, so a no-arg
+            // call would render "undefined" over the label the mode code already wrote.
+            if (control.setLabel && control.setLabel.length === 0) control.setLabel();
             control.doc.style.display = '';
             control.doc.className = 'player-ui-action';
             control.doc.setAttribute('role', 'button');

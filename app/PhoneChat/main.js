@@ -86,8 +86,13 @@ SPTVPhoneChat.App = (function () {
     var MutedLimit = 500;
     //Consecutive identical messages from the same user inside this window merge into one row with a (xN) counter
     var SpamWindowMs = 15000;
+    //iOS never fires contextmenu for a touch, so message rows time their own
+    //long-press; a finger drifting past the slop is a scroll, not a press
+    var LongPressMs = 500;
+    var LongPressSlopPx = 10;
     var mutedLogins = loadMuted();
     var rowMenuLogin = null;
+    var rowTouch = null;
 
     var S = {
         channel: null,
@@ -880,6 +885,29 @@ SPTVPhoneChat.App = (function () {
         rowAutoScrollTop = box.scrollTop;
         S.nearBottom = true;
         el('pc-jump-latest').hidden = true;
+    }
+
+    /* Mobile keyboards shrink only the visual viewport: iOS never resizes the layout
+     * viewport for the keyboard and Android Chrome stopped doing so in 108 (the page's
+     * interactive-widget meta opts Android back in, iOS relies on this). Pin the app to
+     * the visible area so the composer stays above the keyboard and compensate the
+     * visual viewport offset. A large shrink is the keyboard opening: keep the newest
+     * message in view then, but only when the reader was already at the tail. */
+    var vvLastHeight = null;
+    function setupViewportSync() {
+        var vv = window.visualViewport;
+        if (!vv || !vv.addEventListener) return;
+        var apply = function () {
+            var keyboardOpened = vvLastHeight !== null && vvLastHeight - vv.height > 120,
+                wasNearBottom = S.nearBottom;
+            el('pc-app').style.height = vv.height + 'px';
+            el('pc-app').style.transform = 'translateY(' + vv.offsetTop + 'px)';
+            if (keyboardOpened && wasNearBottom) scrollToBottom();
+            vvLastHeight = vv.height;
+        };
+        vv.addEventListener('resize', apply);
+        vv.addEventListener('scroll', apply);
+        apply();
     }
 
     var rowAutoScrollTop = null,
@@ -1831,6 +1859,44 @@ SPTVPhoneChat.App = (function () {
         rowMenuLogin = null;
     }
 
+    function rowTouchCancel() {
+        if (rowTouch && rowTouch.timer) clearTimeout(rowTouch.timer);
+        rowTouch = null;
+    }
+
+    function rowTouchStart(event) {
+        var row = event.touches && event.touches.length === 1 ? rowFromEventTarget(event.target) : null,
+            state;
+
+        rowTouchCancel();
+        if (!row || (S.session && row.getAttribute('data-login') === S.session.login)) return;
+
+        state = {row: row, x: event.touches[0].clientX, y: event.touches[0].clientY, opened: false, timer: null};
+        state.timer = setTimeout(function () {
+            if (rowTouch !== state) return;
+            state.timer = null;
+            state.opened = true;
+            openRowMenu(row);
+        }, LongPressMs);
+        rowTouch = state;
+    }
+
+    function rowTouchMove(event) {
+        var touch = event.touches && event.touches[0];
+
+        if (!rowTouch || rowTouch.opened || !touch) return;
+        if (Math.abs(touch.clientX - rowTouch.x) > LongPressSlopPx || Math.abs(touch.clientY - rowTouch.y) > LongPressSlopPx) rowTouchCancel();
+    }
+
+    //The release that ends a long-press would still deliver a click, which lands
+    //on the sheet backdrop and closes it again
+    function rowTouchEnd(event) {
+        var opened = rowTouch !== null && rowTouch.opened;
+
+        rowTouchCancel();
+        if (opened) event.preventDefault();
+    }
+
     function openMutedPanel() {
         renderMutedList();
         el('pc-muted-panel').hidden = false;
@@ -1988,8 +2054,20 @@ SPTVPhoneChat.App = (function () {
             //Message rows own the long-press: no native callout. Own rows have no action.
             event.preventDefault();
             if (S.session && row.getAttribute('data-login') === S.session.login) return;
+            //Android also fires contextmenu for the press the touch timer owns; the
+            //press keeps the sheet either way so its release cannot close it
+            if (rowTouch) {
+                if (rowTouch.opened) return;
+                clearTimeout(rowTouch.timer);
+                rowTouch.timer = null;
+                rowTouch.opened = true;
+            }
             openRowMenu(row);
         });
+        el('pc-messages').addEventListener('touchstart', rowTouchStart, {passive: true});
+        el('pc-messages').addEventListener('touchmove', rowTouchMove, {passive: true});
+        el('pc-messages').addEventListener('touchend', rowTouchEnd);
+        el('pc-messages').addEventListener('touchcancel', rowTouchCancel);
         el('pc-row-menu-mute').addEventListener('click', function () {
             if (rowMenuLogin) setMuted(rowMenuLogin, !isMuted(rowMenuLogin));
             closeRowMenu();
@@ -2087,6 +2165,8 @@ SPTVPhoneChat.App = (function () {
             }
             goOffline();
         });
+
+        setupViewportSync();
 
         window.addEventListener('pagehide', function () {
             cancelRowFlush();

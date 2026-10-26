@@ -307,8 +307,14 @@ function Screens_init(key, preventRefresh) {
     } else if (Screens_needsRefresh(key, preventRefresh)) {
         if (!ScreenObj[key].isRefreshing) {
             Screens_StartLoad(key);
-        } else {
+        } else if (ScreenObj[key].loadingData) {
             Main_showLoadDialog(); // the isRefreshing is running so just show the loading dialog prevent reload the screen
+        } else {
+            // The flagged refresh lost its request (aborted startup or an error mid-render):
+            // waiting for it would leave the screen behind the loading dialog forever.
+            ScreenObj[key].isRefreshing = false;
+            Screens_Some_Screen_Is_Refreshing = false;
+            Screens_StartLoad(key);
         }
     } else {
         ScreenObj[key].SetPreviewEnable();
@@ -731,19 +737,6 @@ function Screens_ApplySubFocus(key, id) {
     }
     Navigation_UpdateDetails(key);
     if (key === Main_values.Main_Go) Navigation_UpdateHint(key);
-}
-
-/* Switch the current card's subtarget without changing the selected item: no preview restart,
- * no metadata refetch and no data reload, exactly one visible focus treatment at a time. */
-function Screens_FocusSub(key, sub) {
-    var obj = ScreenObj[key];
-    obj.posSub = sub;
-    if (obj.posY < 0 || !obj.itemsCount) return;
-    var id = obj.posY + '_' + obj.posX,
-        button = Main_getElementById(Screens_ActionsId(key, id));
-    if (button) Main_RemoveClassWithEle(button, Screens_ActionsClass);
-    Main_RemoveClass(obj.ids[0] + id, Main_classThumb);
-    Screens_ApplySubFocus(key, id);
 }
 
 /* The focused item can change or leave while its options menu is open; fall back to its body. */

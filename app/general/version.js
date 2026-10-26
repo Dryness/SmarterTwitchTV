@@ -21,11 +21,39 @@
 //Spacing for release maker not trow errors from jshint
 var version = {
     VersionBase: '3.0',
-    publishVersionCode: 393, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
-    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/393/SmarterPurpleTV_3_0_393.apk',
-    WebVersion: 'October 24 2026',
-    WebTag: 764, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
+    ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
+    WebVersion: 'October 26 2026',
+    WebTag: 767, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 26 2026 (Web 767)',
+            changes: [
+                'Phone chat: the message box no longer hides behind the on-screen keyboard — the page follows the visible area when the keyboard opens (and the browser chrome moves), keeps the newest message in view if you were reading the tail, and long-press sheets stay inside the visible area'
+            ]
+        },
+        {
+            title: 'October 26 2026 (Web 766)',
+            changes: [
+                'Player: More › Channel / content no longer shows "undefined" under Channel content and Game content — the drawer kept overwriting the labels the player had already filled in',
+                'Fix: a screen whose refresh was interrupted (for example by closing a stream during startup) could stay behind the loading dialog forever; it now reloads instead of waiting for a request that is gone',
+                'Hints: the remote legend at the bottom of browsing screens keeps its key groups apart again and is a step larger — it used to run together into one sentence; it now also says "Hold OK · Options", which is the gesture the cards actually use',
+                'Search: a query with no results says "No search results found" instead of claiming a connection failure, and the empty banner no longer shows the upstream app name',
+                'Interface: Settings rows, the card options dialog, search type buttons and dialog buttons now use the same outline focus as the rest of the app instead of the old purple banner; the search box shows the outline while you type',
+                'Readability: secondary text (settings descriptions, metadata, placeholders) is brighter and now passes the accessibility contrast threshold on every surface',
+                'Accessibility: when the device asks for reduced motion the grid, rail and chat slide animations are turned off (the loading spinner stays); the in-app animation setting keeps working as before',
+                'Account: the follow-related rows read "Sign in" and "Sign in to follow or unfollow channels" instead of "No user, Can\'t follow or unfollow"; settings submenus show a › chevron instead of "Press enter to access"',
+                'Links: the About dialog project and releases links point at this fork (github.com/YofarDev/SmarterTwitchTV)'
+            ]
+        },
+        {
+            title: 'October 25 2026 (Web 765 / APK 394)',
+            changes: [
+                'Phone chat: fix muting on iPhone — long-pressing a message now opens the mute sheet on iOS browsers, which never report a long-press as a context menu (Android and desktop right-click are unchanged)',
+                'Contact: the app email in the About and first-run welcome dialogs is now yofardev@gmail.com',
+                'Fix: the browser/source build loads the raid module again — closing a restored stream during browser testing no longer freezes the app on a dead screen (TV playback was never affected)'
+            ]
+        },
         {
             title: 'October 24 2026 (Web 764)',
             changes: [

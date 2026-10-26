@@ -439,7 +439,7 @@ function ScreensObj_StartAllVars() {
             var bannerString = this.enable_mature ? refreshProblemString : STR_MATURE_DISABLED;
             ScreensObj_addBanner(
                 {
-                    image: 'https://fgl27.github.io/SmartTwitchTV/apk/app/src/main/res/mipmap-nodpi/ic_splash.png',
+                    image: 'https://yofardev.github.io/SmarterTwitchTV/apk/app/src/main/res/mipmap-nodpi/ic_splash.png',
                     text: this.emptyContent_STR ? this.emptyContent_STR() : bannerString,
                     empty: true
                 },
@@ -1130,6 +1130,9 @@ function ScreensObj_InitSearchVod() {
             HeadersArray: Main_base_array_header,
             ids: Screens_ScreenIds('SearchVod', key),
             ScreenName: 'SearchVod',
+            emptyContent_STR: function () {
+                return STR_SEARCH_RESULT_EMPTY;
+            },
             table: 'stream_table_search_vod',
             screen: key,
             object: 'items',
@@ -1612,6 +1615,9 @@ function ScreensObj_InitSearchLive() {
             HeadersArray: Main_base_array_header,
             ids: Screens_ScreenIds('SearchLive', key),
             ScreenName: 'SearchLive',
+            emptyContent_STR: function () {
+                return STR_SEARCH_RESULT_EMPTY;
+            },
             table: 'stream_table_search_live',
             screen: key,
             object: 'items',
@@ -2173,6 +2179,9 @@ function ScreensObj_InitSearchGames() {
         {
             ids: Screens_ScreenIds('SearchGames', key),
             ScreenName: 'SearchGames',
+            emptyContent_STR: function () {
+                return STR_SEARCH_RESULT_EMPTY;
+            },
             table: 'stream_table_search_game',
             screen: key,
             isSearch: true,
@@ -2331,6 +2340,9 @@ function ScreensObj_InitSearchChannels() {
             HeadersArray: Main_base_array_header,
             ids: Screens_ScreenIds('SearchChannels', key),
             ScreenName: 'SearchChannels',
+            emptyContent_STR: function () {
+                return STR_SEARCH_RESULT_EMPTY;
+            },
             table: 'stream_table_search_channel',
             screen: key,
             object: 'items',
