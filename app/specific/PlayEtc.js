@@ -521,7 +521,9 @@ function Play_updownqualityCheckTotal(index, total) {
 function Play_PrepareshowEndDialog(PlayVodClip) {
     Play_hideChat();
 
-    if (Play_isControlsDialogVisible) {
+    // Call the check: the bare reference is always truthy, and hiding an unopened dialog
+    // would re-add an undefined keydown listener from Play_controlsEventListener.
+    if (Play_isControlsDialogVisible()) {
         Play_HideControlsDialog();
     }
 

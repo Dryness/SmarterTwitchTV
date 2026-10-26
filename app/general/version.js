@@ -24,8 +24,17 @@ var version = {
     publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
     WebVersion: 'October 26 2026',
-    WebTag: 768, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 769, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 26 2026 (Web 769)',
+            changes: [
+                'Fix: with "restore playback" on, the app could come back from a restart with the full-screen loading dialog still in the page behind the player — opening a stream, VOD or clip now clears any pending loading dialog as the player takes over',
+                'Fix: the stream-end screen prepared the player controls dialog check without running it, so every stream end force-closed a dialog that was never open (and re-registered an empty key listener); the check now actually runs',
+                'Hints: the top legend reads "Hold OK for thumbnail options" instead of "Hold left", matching the gesture the cards actually use',
+                'Copy: the browser player setting summary now reads "Set to No to hide the browser Twitch player and see the Android player layout instead…", and viewer counts read "42,025 viewers" in lowercase everywhere, matching the player info line'
+            ]
+        },
         {
             title: 'October 26 2026 (Web 768)',
             changes: [

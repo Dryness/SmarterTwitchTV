@@ -3089,7 +3089,9 @@
                 /* The hint strings separate key groups with runs of spaces: preserve them
                  * or the groups run together and the legend reads as one long sentence. */
                 white-space: pre-wrap;
-                font-size: 78%;
+                /* Secondary-text size from the token spec (2vh ~= 22px at 1080p): the hint is the
+                 * app's only always-on teacher, so it reads at the same size as other secondary text. */
+                font-size: 2vh;
                 opacity: 0.85;
             }
             .navigation-status {

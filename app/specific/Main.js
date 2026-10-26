@@ -1708,6 +1708,11 @@ function Main_openStream() {
             Play_HideEndDialog();
         }
 
+        /* The player owns the screen from here on: drop any pending boot or screen-refresh
+         * loading dialog, or it survives the whole session on flows that skip screen init
+         * (startup with restore playback) with nothing left to hide it. */
+        Main_HideLoadDialog();
+
         Play_Start();
     });
 }
@@ -1751,6 +1756,10 @@ function Main_OpenClip(data, id, idsArray, handleKeyDownFunction) {
         Main_showScene2Doc();
 
         Main_PlayClipHandleKeyDown();
+
+        // See Main_openStream: the player owns the screen, drop any pending loading dialog.
+        Main_HideLoadDialog();
+
         PlayClip_Start();
 
     });
@@ -1802,6 +1811,10 @@ function Main_openVod() {
         Main_showScene2Doc();
         Main_PlayVodHandleKeyDown();
         Play_hideChat();
+
+        // See Main_openStream: the player owns the screen, drop any pending loading dialog.
+        Main_HideLoadDialog();
+
         PlayVod_Start();
     });
 }

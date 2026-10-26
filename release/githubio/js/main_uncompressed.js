@@ -1542,8 +1542,8 @@
         STR_DURATION = 'Duration';
         STR_VIEW = 'View';
         STR_VIEWS = 'Views';
-        STR_VIEWER = 'Viewer';
-        STR_VIEWERS = 'Viewers';
+        STR_VIEWER = 'viewer';
+        STR_VIEWERS = 'viewers';
         STR_EXIT_AGAIN = 'Click again to exit';
         STR_EXIT_AGAIN_PICTURE = 'Click again to exit picture-in-picture mode';
         STR_EXIT_AGAIN_MULTI = 'Click again to exit multistream mode';
@@ -2003,7 +2003,7 @@
         STR_DELETE_FROM_HISTORY = 'Delete this from history';
         STR_CHECK_FOLLOW = 'Checking follow status ...';
         STR_REFRESH_DELETE = 'Refresh the screen after deleting to see the change.';
-        STR_THUMB_OPTIONS_TOP = 'Hold left for thumbnail options';
+        STR_THUMB_OPTIONS_TOP = 'Hold OK for thumbnail options';
         STR_REPLACE_MULTI = 'Choose with to replace by the above?';
         STR_REPLACE_MULTI_ENTER = 'Press enter to replace or return to exit without.';
         STR_ALREDY_PLAYING = 'Already playing this';
@@ -2289,7 +2289,7 @@
 
         STR_DISABLE_EMBED = 'Enable Live and Vod Twitch player';
         STR_DISABLE_EMBED_SUMMARY =
-            'This is only needed to disable if you want to see the Android player to check its strings and layout for testing proposes';
+            'Set to No to hide the browser Twitch player and see the Android player layout instead. Only useful to check that layout, its strings and its settings while testing.';
 
         STR_SPECIAL_FEATURE = 'Use the keyboard for this feature';
         STR_FAIL_VOD_INFO = 'Fail to load VOD info';
@@ -8360,8 +8360,17 @@
         publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
         WebVersion: 'October 26 2026',
-        WebTag: 768, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebTag: 769, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 26 2026 (Web 769)',
+                changes: [
+                    'Fix: with "restore playback" on, the app could come back from a restart with the full-screen loading dialog still in the page behind the player — opening a stream, VOD or clip now clears any pending loading dialog as the player takes over',
+                    'Fix: the stream-end screen prepared the player controls dialog check without running it, so every stream end force-closed a dialog that was never open (and re-registered an empty key listener); the check now actually runs',
+                    'Hints: the top legend reads "Hold OK for thumbnail options" instead of "Hold left", matching the gesture the cards actually use',
+                    'Copy: the browser player setting summary now reads "Set to No to hide the browser Twitch player and see the Android player layout instead…", and viewer counts read "42,025 viewers" in lowercase everywhere, matching the player info line'
+                ]
+            },
             {
                 title: 'October 26 2026 (Web 768)',
                 changes: [
@@ -19257,6 +19266,11 @@
                 Play_HideEndDialog();
             }
 
+            /* The player owns the screen from here on: drop any pending boot or screen-refresh
+             * loading dialog, or it survives the whole session on flows that skip screen init
+             * (startup with restore playback) with nothing left to hide it. */
+            Main_HideLoadDialog();
+
             Play_Start();
         });
     }
@@ -19300,6 +19314,10 @@
             Main_showScene2Doc();
 
             Main_PlayClipHandleKeyDown();
+
+            // See Main_openStream: the player owns the screen, drop any pending loading dialog.
+            Main_HideLoadDialog();
+
             PlayClip_Start();
         });
 
@@ -19350,6 +19368,10 @@
             Main_showScene2Doc();
             Main_PlayVodHandleKeyDown();
             Play_hideChat();
+
+            // See Main_openStream: the player owns the screen, drop any pending loading dialog.
+            Main_HideLoadDialog();
+
             PlayVod_Start();
         });
     }
@@ -27783,7 +27805,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
     function Play_PrepareshowEndDialog(PlayVodClip) {
         Play_hideChat();
 
-        if (Play_isControlsDialogVisible) {
+        // Call the check: the bare reference is always truthy, and hiding an unopened dialog
+        // would re-add an undefined keydown listener from Play_controlsEventListener.
+        if (Play_isControlsDialogVisible()) {
             Play_HideControlsDialog();
         }
 

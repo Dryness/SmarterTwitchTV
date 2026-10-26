@@ -132,8 +132,8 @@ function en_USLang() {
     STR_DURATION = 'Duration';
     STR_VIEW = 'View';
     STR_VIEWS = 'Views';
-    STR_VIEWER = 'Viewer';
-    STR_VIEWERS = 'Viewers';
+    STR_VIEWER = 'viewer';
+    STR_VIEWERS = 'viewers';
     STR_EXIT_AGAIN = 'Click again to exit';
     STR_EXIT_AGAIN_PICTURE = 'Click again to exit picture-in-picture mode';
     STR_EXIT_AGAIN_MULTI = 'Click again to exit multistream mode';
@@ -593,7 +593,7 @@ function en_USLang() {
     STR_DELETE_FROM_HISTORY = 'Delete this from history';
     STR_CHECK_FOLLOW = 'Checking follow status ...';
     STR_REFRESH_DELETE = 'Refresh the screen after deleting to see the change.';
-    STR_THUMB_OPTIONS_TOP = 'Hold left for thumbnail options';
+    STR_THUMB_OPTIONS_TOP = 'Hold OK for thumbnail options';
     STR_REPLACE_MULTI = 'Choose with to replace by the above?';
     STR_REPLACE_MULTI_ENTER = 'Press enter to replace or return to exit without.';
     STR_ALREDY_PLAYING = 'Already playing this';
@@ -872,7 +872,7 @@ function en_USLang() {
 
     STR_DISABLE_EMBED = 'Enable Live and Vod Twitch player';
     STR_DISABLE_EMBED_SUMMARY =
-        'This is only needed to disable if you want to see the Android player to check its strings and layout for testing proposes';
+        'Set to No to hide the browser Twitch player and see the Android player layout instead. Only useful to check that layout, its strings and its settings while testing.';
 
     STR_SPECIAL_FEATURE = 'Use the keyboard for this feature';
     STR_FAIL_VOD_INFO = 'Fail to load VOD info';
