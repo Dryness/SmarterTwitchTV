@@ -87,7 +87,6 @@ function ChannelContent_init() {
         ChannelContent_removeAllFollowFocus();
         ChannelContent_addFocus();
         Main_SaveValuesWithTimeout();
-        Main_EventScreen('ChannelContent');
     } else ChannelContent_StartLoad();
 }
 
@@ -124,7 +123,6 @@ function ChannelContent_StartLoad() {
     Main_FirstLoad = true;
     ChannelContent_Lang = Settings_AppLang;
     ChannelContent_loadDataRequest();
-    Main_EventScreen('ChannelContent');
 }
 
 function ChannelContent_loadDataRequest() {
@@ -476,7 +474,6 @@ function ChannelContent_keyEnter() {
             Play_hidePanel();
             Play_Start(true);
 
-            Main_EventPlay('offline', Main_values.Main_selectedChannelDisplayname, 'offline', 'offline', 'ChannelContent');
         } else if (ChannelContent_DataObj) {
             Main_values_Play_data = Main_Slice(ChannelContent_DataObj);
 
@@ -491,7 +488,6 @@ function ChannelContent_keyEnter() {
 
             Main_openStream();
 
-            Main_EventPlay('live', Main_values_Play_data[6], Main_values_Play_data[3], Main_values_Play_data[15], 'ChannelContent');
         }
     }
 }

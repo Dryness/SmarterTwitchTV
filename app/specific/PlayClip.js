@@ -579,8 +579,7 @@ function PlayClip_PlayNextPreviously() {
             Screens_GetObj(Main_values.Main_Go),
             ScreenObj[Main_values.Main_Go].posY + '_' + ScreenObj[Main_values.Main_Go].posX,
             ScreenObj[Main_values.Main_Go].ids,
-            ScreenObj[Main_values.Main_Go].key_fun,
-            ScreenObj[Main_values.Main_Go].ScreenName
+            ScreenObj[Main_values.Main_Go].key_fun
         );
     });
 }
@@ -1101,8 +1100,6 @@ function PlayClip_ClipCheckIfIsLiveOpen() {
 
     Main_removeEventListener('keydown', keyfun);
     Main_openStream();
-
-    Main_EventPlay('live', Main_values_Play_data[6], Main_values_Play_data[3], Main_values_Play_data[15], screen);
 
     //if playing a clip in a browser the clip player will not close in PlayClip_PreshutdownStream
     if (!Main_IsOn_OSInterface) {

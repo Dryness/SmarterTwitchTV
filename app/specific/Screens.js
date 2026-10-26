@@ -112,7 +112,6 @@ function Screens_InitScreens() {
     Screens_dialog_thumb_div = Main_getElementById('dialog_thumb_opt');
     Screens_dialog_thumb_delete_div = Main_getElementById('yes_no_dialog');
 
-    Main_setTimeout(Main_Startfirebase);
     Screens_first_init();
 }
 
@@ -179,7 +178,6 @@ function Screens_first_init() {
             }
         }
 
-        if (obj.type && obj.screen) Main_EventChannel(obj);
     }
 
     var StartUser = Settings_value.start_user_screen.defaultValue;
@@ -326,7 +324,6 @@ function Screens_init(key, preventRefresh) {
         Screens_SetLastRefresh(key);
         Main_HideLoadDialog();
         Main_SaveValuesWithTimeout();
-        ScreenObj[key].screen_view();
     }
 }
 
@@ -368,7 +365,6 @@ function Screens_StartLoad(key) {
     if (key === Main_values.Main_Go && Main_isScene1DocVisible()) {
         Screens_RemoveFocus(key);
         Main_showLoadDialog();
-        if (!Main_FirstRun) ScreenObj[key].screen_view();
     }
 
     Main_date_Ms = new Date().getTime();
@@ -1661,7 +1657,6 @@ function Screens_LoadPreviewResult(StreamData, x, y) {
                     );
                 }
 
-                Main_EventPreview('Preview_screen', StreamInfo[6], StreamInfo[3], lang, ScreenObj[x].ScreenName);
             } else {
                 Screens_LoadPreviewResultError(UserIsSet, StreamInfo, StreamDataObj, x);
             }
@@ -2017,9 +2012,6 @@ function Screens_addrowEnd(forceScroll, key) {
     if (key === Main_values.Main_Go && !Settings_isVisible())
         Main_CounterDialog(ScreenObj[key].posX, ScreenObj[key].posY, ScreenObj[key].ColumnsCount, ScreenObj[key].itemsCount);
 
-    if (ScreenObj[key].DataObj[id].event_name) {
-        Main_EventBanner(ScreenObj[key].DataObj[id].event_name + '_viewed', ScreenObj[key].ScreenName, ScreenObj[key].DataObj[id].image);
-    }
 }
 
 var Screens_UpdateSinceId;
@@ -3694,9 +3686,6 @@ function Screens_BlockChannel(key) {
             Screens_deleteUpdateRows(key);
         }
 
-        if (channelName) {
-            Main_EventBlocked('unblocked_channel', channelName);
-        }
     } else {
         if (!Main_values_History_data[AddUser_UsernameArray[0].id].blocked.channel[channelId]) {
             Main_values_History_data[AddUser_UsernameArray[0].id].blocked.channel[channelId] = {};
@@ -3709,7 +3698,6 @@ function Screens_BlockChannel(key) {
 
         if (channelName) {
             Main_values_History_data[AddUser_UsernameArray[0].id].blocked.channel[channelId].data[3] = channelName;
-            Main_EventBlocked('blocked_channel', channelName);
         }
 
         Screens_BlockChannelUpdateInfo(channelId);
@@ -3864,9 +3852,6 @@ function Screens_BlockGame(key) {
             Screens_deleteUpdateRows(key);
         }
 
-        if (gameName) {
-            Main_EventBlocked('unblocked_game', gameName);
-        }
     } else {
         if (!Main_values_History_data[AddUser_UsernameArray[0].id].blocked.game[gameId]) {
             Main_values_History_data[AddUser_UsernameArray[0].id].blocked.game[gameId] = {};
@@ -3880,7 +3865,6 @@ function Screens_BlockGame(key) {
 
         if (gameName) {
             Main_values_History_data[AddUser_UsernameArray[0].id].blocked.game[gameId].data[1] = gameName;
-            Main_EventBlocked('blocked_game', gameName);
         }
 
         Screens_BlockGameUpdateInfo(gameId);

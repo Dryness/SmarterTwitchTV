@@ -316,7 +316,6 @@ function Sidepannel_CheckIfIsLiveResult(StreamData, x, y) {
 
                 Sidepannel_UpdateThumbDoc.src = IMG_404_BANNER;
 
-                Main_EventPreview('Preview_sidepanel', StreamInfo[6], StreamInfo[3], StreamInfo[15], 'sidepanel');
             } else {
                 Sidepannel_CheckIfIsLiveWarn(
                     StreamInfo[1] +
@@ -569,7 +568,6 @@ function Sidepannel_ShowFeed() {
         Sidepannel_SetLastRefresh();
     }
 
-    Main_EventScreen('Side_panel_user_live');
 }
 
 function Sidepannel_Showscenefeed() {
@@ -824,7 +822,7 @@ function Sidepannel_userLiveKeyEnter() {
         Sidepannel_Hide(true);
         Main_values.Play_isHost = false;
 
-        Main_OpenLiveStream(Sidepannel_GetObj(), Sidepannel_PosFeed, UserLiveFeed_side_ids, Sidepannel_handleKeyDown, false, 'Side_Panel');
+        Main_OpenLiveStream(Sidepannel_GetObj(), Sidepannel_PosFeed, UserLiveFeed_side_ids, Sidepannel_handleKeyDown, false);
     }
 }
 

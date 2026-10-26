@@ -62,7 +62,6 @@ function AddCode_AppTokenCheckReady(obj) {
     } else {
         AddCode_AppToken(0, Main_initWindowsEnd, Main_initWindowsEnd, 0, true);
 
-        Main_EventToken(obj.status, obj.responseText);
     }
 }
 

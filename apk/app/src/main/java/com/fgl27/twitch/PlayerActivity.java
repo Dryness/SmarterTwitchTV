@@ -89,8 +89,6 @@ import androidx.media3.ui.PlayerView;
 import com.fgl27.twitch.channels.ChannelsUtils;
 import com.fgl27.twitch.DataSource.AdPlaylistFilter;
 import com.fgl27.twitch.notification.NotificationUtils;
-import com.google.firebase.FirebaseApp;
-//import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.gson.Gson;
 import java.util.ArrayList;
 import java.util.List;
@@ -384,9 +382,6 @@ public class PlayerActivity extends Activity {
             intent.setAction(null);
             setIntent(intent);
 
-            //FirebaseApp.initializeApp(this);
-            //FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true);
-
             try {
                 setContentView(R.layout.activity_player);
             } catch (Exception e) {
@@ -455,7 +450,6 @@ public class PlayerActivity extends Activity {
             initializeWebview();
 
             StopNotificationService();
-            //FirebaseCrashlytics.getInstance().sendUnsentReports();
 
             try {
                 requests.execute(() -> Tools.GetUpdateFile(getApplicationContext()));
@@ -1513,7 +1507,6 @@ public class PlayerActivity extends Activity {
             Toast.LENGTH_LONG
         ).show();
 
-        LoadUrlWebView("javascript:smartTwitchTV.Main_EventChannelRefresh(" + Type + ")");
     }
 
     private void DoResume(boolean skipResumeJS) {

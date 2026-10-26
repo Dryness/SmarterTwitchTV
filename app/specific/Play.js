@@ -2187,8 +2187,7 @@ function Play_OpenFeed(keyfun) {
             UserLiveFeed_GetObj(UserLiveFeed_FeedPosX),
             UserLiveFeed_FeedPosX + '_' + UserLiveFeed_FeedPosY[UserLiveFeed_FeedPosX],
             UserLiveFeed_ids,
-            keyfun,
-            UserLiveFeed_obj[UserLiveFeed_FeedPosX].Screen
+            keyfun
         );
     } else {
         if (Play_PreviewId && Main_IsOn_OSInterface) {
@@ -2208,8 +2207,7 @@ function Play_OpenLiveStream(keyfun) {
         UserLiveFeed_FeedPosX + '_' + UserLiveFeed_FeedPosY[UserLiveFeed_FeedPosX],
         UserLiveFeed_ids,
         keyfun,
-        !UserLiveFeed_CheckVod(),
-        UserLiveFeed_obj[UserLiveFeed_FeedPosX].Screen
+        !UserLiveFeed_CheckVod()
     );
 }
 

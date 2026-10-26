@@ -929,7 +929,6 @@ function Settings_init() {
     Main_textContent('navigation-heading', STR_SETTINGS);
     Main_HideElement('navigation-tabs');
     Main_HideElement('navigation-details');
-    Main_EventScreen('Settings');
 }
 
 function Settings_exit() {

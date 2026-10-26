@@ -416,17 +416,14 @@ function ScreensObj_StartAllVars() {
             Screens_SetAutoRefresh(this.screen);
             Main_SaveValuesWithTimeout();
         },
-        screen_view: function () {
-            if (this.ScreenName) Main_EventScreen(this.ScreenName);
-        },
         OpenVodStart: function () {
-            Main_OpenVodStart(Screens_GetObj(this.screen), this.posY + '_' + this.posX, this.ids, this.key_fun, this.ScreenName);
+            Main_OpenVodStart(Screens_GetObj(this.screen), this.posY + '_' + this.posX, this.ids, this.key_fun);
         },
         OpenClip: function () {
-            Main_OpenClip(Screens_GetObj(this.screen), this.posY + '_' + this.posX, this.ids, this.key_fun, this.ScreenName);
+            Main_OpenClip(Screens_GetObj(this.screen), this.posY + '_' + this.posX, this.ids, this.key_fun);
         },
         OpenLiveStream: function (checkHistory) {
-            Main_OpenLiveStream(Screens_GetObj(this.screen), this.posY + '_' + this.posX, this.ids, this.key_fun, checkHistory, this.ScreenName);
+            Main_OpenLiveStream(Screens_GetObj(this.screen), this.posY + '_' + this.posX, this.ids, this.key_fun, checkHistory);
         },
         hasBanner: function () {
             return this.showBanner && Settings_Obj_default('show_banner');
@@ -473,9 +470,6 @@ function ScreensObj_StartAllVars() {
             return false;
         },
         banner_click: function (obj_id) {
-            if (this.DataObj[obj_id] && this.DataObj[obj_id].event_name) {
-                Main_EventBanner(this.DataObj[obj_id].event_name + '_click', this.ScreenName, this.DataObj[obj_id].image);
-            }
 
             if (this.DataObj[obj_id] && this.DataObj[obj_id].url) {
                 UserLiveFeed_OpenBannerUrl(this.DataObj[obj_id]);
@@ -2982,7 +2976,6 @@ function ScreensObj_TopLableAgameInit(key) {
 
     Sidepannel_SetTopOpacity(Main_values.Main_Go);
 
-    Main_EventAgame(Main_values.Main_gameSelected);
 }
 
 function ScreensObj_gameCheckAndBackup(key) {

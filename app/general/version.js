@@ -24,8 +24,14 @@ var version = {
     publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
     WebVersion: 'October 26 2026',
-    WebTag: 767, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebTag: 768, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 26 2026 (Web 768)',
+            changes: [
+                'Privacy: removed Firebase / Google Analytics from the app — it no longer loads any analytics scripts or sends usage events'
+            ]
+        },
         {
             title: 'October 26 2026 (Web 767)',
             changes: [

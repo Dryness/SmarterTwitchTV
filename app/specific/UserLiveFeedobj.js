@@ -246,9 +246,6 @@ function UserLiveFeedobj_ShowFeedCheck(pos, forceRefressh) {
 
     UserLiveFeedobj_SetLastRefresh(pos);
 
-    if (UserLiveFeed_obj[pos].Screen) {
-        Main_EventScreen(UserLiveFeed_obj[pos].Screen);
-    }
 }
 
 function UserLiveFeedobj_SetLastRefresh(pos) {
@@ -753,7 +750,6 @@ function UserLiveFeedobj_ShowCurrentUserAGame() {
     UserLiveFeedobj_ShowFeedCheck(UserLiveFeedobj_UserAGamesPos, UserLiveFeed_obj[UserLiveFeedobj_UserAGamesPos].Game_changed);
     Main_IconLoad('icon_feed_back', 'icon-arrow-left', STR_BACK_USER_GAMES + STR_USER + STR_SPACE_HTML + STR_GAMES);
     if (!Settings_Obj_default('hide_etc_help_text')) Main_RemoveClass('icon_feed_back', 'opacity_zero');
-    Main_EventAgame(UserLiveFeedobj_CurrentUserAGameName);
 }
 
 function UserLiveFeedobj_HideCurrentUserAGame() {
@@ -923,7 +919,6 @@ function UserLiveFeedobj_ShowCurrentAGame() {
     UserLiveFeedobj_CurrentAGameName = UserLiveFeedobj_CurrentAGameNameEnter;
     Main_IconLoad('icon_feed_back', 'icon-arrow-left', STR_BACK_USER_GAMES + STR_GAMES);
     if (!Settings_Obj_default('hide_etc_help_text')) Main_RemoveClass('icon_feed_back', 'opacity_zero');
-    Main_EventAgame(UserLiveFeedobj_CurrentAGameName);
 }
 
 function UserLiveFeedobj_HideCurrentAGame() {

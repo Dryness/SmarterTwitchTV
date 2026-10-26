@@ -59,7 +59,7 @@ Requires Android Studio with the `apk/` folder open **and** a clone of https://g
 
 - **Never hand-edit `release/` output** — regenerate with `node release/scripts/maker.js` or your changes will be overwritten and devices won't get them.
 - Keep the `<!-- jsstart ... jsend-->` markers in `app/index.html` and `app/Extrapage/index.html`; the build replaces that block with the single `<script src="githubio/js/main.js">` tag.
-- All `app/` JS is concatenated (in order: languages, general, specific, thirdparty) into one global scope wrapped by `release/api.js` — no modules/imports; globals like `Android`, `smartTwitchTV`, `firebase`, `Twitch` are expected (predefined in JSHint). Load order between files matters.
+- All `app/` JS is concatenated (in order: languages, general, specific, thirdparty) into one global scope wrapped by `release/api.js` — no modules/imports; globals like `Android`, `smartTwitchTV`, `Twitch` are expected (predefined in JSHint). Load order between files matters.
 - Target old TV WebViews: avoid modern JS syntax; the minifier is configured to not introduce arrow functions for this reason. JSHint enforces `===`, no unused/undefined vars.
 - Version bumps (see comments in `app/general/version.js`):
   - APK release: `+1` on `publishVersionCode` (both `app/general/version.js` and `apk/versions.gradle`), update `ApkUrl`, add a `changelog` entry, and mirror the entry in `apk/Changelog.md`.

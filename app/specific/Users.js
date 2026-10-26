@@ -79,7 +79,6 @@ function Users_init() {
         Main_SaveValues();
     } else Users_StartLoad();
 
-    Main_EventScreen('Users');
 }
 
 function Users_exit() {
@@ -105,7 +104,6 @@ function Users_StartLoad() {
     Users_loadingData = true;
     Main_CounterDialogRst();
     Main_ready(Users_loadData);
-    Main_EventScreen('Users');
 }
 
 function Users_loadData() {

@@ -575,10 +575,6 @@ function UserLiveFeed_OpenBannerUrl(obj) {
 function UserLiveFeed_OpenBanner() {
     var obj = UserLiveFeed_DataObj[UserLiveFeed_FeedPosX][UserLiveFeed_FeedPosY[UserLiveFeed_FeedPosX]];
 
-    if (obj && obj.event_name) {
-        Main_EventBanner(obj.event_name + '_click', UserLiveFeed_obj[UserLiveFeed_FeedPosX].Screen, obj.image);
-    }
-
     if (obj && obj.url) {
         UserLiveFeed_OpenBannerUrl(obj);
     }
@@ -675,13 +671,6 @@ function UserLiveFeed_FeedAddFocus(skipAnimation, pos, Adder) {
     UserLiveFeed_ResetFeedId();
     Main_SaveValuesWithTimeout();
 
-    if (isBanner && UserLiveFeed_DataObj[pos][UserLiveFeed_FeedPosY[pos]].event_name) {
-        Main_EventBanner(
-            UserLiveFeed_DataObj[pos][UserLiveFeed_FeedPosY[pos]].event_name + '_viewed',
-            UserLiveFeed_obj[pos].Screen,
-            UserLiveFeed_DataObj[pos][UserLiveFeed_FeedPosY[pos]].image
-        );
-    }
 }
 
 function UserLiveFeed_CheckVod() {
@@ -892,14 +881,6 @@ function UserLiveFeed_CheckIfIsLiveResult(StreamData, x, y) {
                 if (UserLiveFeed_PreviewOffset) {
                     Play_showWarningMiddleDialog(STR_SHOW_VOD_PLAYER_WARNING + STR_SPACE_HTML + Play_timeMs(UserLiveFeed_PreviewOffset * 1000), 2000);
                 }
-
-                Main_EventPreview(
-                    'Preview_player',
-                    StreamInfo[6],
-                    StreamInfo[3],
-                    isVod ? StreamInfo[9] : StreamInfo[16] ? 'HOSTING' : StreamInfo[15],
-                    UserLiveFeed_obj[UserLiveFeed_FeedPosX].Screen
-                );
 
                 return;
             } else {

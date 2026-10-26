@@ -98,7 +98,6 @@ var Main_values = {
     UserLiveFeed_LastPosition: [],
     IsUpDating: false,
     WasLangChanged: false,
-    firebaseId: null,
     banner_pos: 0,
     banner_16by9_pos: 0,
     MaxInstancesWarn: false,
@@ -225,7 +224,6 @@ function Main_StartApp() {
                     Play_CheckIfIsLiveResult: Play_CheckIfIsLiveResult,
                     Play_ClipCheckIfIsLiveEnd: Play_ClipCheckIfIsLiveEnd,
                     Main_onNewIntent: Main_onNewIntent,
-                    Main_EventChannelRefresh: Main_EventChannelRefresh,
                     ChatLive_SetLatency: ChatLive_SetLatency,
                     Main_CheckBasexmlHttpGet: Main_CheckBasexmlHttpGet,
                     BaseXmlHttpGetFull_Process: BaseXmlHttpGetFull_Process,
@@ -844,7 +842,6 @@ function Main_showAboutDialog(removeEventListener, addEventListener) {
     Main_HideControlsDialog();
     Main_AboutDialogUpdateTime();
     Main_ShowElementWithEle(Main_about_dialog_div);
-    Main_EventScreen('About');
 }
 
 function Main_HideAboutDialog() {
@@ -916,7 +913,6 @@ function Main_showControlsDialog(removeEventListener, addEventListener) {
     Main_addEventListener('keydown', addEventListener);
     Main_HideAboutDialog();
     Main_ShowElement('dialog_controls');
-    Main_EventScreen('Controls');
 }
 
 function Main_HideControlsDialog() {
@@ -1110,11 +1106,9 @@ function Main_checkVersion(skipCheck) {
                 }
             }
 
-            Main_EventVersion(Main_IsOn_OSInterfaceVersion, version.WebVersion, Webviewversion, device, Main_AndroidSDK, Manufacturer);
         } else {
             Main_versionTag = version.VersionBase + '.' + version.publishVersionCode + ' - ' + version.WebVersion;
 
-            Main_EventVersion(Main_IsOn_OSInterfaceVersion, version.WebVersion, navigator.appVersion, navigator.platform, 'Browser', 'Browser');
         }
 
         Main_innerHTML(
@@ -1260,7 +1254,6 @@ function Main_showChangelogDialog() {
 
     Main_ChangeDialogVisible = true;
     Main_ShowElementWithEle(Main_about_dialog_div);
-    Main_EventScreen('Changelog');
 }
 
 function Main_HideChangeDialog() {
@@ -1421,7 +1414,6 @@ function Main_showUpdateDialog() {
     Main_ShowElement('update_dialog');
     Main_UpdateDialogVisible = true;
 
-    Main_EventScreen('UpdateDialog');
 }
 
 function Main_HideUpdateDialog(preventFocus) {
@@ -1516,7 +1508,7 @@ function Main_ThumbOpenIsNull(id, thumbnail) {
     return Main_getElementById(thumbnail + id) === null;
 }
 
-function Main_OpenLiveStream(data, id, idsArray, handleKeyDownFunction, checkHistory, screen) {
+function Main_OpenLiveStream(data, id, idsArray, handleKeyDownFunction, checkHistory) {
     if (Main_ThumbOpenIsNull(id, idsArray[0])) return;
     var isHosting = false;
 
@@ -1538,7 +1530,6 @@ function Main_OpenLiveStream(data, id, idsArray, handleKeyDownFunction, checkHis
                 if (!historyPos.vodid) {
                     Main_CheckBroadcastID(Main_values_Play_data[7], idsArray[2] + id);
                 } else {
-                    Main_EventPlay('live', Main_values_Play_data[6], Main_values_Play_data[3], Main_values_Play_data[15], screen);
 
                     Main_openStream();
                 }
@@ -1561,8 +1552,6 @@ function Main_OpenLiveStream(data, id, idsArray, handleKeyDownFunction, checkHis
     }
 
     Main_openStream();
-
-    Main_EventPlay('live', Main_values_Play_data[6], Main_values_Play_data[3], !isHosting ? Main_values_Play_data[15] : 'HOSTING', screen);
 
     if (!Main_IsOn_OSInterface && data[0]) {
         Play_SetSceneBackground(data[0].replace('{width}x{height}', '1280x720') + Main_randomImg);
@@ -1723,7 +1712,7 @@ function Main_openStream() {
     });
 }
 
-function Main_OpenClip(data, id, idsArray, handleKeyDownFunction, screen) {
+function Main_OpenClip(data, id, idsArray, handleKeyDownFunction) {
     if (Main_ThumbOpenIsNull(id, idsArray[0])) return;
 
     Main_clearAllPlayerEvents();
@@ -1764,7 +1753,6 @@ function Main_OpenClip(data, id, idsArray, handleKeyDownFunction, screen) {
         Main_PlayClipHandleKeyDown();
         PlayClip_Start();
 
-        Main_EventPlay('clip', Main_values_Play_data[6], Main_values_Play_data[3], Main_values_Play_data[17], screen);
     });
 
     if (!Main_IsOn_OSInterface && data[0]) {
@@ -1772,7 +1760,7 @@ function Main_OpenClip(data, id, idsArray, handleKeyDownFunction, screen) {
     }
 }
 
-function Main_OpenVodStart(data, id, idsArray, handleKeyDownFunction, screen) {
+function Main_OpenVodStart(data, id, idsArray, handleKeyDownFunction) {
     if (Main_ThumbOpenIsNull(id, idsArray[0])) return;
 
     Main_clearAllPlayerEvents();
@@ -1803,8 +1791,6 @@ function Main_OpenVodStart(data, id, idsArray, handleKeyDownFunction, screen) {
     Main_values.Main_selectedChannelLogo = Main_values_Play_data[15];
 
     Main_openVod();
-
-    Main_EventPlay('vod', Main_values_Play_data[6], Main_values_Play_data[3], Main_values_Play_data[9], screen);
 
     if (!Main_IsOn_OSInterface && data[0]) {
         Play_SetSceneBackground(data[0].replace(Main_VideoSize, '1280x720'));
@@ -3398,7 +3384,6 @@ function Main_HandleDeeplinkIntent(obj) {
 
     //TODO make the handle for the objContent
 
-    Main_EventDEEPLINK(obj);
 }
 
 function Main_GetDeeplinkObj(obj) {
@@ -3439,7 +3424,6 @@ function Main_onNewIntent(mobj) {
 
         Main_openStream();
 
-        Main_EventPlay('live', Play_data.data[6], Play_data.data[3], isLive ? Play_data.data[15] : 'HOSTING', Main_EventGetChannelScreen(obj));
     } else if (Main_A_equals_B(obj.type, 'USER')) {
         Main_CheckResume(true);
 
@@ -3522,8 +3506,6 @@ function Main_onNewIntent(mobj) {
     } else {
         Main_CheckResume();
     }
-
-    if (!isDEEPLINK) Main_EventChannel(obj);
 }
 
 function Main_onNewIntentGetScreen(obj) {
@@ -3553,250 +3535,6 @@ function Main_onNewIntentGetScreen(obj) {
     }
 
     return goTo;
-}
-
-window.dataLayer = window.dataLayer || [];
-function gtag() {
-    dataLayer.push(arguments);
-}
-
-var skipfirebase = false;
-function Main_Startfirebase() {
-    var firebaseConfig = {
-        apiKey: 'AIzaSyAr2tuLGB5lvredaqU2KWW4p8Yg7sudbzI',
-        authDomain: 'smarttv-twitch-web-android.firebaseapp.com',
-        databaseURL: 'https://smarttv-twitch-web-android.firebaseio.com',
-        projectId: 'smarttv-twitch-web-android',
-        storageBucket: 'smarttv-twitch-web-android.appspot.com',
-        messagingSenderId: '871032203366',
-        appId: '1:871032203366:web:922c0cf93432bbe1e7a5a7',
-        measurementId: 'G-8YQ2JGNYDP'
-    };
-
-    try {
-        if (!Main_A_includes_B(window.location.href, 'code')) {
-            firebase.initializeApp(firebaseConfig);
-            firebase.analytics();
-
-            gtag('js', new Date());
-        } else skipfirebase = true;
-    } catch (e) {
-        console.log('Main_Startfirebase e ' + e);
-        skipfirebase = true;
-    }
-}
-
-function Main_EventScreen(screen) {
-    Main_EventShowScreen('screen_view', screen);
-}
-
-function Main_EventAgame(game) {
-    Main_EventShowScreen('game_view', game);
-}
-
-function Main_EventBanner(type, screen, image) {
-    if (skipfirebase) return;
-
-    try {
-        var image_array = image.split('/'),
-            len = image_array.length;
-
-        gtag('event', type, {
-            screen: screen,
-            image: image_array[len - 1]
-        });
-    } catch (e) {
-        console.log('Main_EventBanner e ' + e);
-    }
-}
-
-function Main_EventShowScreen(type, name) {
-    if (skipfirebase) return;
-
-    try {
-        gtag('event', type, {
-            name: name,
-            lang: Languages_Selected
-        });
-    } catch (e) {
-        console.log('Main_EventShowScreen e ' + e);
-    }
-}
-
-function Main_EventBlocked(type, name) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            gtag('event', type, {
-                name: name
-            });
-        } catch (e) {
-            console.log('Main_EventProxy e ' + e);
-        }
-    });
-}
-
-function Main_EventProxy(success) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            gtag('event', 'proxy_status', {
-                name: proxyType,
-                result: success ? 'Success' : 'Fail'
-            });
-        } catch (e) {
-            console.log('Main_EventProxy e ' + e);
-        }
-    });
-}
-
-function Main_EventToken(status, responseText) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            gtag('event', 'token_status', {
-                status: status,
-                responseText: responseText
-            });
-        } catch (e) {
-            console.log('Main_EventProxy e ' + e);
-        }
-    });
-}
-
-function Main_EventPlay(type, name, game, lang, screen, mode) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            gtag('event', type, {
-                name: name,
-                lang: lang ? lang.toUpperCase() : UNKNOWN,
-                game: game ? game : UNKNOWN,
-                screen: screen ? screen : UNKNOWN,
-                mode: mode ? mode : 'NORMAL',
-                proxy: proxyType
-            });
-        } catch (e) {
-            console.log('Main_EventPlay e ' + e);
-        }
-    });
-}
-
-function Main_EventPreview(type, name, game, lang, screen) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            gtag('event', type, {
-                name: name,
-                lang: lang ? lang.toUpperCase() : UNKNOWN,
-                game: game ? game : UNKNOWN,
-                screen: screen ? screen : UNKNOWN,
-                proxy: proxyType
-            });
-        } catch (e) {
-            console.log('Main_EventPreview e ' + e);
-        }
-    });
-}
-
-function Main_EventVersion(apk, web, webview, device, sdk, manufacturer) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            //Delay the event if it is call too sone will not work
-            Main_setTimeout(function () {
-                gtag('event', 'app_version', {
-                    apk_version: apk,
-                    web_version: web,
-                    webview_version: webview,
-                    device_model: device,
-                    sdk: sdk,
-                    manufacturer: manufacturer,
-                    device_type: Main_isTV ? 'TV' : 'Other'
-                });
-            }, 15000);
-
-            //The app will send this when the token is added just save a reference to use later
-            if (Main_getItemInt('New_User_Token_Added', 0)) {
-                Main_setItem('New_User_Token_Added', 0);
-                Main_Eventsimple('New_User_Token_Added');
-            }
-        } catch (e) {
-            console.log('Main_EventVersion e ' + e);
-        }
-    });
-}
-
-function Main_EventChannelRefresh(screen) {
-    Main_EventChannel({
-        screen: screen,
-        type: 'REFRESH'
-    });
-}
-
-function Main_EventChannel(obj) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            if (!obj || !obj.type || !obj.screen) return;
-
-            gtag('event', 'channel', {
-                type: obj.type,
-                screen: Main_EventGetChannelScreen(obj)
-            });
-        } catch (e) {
-            console.log('Main_EventChannel e ' + e);
-        }
-    });
-}
-
-function Main_EventDEEPLINK(type, value) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            gtag('event', 'deeplink', {
-                type: type,
-                value: value
-            });
-        } catch (e) {
-            console.log('Main_EventChannel e ' + e);
-        }
-    });
-}
-
-var UNKNOWN = 'UNKNOWN';
-var Main_EventChannelScreens = [
-    'CHANNEL_' + UNKNOWN,
-    'CHANNEL_LIVE',
-    'CHANNEL_USER_LIVE',
-    'CHANNEL_FEATURED',
-    'CHANNEL_GAMES',
-    'CHANNEL_USER_GAMES',
-    'CHANNEL_USER_HOSTS'
-];
-
-function Main_EventGetChannelScreen(obj) {
-    return obj.screen && Main_EventChannelScreens[obj.screen] ? Main_EventChannelScreens[obj.screen] : Main_EventChannelScreens[0];
-}
-
-function Main_Eventsimple(event, obj) {
-    Main_ready(function () {
-        if (skipfirebase) return;
-
-        try {
-            gtag('event', event, obj ? obj : {app_name: 'sttv'});
-        } catch (e) {
-            console.log('Main_Eventsimple event ' + event + ' e ' + e);
-        }
-    });
 }
 
 //obfuscate to avoid key being searchable

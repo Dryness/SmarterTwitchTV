@@ -264,9 +264,6 @@ function js_jshint(source, extraPredef) {
         Android: true,
         punycode: true,
         smartTwitchTV: true,
-        firebase: true,
-        dataLayer: true,
-        firebase: true,
         ActiveXObject: true,
         Twitch: true,
         global: true

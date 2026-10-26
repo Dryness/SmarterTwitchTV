@@ -286,9 +286,6 @@ function PlayHLS_PlayListUrlResult(result, checkResult, check_1, check_2, check_
        parseInt(CheckId_y)
     );
 
-    if (useProxy) {
-        Main_EventProxy(true);
-    }
 }
 
 //Whether the ad blocking setting is enabled
@@ -515,7 +512,6 @@ function PlayHLS_CheckProxyResultFail(responseText) {
     }
 
     proxy_fail_counter++;
-    Main_EventProxy(false);
 
     return true;
 }
@@ -584,9 +580,6 @@ function PlayHLS_GetPlayListSyncUrl(isLive, Channel_or_VOD_Id, useProxy, Token, 
 
         if (response) {
             if (response.status === 200) {
-                if (useProxy) {
-                    Main_EventProxy(true);
-                }
                 return obj;
             } else {
                 //in case we fail using proxy restart the process without using proxy
