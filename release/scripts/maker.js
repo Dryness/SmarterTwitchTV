@@ -197,6 +197,11 @@ function make_JS(jshOnly) {
         return false;
     }
 
+    if (!check_api_exports(mainJSContent)) {
+        buildFailed = true;
+        return false;
+    }
+
     const extraJSContent = tools.readFileSync('app/Extrapage/Extrapage.js');
 
     if (js_jshint(extraJSContent)) {
@@ -216,6 +221,26 @@ function make_JS(jshOnly) {
     tools.writeFileASync(temp_maker_folder + 'Extrapage.js', extraJSContent);
 
     makeMainJS(mainJSContentCompressed, mainJSContent, extraJSContent);
+
+    return true;
+}
+
+//Every "Name: Name" export in release/api.js must still be declared in app/, a stale one throws a ReferenceError on load and the app never starts
+function check_api_exports(mainJSContent) {
+    const releaseAPIEnd = tools.readFileSync('release/api.js').split('APISPLITCENTER')[1].split('//APIEND')[0];
+    const exportRegex = /^\s*(\w+):\s*(\w+),?\s*$/gm;
+    const missing = [];
+    let match;
+
+    while ((match = exportRegex.exec(releaseAPIEnd)) !== null) {
+        const name = match[2];
+        if (!new RegExp('(function\\s+' + name + '\\b|var\\s+' + name + '\\b)').test(mainJSContent)) missing.push(name);
+    }
+
+    if (missing.length) {
+        console.log('\nrelease/api.js exports names not declared in app/: ' + missing.join(', ') + '\n');
+        return false;
+    }
 
     return true;
 }

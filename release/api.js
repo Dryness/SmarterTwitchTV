@@ -69,7 +69,6 @@
         Play_CheckIfIsLiveResult: Play_CheckIfIsLiveResult,
         Play_ClipCheckIfIsLiveEnd: Play_ClipCheckIfIsLiveEnd,
         Main_onNewIntent: Main_onNewIntent,
-        Main_EventChannelRefresh: Main_EventChannelRefresh,
         ChatLive_SetLatency: ChatLive_SetLatency,
         Main_CheckBasexmlHttpGet: Main_CheckBasexmlHttpGet,
         BaseXmlHttpGetFull_Process: BaseXmlHttpGetFull_Process,

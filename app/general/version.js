@@ -23,9 +23,15 @@ var version = {
     VersionBase: '3.0',
     publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
-    WebVersion: 'October 26 2026',
-    WebTag: 769, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebVersion: 'October 27 2026',
+    WebTag: 770, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 27 2026 (Web 770)',
+            changes: [
+                'Fix: Web 768 and 769 never started — the app stayed on a black screen with a loading spinner after the splash, because the web API still exported a removed analytics function; the stale export is gone'
+            ]
+        },
         {
             title: 'October 26 2026 (Web 769)',
             changes: [
