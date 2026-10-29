@@ -843,7 +843,9 @@ function Play_AdBlockReload() {
 }
 
 function Play_loadDataResult(response) {
-    if (Play_isOn) {
+    //An ad escape or quality restore reload may complete after the stream was declared ended,
+    //letting it through restarts the native player behind the end dialog with no session left
+    if (Play_isOn && !Play_isEndDialogVisible()) {
         if (response) {
             var responseObj = JSON.parse(response);
 
@@ -2107,7 +2109,9 @@ function Play_CloseBigAndSwich(error_410) {
         PlayExtra_SwitchPlayer();
         Play_CloseSmall();
     } else {
-        if (Main_IsOn_OSInterface) OSInterface_mClearSmallPlayer();
+        //The stream was just declared gone, the main player may still be playing (a false
+        //offline during an ad break), stop it or it keeps playing audio behind the end dialog
+        if (Main_IsOn_OSInterface) OSInterface_stopVideo();
         Play_EndErrorStart(error_410);
     }
     PlayExtra_UnSetPanel();

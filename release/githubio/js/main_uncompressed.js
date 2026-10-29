@@ -8359,9 +8359,16 @@
         VersionBase: '3.0',
         publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
         ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
-        WebVersion: 'October 27 2026',
-        WebTag: 770, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+        WebVersion: 'October 29 2026',
+        WebTag: 771, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
         changelog: [
+            {
+                title: 'October 29 2026 (Web 771)',
+                changes: [
+                    'Fix: when a stream reload fails mid ad break (the stream is declared offline while the old playback is still running), the app could end up on a black screen with the video playing in a small window and audio that never stops — the still-playing player is now stopped when the session ends instead of only clearing the empty picture-in-picture slot',
+                    'Fix: an ad escape or quality restore reload that completes after the stream-end dialog is already up no longer restarts the player behind the dialog with no session left to control it'
+                ]
+            },
             {
                 title: 'October 27 2026 (Web 770)',
                 changes: [
@@ -24721,7 +24728,9 @@
     }
 
     function Play_loadDataResult(response) {
-        if (Play_isOn) {
+        //An ad escape or quality restore reload may complete after the stream was declared ended,
+        //letting it through restarts the native player behind the end dialog with no session left
+        if (Play_isOn && !Play_isEndDialogVisible()) {
             if (response) {
                 var responseObj = JSON.parse(response);
 
@@ -25987,7 +25996,9 @@ https://video-weaver.sao03.hls.ttvnw.net/v1/playlist/C.m3u8 09:36:20.90
             PlayExtra_SwitchPlayer();
             Play_CloseSmall();
         } else {
-            if (Main_IsOn_OSInterface) OSInterface_mClearSmallPlayer();
+            //The stream was just declared gone, the main player may still be playing (a false
+            //offline during an ad break), stop it or it keeps playing audio behind the end dialog
+            if (Main_IsOn_OSInterface) OSInterface_stopVideo();
             Play_EndErrorStart(error_410);
         }
         PlayExtra_UnSetPanel();

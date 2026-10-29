@@ -23,9 +23,16 @@ var version = {
     VersionBase: '3.0',
     publishVersionCode: 394, //Always update (+1 to current value) Main_version_java after update publishVersionCode or a major update of the apk is released
     ApkUrl: 'https://github.com/YofarDev/SmarterTwitchTV/releases/download/394/SmarterPurpleTV_3_0_394.apk',
-    WebVersion: 'October 27 2026',
-    WebTag: 770, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
+    WebVersion: 'October 29 2026',
+    WebTag: 771, //Always update (+1 to current value) Main_version_web after update Main_minversion or a major update of the web part of the app
     changelog: [
+        {
+            title: 'October 29 2026 (Web 771)',
+            changes: [
+                'Fix: when a stream reload fails mid ad break (the stream is declared offline while the old playback is still running), the app could end up on a black screen with the video playing in a small window and audio that never stops — the still-playing player is now stopped when the session ends instead of only clearing the empty picture-in-picture slot',
+                'Fix: an ad escape or quality restore reload that completes after the stream-end dialog is already up no longer restarts the player behind the dialog with no session left to control it'
+            ]
+        },
         {
             title: 'October 27 2026 (Web 770)',
             changes: [
