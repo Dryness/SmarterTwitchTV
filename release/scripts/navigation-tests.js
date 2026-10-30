@@ -86,4 +86,21 @@ for (const intent of [false, true])
 check(s.Navigation_Startup({explicitScreen: s.Main_Clip, hasAccount: true}).screen === s.Main_Clip, 'explicit screen remains authoritative');
 check(s.Navigation_Startup({hasAccount: true, hasToken: false}).screen === s.Main_UserLive, 'username-only account is still an account');
 check(s.Navigation_Startup({hasAccount: false}).screen === null, 'onboarding does not invoke account loader');
+// A game from the home screen Games channel opens under Browse > Categories, not the last section used
+require('vm').runInContext(
+    require('fs')
+        .readFileSync('app/specific/Main.js', 'utf8')
+        .match(/^function Main_SetChannelGameOrigin\(\) \{[\s\S]*?^\}/m)[0],
+    s
+);
+s.Main_values = {Main_BeforeAgame: s.Main_UserLive, Main_BeforeAgameisSet: false, Games_return: true};
+s.ScreenObj = {};
+s.ScreenObj[s.Main_aGame] = {BeforeAgame: s.Main_Blocked};
+s.Navigation_Enter(s.Main_UserLive);
+s.Main_SetChannelGameOrigin();
+s.Navigation_Enter(s.Main_aGame);
+check(s.Navigation_State.destination === 'browse' && s.Navigation_State.tab === 2, 'channel game shows under Browse > Categories');
+check(s.Main_values.Main_BeforeAgame === s.Main_games && s.Main_values.Main_BeforeAgameisSet, 'channel game Back returns to Categories');
+check(!s.Main_values.Games_return, 'channel game Back does not return to a stale search');
+check(s.ScreenObj[s.Main_aGame].BeforeAgame === s.Main_games, 'channel game drops a stale Blocked origin');
 console.log(checks + ' production navigation checks passed');
