@@ -1,5 +1,5 @@
 /* Hold OK on a grid card opens its options: auto-repeat and the release of that press must not pick an
- * option or re-arm the grid behind the dialog. Loads the real TVKeyValue.js and Screens.js key handlers. */
+ * option or re-arm the grid behind the dialog. Loads the real TVKeyValue.js, Screens.js and Users.js key handlers. */
 const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
@@ -93,5 +93,64 @@ for (direct of [0, 1]) {
     check(picks === 1, mode + 'a fresh OK picks the focused option');
     check(listeners.keydown.size === 1 && listeners.keydown.has(s.ScreenObj[key].key_fun), mode + 'only the grid listens after the options close');
 }
+
+/* Account screen: OK on a saved account opens the user dialog on key-down. Holding it must not let
+ * auto-repeat pick "make main", whose reload lands on the Add User card for the next repeat. */
+vm.runInContext(fs.readFileSync('app/specific/Users.js', 'utf8'), s);
+const shown = new Set();
+let makeMain = 0,
+    addUser = 0;
+Object.assign(s, {
+    Main_FirstLoad: false,
+    Main_values: {},
+    Users_ids: ['thumbdiv'],
+    Main_isElementShowing: id => shown.has(id),
+    Main_HideElement: () => {},
+    Users_showUserDialog: () => shown.add('main_dialog_user'),
+    Users_HideUserDialog: () => shown.delete('main_dialog_user'),
+    // Like the real reload, making an account main resets the cursor to the Add User card.
+    AddUser_UserMakeOne: () => (makeMain++, (s.Users_cursorX = 0), (s.Users_cursorY = 0)),
+    AddUser_init: () => addUser++
+});
+function resetUsers(x) {
+    listeners.keydown.clear();
+    listeners.keyup.clear();
+    listeners.keydown.add(s.Users_handleKeyDown);
+    shown.clear();
+    makeMain = addUser = 0;
+    s.Users_HeldKey = 0;
+    s.Users_RemoveCursor = 0;
+    s.Users_cursorY = 0;
+    s.Users_cursorX = x;
+}
+
+resetUsers(1);
+send('keydown', s.KEY_ENTER);
+for (let i = 0; i < 10; i++) send('keydown', s.KEY_ENTER);
+check(shown.has('main_dialog_user'), 'account: a held OK opens the user dialog');
+check(makeMain === 0 && addUser === 0, 'account: auto-repeat neither makes the account main nor opens Add User');
+send('keyup', s.KEY_UP);
+send('keydown', s.KEY_ENTER);
+check(makeMain === 0, 'account: another key coming up does not release the held OK');
+send('keyup', s.KEY_ENTER);
+check(!listeners.keyup.size && !s.Users_HeldKey, 'account: the release clears the hold');
+send('keydown', s.KEY_ENTER);
+check(makeMain === 1 && addUser === 0, 'account: a fresh OK picks the focused option once');
+
+resetUsers(1);
+send('keydown', s.KEY_ENTER);
+send('keyup', s.KEY_ENTER);
+check(shown.has('main_dialog_user') && !listeners.keyup.size, 'account: a tap opens the dialog and leaves no key-up listener');
+
+resetUsers(0);
+send('keydown', s.KEY_ENTER);
+check(addUser === 1 && !s.Users_HeldKey && !listeners.keyup.size, 'account: OK on Add User opens it without arming the hold');
+
+resetUsers(1);
+send('keydown', s.KEY_ENTER);
+s.Users_handleKeyUp(); // Main_KeyOwnershipReset after a lost key-up
+check(!s.Users_HeldKey && !listeners.keyup.size, 'account: a lost key-up is reset on blur');
+send('keydown', s.KEY_ENTER);
+check(makeMain === 1, 'account: OK works again after the reset');
 
 console.log(checks + ' hold options checks passed');
