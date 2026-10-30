@@ -17,6 +17,10 @@
  * along with SmartTwitchTV. If not, see <https://github.com/fgl27/SmartTwitchTV/blob/master/LICENSE>.
  *
  */
+
+//Reports live watch time the way the Twitch site player does, so Twitch can credit channel points.
+//The channel page, its settings script and the minute-watched event are undocumented Twitch site internals,
+//they may change without notice; any failure here is silent and only stops the reporting.
 var PlayChannelPoints_IntervalId = null;
 var PlayChannelPoints_SpadeUrl = null;
 var PlayChannelPoints_ChannelId = null;
@@ -49,11 +53,7 @@ function PlayChannelPoints_Start() {
     PlayChannelPoints_ChannelId = Play_data.data[14] + '';
 
     PlayChannelPoints_DiscoverSpadeUrl();
-    PlayChannelPoints_IntervalId = Main_setInterval(
-        PlayChannelPoints_SendMinuteWatched,
-        PlayChannelPoints_IntervalMs,
-        PlayChannelPoints_IntervalId
-    );
+    PlayChannelPoints_IntervalId = Main_setInterval(PlayChannelPoints_SendMinuteWatched, PlayChannelPoints_IntervalMs, PlayChannelPoints_IntervalId);
 }
 
 function PlayChannelPoints_Stop() {
@@ -120,7 +120,8 @@ function PlayChannelPoints_SendMinuteWatched() {
         return;
     }
 
-    if (!Play_Playing) return;
+    //Only report minutes that are actually playing: not paused, buffering or with the app in the background
+    if (!Play_Playing || Main_isStopped || !Play_isPlaying()) return;
 
     if (!PlayChannelPoints_SpadeUrl) {
         PlayChannelPoints_DiscoverSpadeUrl();
