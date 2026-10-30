@@ -105,6 +105,29 @@ reply(last(), 200, '"https://assets.twitch.tv/config/settings.def.js"');
 reply(last(), 200, '"spade_url":"https://spade.twitch.tv/track"');
 check(s.PlayChannelPoints_SpadeUrl === 'https://spade.twitch.tv/track', 'spade_url accepted too');
 
+//Both endpoints, in Twitch's order (beacon first): spade is used, beacon kept as fallback
+s.PlayChannelPoints_SpadeUrl = null;
+tick();
+reply(last(), 200, '"https://assets.twitch.tv/config/settings.both.js"');
+reply(last(), 200, '{"beacon_url":"https://beacon.twitch.tv/track","spade_url":"https://spade.twitch.tv/track"}');
+check(s.PlayChannelPoints_SpadeUrl === 'https://spade.twitch.tv/track', 'spade_url preferred over beacon_url');
+tick();
+check(last().url === 'https://spade.twitch.tv/track', 'report goes to spade');
+//Blocked host (DNS sinkhole): no response at all, status 0
+reply(last(), 0, '');
+check(s.PlayChannelPoints_SpadeUrl === 'https://beacon.twitch.tv/track', 'unreachable endpoint falls back to the other');
+tick();
+check(last().url === 'https://beacon.twitch.tv/track', 'next minute reports to the fallback');
+reply(last(), 0, '');
+check(s.PlayChannelPoints_SpadeUrl === null, 'no endpoint left after both fail');
+tick();
+check(last().url === 'https://www.twitch.tv/streamer', 'rediscovers when every endpoint failed');
+reply(last(), 200, '"https://assets.twitch.tv/config/settings.both.js"');
+reply(last(), 200, '{"spade_url":"https://spade.twitch.tv/track"}');
+tick();
+reply(last(), 204, '');
+check(s.PlayChannelPoints_SpadeUrl === 'https://spade.twitch.tv/track', 'accepted report keeps the endpoint');
+
 //A discovery reply from an older stream is ignored
 s.PlayChannelPoints_Start();
 const stale = last();

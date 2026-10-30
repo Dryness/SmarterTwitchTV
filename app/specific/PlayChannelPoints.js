@@ -23,6 +23,10 @@
 //they may change without notice; any failure here is silent and only stops the reporting.
 var PlayChannelPoints_IntervalId = null;
 var PlayChannelPoints_SpadeUrl = null;
+//Remaining endpoints to try when the current one can't be reached
+var PlayChannelPoints_SpadeUrlFallbacks = [];
+//spade_url first: verified to credit points, and beacon.twitch.tv is on common DNS tracker blocklists
+var PlayChannelPoints_SpadeUrlKeys = ['spade_url', 'beacon_url'];
 var PlayChannelPoints_ChannelId = null;
 var PlayChannelPoints_BroadcastId = null;
 var PlayChannelPoints_ChannelLogin = null;
@@ -109,9 +113,19 @@ function PlayChannelPoints_SettingsSuccess(obj, key, id) {
 
     key = key || 0;
 
-    var match = obj.responseText.match(/"(?:beacon_url|spade_url)":"(.*?)"/);
+    var urls = [],
+        match,
+        i = 0,
+        len = PlayChannelPoints_SpadeUrlKeys.length;
 
-    if (match && match[1]) PlayChannelPoints_SpadeUrl = match[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+    for (i; i < len; i++) {
+        match = obj.responseText.match(new RegExp('"' + PlayChannelPoints_SpadeUrlKeys[i] + '":"(.*?)"'));
+
+        if (match && match[1]) urls.push(match[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/'));
+    }
+
+    PlayChannelPoints_SpadeUrl = urls.length ? urls.shift() : null;
+    PlayChannelPoints_SpadeUrlFallbacks = urls;
 }
 
 function PlayChannelPoints_SendMinuteWatched() {
@@ -157,5 +171,8 @@ function PlayChannelPoints_SendSuccess(obj, key, id) {
 
     key = key || 0;
 
-    if (obj.status === 404 || obj.status === 410) PlayChannelPoints_SpadeUrl = null;
+    //0 = no response (blocked host, DNS or network failure), 404/410 = endpoint gone: try the next one, rediscover when none is left
+    if (obj.status === 0 || obj.status === 404 || obj.status === 410) {
+        PlayChannelPoints_SpadeUrl = PlayChannelPoints_SpadeUrlFallbacks.length ? PlayChannelPoints_SpadeUrlFallbacks.shift() : null;
+    }
 }
