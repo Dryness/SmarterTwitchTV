@@ -1,5 +1,6 @@
 /* Hold OK on a grid card opens its options: auto-repeat and the release of that press must not pick an
- * option or re-arm the grid behind the dialog. Loads the real TVKeyValue.js, Screens.js and Users.js key handlers. */
+ * option or re-arm the grid behind the dialog. Loads the real TVKeyValue.js, Screens.js and Users.js key handlers,
+ * and Main_KeyOwnershipReset from Main.js. */
 const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
@@ -152,5 +153,29 @@ s.Users_handleKeyUp(); // Main_KeyOwnershipReset after a lost key-up
 check(!s.Users_HeldKey && !listeners.keyup.size, 'account: a lost key-up is reset on blur');
 send('keydown', s.KEY_ENTER);
 check(makeMain === 1, 'account: OK works again after the reset');
+
+/* Grid: the page blurs while OK is held on a card, before the hold opens the options, so that press never comes up.
+ * The real Main_KeyOwnershipReset disarms its release; options opened afterwards by holding Left must still take OK. */
+vm.runInContext(fs.readFileSync('app/specific/Main.js', 'utf8').match(/function Main_KeyOwnershipReset\(\)[\s\S]*?\n}/)[0], s);
+Object.assign(s, {
+    UIFocus_SuppressedKeys: {},
+    ChannelContent_KeyEnterID: null,
+    Main_ChannelContent: 14,
+    Main_values: {Main_Go: key},
+    Main_GridOwnsInput: () => true
+});
+direct = 0;
+reset();
+send('keydown', s.KEY_ENTER);
+s.Main_KeyOwnershipReset();
+check(listeners.keydown.has(s.ScreenObj[key].key_fun) && !listeners.keyup.size, 'blur: the reset re-arms the grid without the lost release');
+send('keydown', s.KEY_LEFT);
+const holdLeft = timer;
+timer = null;
+if (holdLeft) holdLeft();
+send('keyup', s.KEY_LEFT);
+check(dialogShown, 'blur: holding Left still opens the options');
+send('keydown', s.KEY_ENTER);
+check(picks === 1, 'blur: OK picks an option after a lost key-up');
 
 console.log(checks + ' hold options checks passed');

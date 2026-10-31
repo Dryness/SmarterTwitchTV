@@ -3332,6 +3332,7 @@ function Main_KeyOwnershipReset() {
     Main_clearTimeout(Screens_KeyEnterID);
     Main_clearTimeout(ChannelContent_KeyEnterID);
     Users_handleKeyUp(); // a lost key-up must not leave Users ignoring OK
+    Screens_ThumbOptionCanKeyEnter = true; // nor the card options
     if (Main_values.Main_Go === Main_ChannelContent) {
         if (Main_GridOwnsInput()) {
             Main_removeEventListener('keyup', ChannelContent_handleKeyUp);
