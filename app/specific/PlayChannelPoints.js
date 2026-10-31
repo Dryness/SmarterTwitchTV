@@ -56,7 +56,8 @@ function PlayChannelPoints_Start() {
     PlayChannelPoints_BroadcastId = Play_data.data[7] + '';
     PlayChannelPoints_ChannelId = Play_data.data[14] + '';
 
-    PlayChannelPoints_DiscoverSpadeUrl();
+    //The endpoint isn't tied to the channel: found once, then kept across streams until no endpoint is left (SendSuccess)
+    if (!PlayChannelPoints_SpadeUrl) PlayChannelPoints_DiscoverSpadeUrl();
     PlayChannelPoints_IntervalId = Main_setInterval(PlayChannelPoints_SendMinuteWatched, PlayChannelPoints_IntervalMs, PlayChannelPoints_IntervalId);
 }
 

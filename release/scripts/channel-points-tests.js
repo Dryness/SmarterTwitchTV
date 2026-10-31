@@ -128,10 +128,18 @@ tick();
 reply(last(), 204, '');
 check(s.PlayChannelPoints_SpadeUrl === 'https://spade.twitch.tv/track', 'accepted report keeps the endpoint');
 
+//Another stream reuses the known endpoint: no channel page or settings script again
+count = requests.length;
+s.PlayChannelPoints_Start();
+check(requests.length === count && activeIntervals() === 1, 'a new stream starts without rediscovery');
+tick();
+check(requests.length === count + 1 && last().url === 'https://spade.twitch.tv/track', 'its first minute reports to the known endpoint');
+
 //A discovery reply from an older stream is ignored
+s.PlayChannelPoints_SpadeUrl = null;
 s.PlayChannelPoints_Start();
 const stale = last();
-s.PlayChannelPoints_SpadeUrl = null;
+check(stale.url === 'https://www.twitch.tv/streamer', 'a stream with no known endpoint discovers it');
 s.PlayChannelPoints_Start();
 count = requests.length;
 reply(stale, 200, '"https://assets.twitch.tv/config/settings.old.js"');
