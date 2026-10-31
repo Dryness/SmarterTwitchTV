@@ -93,7 +93,9 @@ import com.google.gson.Gson;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -263,6 +265,8 @@ public class PlayerActivity extends Activity {
 
     private BlackListMediaCodecSelector BLACKLISTED_CODECS = null;
     private BlackListMediaCodecSelector BLACKLISTED_CODECS_FALLBACK = null;
+    //Video decoder each player instance initialized last; players move between positions when one is reused
+    private final Map<ExoPlayer, String> VideoDecoderNames = new WeakHashMap<>();
     private String[] BLACKLISTED_QUALITIES = null;
 
     private final PlayerObj[] PlayerObj = new PlayerObj[PlayerAccountPlus];
@@ -545,10 +549,19 @@ public class PlayerActivity extends Activity {
             PlayerObj[4].player != null &&
             PreviewPlayerPlaylist != null &&
             Objects.equals(mainPlaylistString, PreviewPlayerPlaylist) &&
+            !(trackSelectorParametersPosition == 0 && PreviewOnFallbackDecoder()) &&
             (AllMainPlayerInUse() ||
                 (PlayerBitrate[PlayerObj[4].trackSelectorParametersPosition] == PlayerBitrate[trackSelectorParametersPosition] &&
                     PlayerResolution[PlayerObj[4].trackSelectorParametersPosition] == PlayerResolution[trackSelectorParametersPosition]))
         );
+    }
+
+    //A preview that fell back to a blacklisted decoder (the hardware one was in use, see SetupPlayer) would keep it
+    //as the main player, so the main player loads the stream itself instead
+    private boolean PreviewOnFallbackDecoder() {
+        String decoder = VideoDecoderNames.get(PlayerObj[4].player);
+
+        return decoder != null && BLACKLISTED_CODECS != null && BLACKLISTED_CODECS.isBlackListedVideoDecoder(decoder);
     }
 
     private void ReUsePlayer(int PlayerObjPosition) {
@@ -647,7 +660,7 @@ public class PlayerActivity extends Activity {
             PlayerObj[PlayerObjPosition].Listener = new PlayerEventListener(PlayerObjPosition);
             PlayerObj[PlayerObjPosition].player.addListener(PlayerObj[PlayerObjPosition].Listener);
 
-            PlayerObj[PlayerObjPosition].player.addAnalyticsListener(new AnalyticsEventListener());
+            PlayerObj[PlayerObjPosition].player.addAnalyticsListener(new AnalyticsEventListener(PlayerObj[PlayerObjPosition].player));
 
             PlayerObj[PlayerObjPosition].playerView.setPlayer(PlayerObj[PlayerObjPosition].player);
         }
@@ -3822,6 +3835,22 @@ public class PlayerActivity extends Activity {
     }
 
     private class AnalyticsEventListener implements AnalyticsListener {
+
+        private final ExoPlayer player;
+
+        AnalyticsEventListener(ExoPlayer player) {
+            this.player = player;
+        }
+
+        @Override
+        public void onVideoDecoderInitialized(
+            @NonNull EventTime eventTime,
+            @NonNull String decoderName,
+            long initializedTimestampMs,
+            long initializationDurationMs
+        ) {
+            VideoDecoderNames.put(player, decoderName);
+        }
 
         @Override
         public final void onDroppedVideoFrames(@NonNull EventTime eventTime, int count, long elapsedMs) {

@@ -77,4 +77,17 @@ public class BlackListMediaCodecSelector implements MediaCodecSelector {
 
         return false;
     }
+
+    //Video decoder name as a player reports it (AnalyticsListener), the blacklist holds the codec name followed by its type
+    boolean isBlackListedVideoDecoder(String decoderName) {
+        String nameType = decoderName.toLowerCase(Locale.US) + "video/";
+
+        for (String blackListedCodec : BLACKLISTEDCODECS) {
+            if (blackListedCodec.startsWith(nameType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
