@@ -36,8 +36,9 @@ public class BlackListMediaCodecSelector implements MediaCodecSelector {
     private final String[] BLACKLISTEDCODECS;
     private final boolean BlackListedAsFallback;
 
-    //BlackListedAsFallback keeps the blacklisted codecs at the end of the list instead of removing them,
-    //for a player that may find the allowed (hardware) decoders already in use, needs decoder fallback enabled
+    //BlackListedAsFallback keeps the blacklisted software codecs at the end of the list instead of removing them,
+    //for a player that may find the allowed (hardware) decoders already in use, needs decoder fallback enabled.
+    //A blacklisted hardware codec stays out: the user blocked it, and a busy hardware decoder needs a software one
     BlackListMediaCodecSelector(String[] BLACKLISTEDCODECS, boolean BlackListedAsFallback) {
         this.BLACKLISTEDCODECS = BLACKLISTEDCODECS;
         this.BlackListedAsFallback = BlackListedAsFallback;
@@ -58,7 +59,7 @@ public class BlackListMediaCodecSelector implements MediaCodecSelector {
 
             if (!blacklistedCodec(codecInfo.name.toLowerCase(Locale.US) + codecInfo.mimeType)) {
                 filteredCodecInfo.add(codecInfo);
-            } else if (BlackListedAsFallback) {
+            } else if (BlackListedAsFallback && codecInfo.softwareOnly) {
                 blacklistedCodecInfo.add(codecInfo);
             }
         }
