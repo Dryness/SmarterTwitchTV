@@ -34,9 +34,13 @@ import java.util.Locale;
 public class BlackListMediaCodecSelector implements MediaCodecSelector {
 
     private final String[] BLACKLISTEDCODECS;
+    private final boolean BlackListedAsFallback;
 
-    BlackListMediaCodecSelector(String[] BLACKLISTEDCODECS) {
+    //BlackListedAsFallback keeps the blacklisted codecs at the end of the list instead of removing them,
+    //for a player that may find the allowed (hardware) decoders already in use, needs decoder fallback enabled
+    BlackListMediaCodecSelector(String[] BLACKLISTEDCODECS, boolean BlackListedAsFallback) {
         this.BLACKLISTEDCODECS = BLACKLISTEDCODECS;
+        this.BlackListedAsFallback = BlackListedAsFallback;
     }
 
     @NonNull
@@ -47,12 +51,19 @@ public class BlackListMediaCodecSelector implements MediaCodecSelector {
 
         // filter codecs based on blacklist template
         List<MediaCodecInfo> filteredCodecInfo = new ArrayList<>();
+        List<MediaCodecInfo> blacklistedCodecInfo = new ArrayList<>();
 
         for (MediaCodecInfo codecInfo : codecInfoList) {
-            if (codecInfo != null && !blacklistedCodec(codecInfo.name.toLowerCase(Locale.US) + codecInfo.mimeType)) {
+            if (codecInfo == null) continue;
+
+            if (!blacklistedCodec(codecInfo.name.toLowerCase(Locale.US) + codecInfo.mimeType)) {
                 filteredCodecInfo.add(codecInfo);
+            } else if (BlackListedAsFallback) {
+                blacklistedCodecInfo.add(codecInfo);
             }
         }
+
+        filteredCodecInfo.addAll(blacklistedCodecInfo);
         return filteredCodecInfo;
     }
 

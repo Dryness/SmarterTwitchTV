@@ -262,6 +262,7 @@ public class PlayerActivity extends Activity {
     private final int[] PlayerResolution = { Integer.MAX_VALUE, Integer.MAX_VALUE, 730 };
 
     private BlackListMediaCodecSelector BLACKLISTED_CODECS = null;
+    private BlackListMediaCodecSelector BLACKLISTED_CODECS_FALLBACK = null;
     private String[] BLACKLISTED_QUALITIES = null;
 
     private final PlayerObj[] PlayerObj = new PlayerObj[PlayerAccountPlus];
@@ -622,7 +623,13 @@ public class PlayerActivity extends Activity {
                 );
 
             DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this);
-            if (BLACKLISTED_CODECS != null) renderersFactory.setMediaCodecSelector(BLACKLISTED_CODECS);
+
+            //The preview player runs alongside the main player, on devices that allow a single hardware decoder instance
+            //the hardware decoder init fails (error 4001), fall back to the next decoder, the blacklisted software ones last
+            if (PlayerObjPosition == 4) {
+                renderersFactory.setEnableDecoderFallback(true);
+                if (BLACKLISTED_CODECS_FALLBACK != null) renderersFactory.setMediaCodecSelector(BLACKLISTED_CODECS_FALLBACK);
+            } else if (BLACKLISTED_CODECS != null) renderersFactory.setMediaCodecSelector(BLACKLISTED_CODECS);
 
             PlayerObj[PlayerObjPosition].player = new ExoPlayer.Builder(this, renderersFactory)
                 .setTrackSelector(PlayerObj[PlayerObjPosition].trackSelector)
@@ -3518,9 +3525,10 @@ public class PlayerActivity extends Activity {
 
         @JavascriptInterface
         public void setBlackListMediaCodec(String CodecList) {
-            BLACKLISTED_CODECS = CodecList != null && !CodecList.isEmpty()
-                ? new BlackListMediaCodecSelector(CodecList.toLowerCase(Locale.US).split(","))
-                : null;
+            String[] Codecs = CodecList != null && !CodecList.isEmpty() ? CodecList.toLowerCase(Locale.US).split(",") : null;
+
+            BLACKLISTED_CODECS = Codecs != null ? new BlackListMediaCodecSelector(Codecs, false) : null;
+            BLACKLISTED_CODECS_FALLBACK = Codecs != null ? new BlackListMediaCodecSelector(Codecs, true) : null;
         }
 
         @JavascriptInterface
