@@ -498,7 +498,11 @@ function UserLiveFeed_ShowFeed() {
 function UserLiveFeed_ResetFeedPosX() {
     var pos = AddUser_UserIsSet() ? UserLiveFeedobj_UserLivePos : UserLiveFeedobj_LivePos;
 
-    if (UserLiveFeed_FeedPosX !== pos) UserLiveFeed_obj[UserLiveFeed_FeedPosX].hide();
+    if (UserLiveFeed_FeedPosX !== pos) {
+        UserLiveFeed_obj[UserLiveFeed_FeedPosX].hide();
+        //A game's list also shows the "go back to games" hint, live has none
+        Main_AddClass('icon_feed_back', 'opacity_zero');
+    }
     UserLiveFeed_FeedPosX = pos;
 }
 
