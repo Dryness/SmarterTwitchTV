@@ -1086,17 +1086,17 @@ function uk_UALang() {
 
     STR_BACKUP_SYNC_ENABLE = 'Увімкнути синхронізацію між пристроями';
     STR_LIBRARY_WELCOME_TITLE = 'Продовжуй з того місця, де зупинився';
-    STR_LIBRARY_WELCOME_COPY = 'Додайте обліковий запис, щоб зберігати історію перегляду, або переглядайте канали в ефірі без входу.';
+    STR_LIBRARY_WELCOME_COPY = 'Додай обліковий запис, щоб зберігати історію перегляду, або переглядай канали в ефірі без входу.';
     STR_SIGN_IN_TO_FOLLOW = 'Увійдіть, щоб підписатися';
     STR_SEARCH_TYPE_FIRST = 'Спершу введіть щось для пошуку';
     STR_SEARCH_RESULTS_FOR = 'Результати пошуку для «%x»';
     STR_ADD_USER_TITLE = 'Увійдіть через телефон';
-    STR_ADD_USER_STEP_SCAN = 'Відскануйте QR код або перейдіть на %site';
+    STR_ADD_USER_STEP_SCAN = 'Відскануй QR код або перейди на %site';
     STR_ADD_USER_STEP_CODE = 'Введіть цей код';
     STR_ADD_USER_WAITING = 'Очікування входу.';
     STR_ADD_USER_NEW_CODE = 'Термін дії цього коду минув, ось новий. Очікування входу.';
     STR_ADD_USER_RETRY = 'Не вдається з’єднатися з Twitch. Повторна спроба.';
-    STR_ABOUT_UPSTREAM = 'Підтримайте fgl27, автора оригінального SmartTwitchTV';
+    STR_ABOUT_UPSTREAM = 'Підтримай fgl27, автора оригінального SmartTwitchTV';
     STR_ADD_USER_HELP = '{left} Навігація    {back} Назад';
     STR_REMOTE_BASICS = 'База керування пультом';
     STR_REMOTE_BROWSING = 'Навігація';
