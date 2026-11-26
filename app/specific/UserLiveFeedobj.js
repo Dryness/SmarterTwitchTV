@@ -1048,10 +1048,19 @@ function UserLiveFeedobj_ScrollStrip(pos) {
     if (!strip || !item) return;
     if (strip.scrollWidth <= strip.clientWidth) {
         strip.scrollLeft = 0;
-        return;
+    } else {
+        var offset = item.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft;
+        strip.scrollLeft = Math.max(0, offset - strip.clientWidth / 3);
     }
-    var offset = item.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft;
-    strip.scrollLeft = Math.max(0, offset - strip.clientWidth / 3);
+    UserLiveFeedobj_StripHints(strip);
+}
+
+/* Fade hints on the strip edges that hide more names, like the drawer's PlayerUI_ScrollHints. */
+function UserLiveFeedobj_StripHints(strip) {
+    if (strip.scrollLeft > 1) strip.classList.add('feed_end_more_left');
+    else strip.classList.remove('feed_end_more_left');
+    if (strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1) strip.classList.add('feed_end_more_right');
+    else strip.classList.remove('feed_end_more_right');
 }
 
 function UserLiveFeedobj_CreateSideFeed(id, data) {

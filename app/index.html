@@ -4060,8 +4060,35 @@
                 font-size: 83%;
                 white-space: nowrap;
             }
+            /* Edges that hide more names fade out (UserLiveFeedobj_StripHints). A mask fades the text
+             * itself, so it reads over any video and any theme without a repaint in SettingsColor.js. */
+            #user_feed #feed_end.feed_end_more_left {
+                -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), #000 6%);
+                mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), #000 6%);
+            }
+            #user_feed #feed_end.feed_end_more_right {
+                -webkit-mask-image: linear-gradient(to right, #000 94%, rgba(0, 0, 0, 0));
+                mask-image: linear-gradient(to right, #000 94%, rgba(0, 0, 0, 0));
+            }
+            #user_feed #feed_end.feed_end_more_left.feed_end_more_right {
+                -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), #000 6%, #000 94%, rgba(0, 0, 0, 0));
+                mask-image: linear-gradient(to right, rgba(0, 0, 0, 0), #000 6%, #000 94%, rgba(0, 0, 0, 0));
+            }
+            /* The hint rows size to their content from the bottom up. A hidden back hint takes no
+             * room, so the names and the hint line stay on screen under the cards. */
+            #user_feed #icon_feed_back.opacity_zero {
+                display: none;
+            }
+            /* One hint line, cut with an ellipsis before "Last refreshed" instead of running into it.
+             * Its width (74% inline) leaves room for this margin, "Last refreshed" and the counter. */
             #user_feed #icon_feed_refresh {
                 margin-left: 4.5%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            /* Main_IconLoad makes each chunk inline-block (inline style); inline lets the text cut mid-line */
+            #user_feed #icon_feed_refresh > div {
+                display: inline !important;
             }
             /* Switcher cards: metadata at the 24px floor; the title keeps one line to make room */
             #user_feed .stream_thumbnail_feed_text_holder {
@@ -5881,7 +5908,7 @@
                     <div id="user_agames_scroll" class="user_feed_scroll hide"></div>
                     <div id="user_vod_scroll" class="user_feed_scroll hide"></div>
                     <div id="user_vod_history_scroll" class="user_feed_scroll hide"></div>
-                    <div style="position: absolute; bottom: 0; width: 100%; height: 20%">
+                    <div style="position: absolute; bottom: 1%; width: 100%">
                         <div
                             id="icon_feed_back"
                             class="show_pointer icon_feed_refresh opacity_zero"
@@ -5904,7 +5931,7 @@
                             <div id="feed_end_9" class="feed_end_name"></div>
                         </div>
                         <div style="line-height: 0.75em">
-                            <div id="icon_feed_refresh" class="icon_feed_refresh" style="width: 78%; display: inline-block"></div>
+                            <div id="icon_feed_refresh" class="icon_feed_refresh" style="width: 74%; display: inline-block"></div>
                             <div
                                 id="feed_last_refresh"
                                 class="icon_feed_refresh"

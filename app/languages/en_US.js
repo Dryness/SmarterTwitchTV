@@ -395,7 +395,7 @@ function en_USLang() {
     STR_AUTO_PLAY_NEXT = 'Auto play next clip';
     STR_SIDE_PANEL_BACK_MAIN_MENU = 'Back to main menu';
     STR_UP = 'Press up';
-    STR_HOLD_UP = 'Hold {up} or key 2';
+    STR_HOLD_UP = 'Hold {up}';
     STR_LIVE_FEED = 'Live Feed';
     STR_VOD_DIALOG = 'VOD start dialog';
     STR_VOD_DIALOG_SUMMARY =
@@ -629,7 +629,7 @@ function en_USLang() {
     STR_CONTROLS_MULTI_4 = 'Change audio source: D-pad right or left or media keys next previews track, hold down to audio source all videos';
     STR_CONTROLS_MULTI_5 = 'Exit multistream: Press return twice or exit through the option at the bottom of the player.';
     STR_CONTROLS_MULTI_6 = 'To close this, open 4 lives';
-    STR_PICTURE_LIVE_FEED = 'Picture in picture: Hold {ok} or press key 1, after use {left} to move, {right} to resize or {down} to change videos';
+    STR_PICTURE_LIVE_FEED = 'Picture in picture: Hold {ok}. After use {left} to move, {right} to resize or {down} to change videos';
     STR_MULTI_TITLE = ', Click on a thumbnail to open or replace a stream, use D-pad left/right to change audio source';
     STR_FEED_END_DIALOG = ', Press return to go back to top menu';
     STR_BACK_USER_GAMES = 'Press return to go back to';
