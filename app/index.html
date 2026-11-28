@@ -4083,12 +4083,21 @@
              * Its width (74% inline) leaves room for this margin, "Last refreshed" and the counter. */
             #user_feed #icon_feed_refresh {
                 margin-left: 4.5%;
+                /* The wrapper's 0.75em line box is shorter than accented capitals (É, Й); the padding
+                 * lifts the clip edge above them and the negative margin keeps the row in place. */
+                padding-top: 0.3em;
+                margin-top: -0.3em;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
             /* Main_IconLoad makes each chunk inline-block (inline style); inline lets the text cut mid-line */
             #user_feed #icon_feed_refresh > div {
                 display: inline !important;
+            }
+            /* Every key here is followed by a space or punctuation in the text, so the key's own
+             * gap would only push a period away from it ("Hold OK. After use"). */
+            #user_feed #icon_feed_refresh .navigation-key {
+                margin-right: 0;
             }
             /* Switcher cards: metadata at the 24px floor; the title keeps one line to make room */
             #user_feed .stream_thumbnail_feed_text_holder {
